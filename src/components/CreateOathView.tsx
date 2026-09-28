@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createOath } from "@/lib/data-hooks";
 import {
   Zap,
   User,
@@ -22,9 +23,10 @@ import { showToast } from "./Toast";
 
 interface CreateOathViewProps {
   walletBalance: number;
+  onOathCreated?: () => void;
 }
 
-export default function CreateOathView({ walletBalance }: CreateOathViewProps) {
+export default function CreateOathView({ walletBalance, onOathCreated }: CreateOathViewProps) {
   // Form state
   const [oathStatement, setOathStatement] = useState("");
   const [oathType, setOathType] = useState<OathType>("solo");
@@ -46,7 +48,9 @@ export default function CreateOathView({ walletBalance }: CreateOathViewProps) {
     showToast(`${feature} — Available only on mobile app.`, "error", 5000);
   };
 
-  const handleSubmit = () => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
     if (!oathStatement.trim()) {
       showToast("You need to swear to something.", "error");
       return;
@@ -63,7 +67,26 @@ export default function CreateOathView({ walletBalance }: CreateOathViewProps) {
       showToast("Set a deadline. An oath without a deadline is a wish.", "error");
       return;
     }
-    showToast("Oath created. Funds locked in escrow. No turning back.", "success");
+    setSubmitting(true);
+    const { error } = await createOath({
+      oath_statement: oathStatement,
+      deadline: new Date(deadline).toISOString(),
+      oath_type: oathType,
+      verification_method: verificationMethod,
+      consequence_type: consequenceType,
+      stake_amount: stakeNum,
+      social_ransom_phone: socialPhone || undefined,
+      social_ransom_message: socialMessage || undefined,
+      min_players: oathType === "squad" ? 5 : 1,
+      max_players: oathType === "squad" ? 8 : 1,
+    });
+    setSubmitting(false);
+    if (error) {
+      showToast(error, "error");
+    } else {
+      showToast("Oath created. Funds locked in escrow. No turning back.", "success");
+      onOathCreated?.();
+    }
   };
 
   return (

@@ -14,14 +14,18 @@ import {
   ThumbsUp,
   ThumbsDown,
 } from "lucide-react";
-import type { Oath, GroupMember } from "@/lib/types";
+import type { Oath, GroupMember, Wallet } from "@/lib/types";
 import { formatCurrency, getTimeRemaining, formatRelativeTime } from "@/lib/utils";
+import { joinSquad } from "@/lib/data-hooks";
+import { showToast } from "./Toast";
 
 interface LobbiesViewProps {
   squads: Oath[];
+  wallet: Wallet;
+  onJoined?: () => void;
 }
 
-export default function LobbiesView({ squads }: LobbiesViewProps) {
+export default function LobbiesView({ squads, wallet, onJoined }: LobbiesViewProps) {
   const [selectedSquad, setSelectedSquad] = useState<Oath | null>(null);
 
   return (
@@ -72,7 +76,9 @@ export default function LobbiesView({ squads }: LobbiesViewProps) {
       {selectedSquad && (
         <SquadDetail
           squad={selectedSquad}
+          wallet={wallet}
           onClose={() => setSelectedSquad(null)}
+          onJoined={onJoined}
         />
       )}
     </div>
@@ -193,10 +199,29 @@ function SquadCard({
   );
 }
 
-function SquadDetail({ squad, onClose }: { squad: Oath; onClose: () => void }) {
+import { Loader2 } from "lucide-react";
+
+function SquadDetail({ squad, wallet, onClose, onJoined }: { squad: Oath; wallet: Wallet; onClose: () => void; onJoined?: () => void }) {
+  const [loading, setLoading] = useState(false);
   const memberCount = squad.members?.length ?? 0;
   const spotsLeft = squad.max_players - memberCount;
   const poolTotal = memberCount * squad.stake_amount;
+
+  const handleJoin = async () => {
+    if (wallet.balance < squad.stake_amount) {
+      showToast("Insufficient funds. Deposit more to join.", "error");
+      return;
+    }
+    setLoading(true);
+    const { error } = await joinSquad(squad.id, squad.stake_amount);
+    setLoading(false);
+    if (error) {
+      showToast(error, "error");
+    } else {
+      showToast("Joined squad pool.", "success");
+      onJoined?.();
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden fade-in">
@@ -266,9 +291,13 @@ function SquadDetail({ squad, onClose }: { squad: Oath; onClose: () => void }) {
       {/* Join Button */}
       {spotsLeft > 0 && squad.status === "pending" && (
         <div className="px-5 py-4 border-t border-zinc-800/40">
-          <button className="w-full flex items-center justify-center gap-2 py-3 bg-zinc-50 text-zinc-950 text-sm font-black tracking-tight uppercase hover:bg-zinc-200 transition-colors">
-            <Zap className="w-4 h-4" />
-            Join Pool — Lock {formatCurrency(squad.stake_amount)}
+          <button
+            onClick={handleJoin}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 py-3 bg-zinc-50 text-zinc-950 text-sm font-black tracking-tight uppercase hover:bg-zinc-200 transition-colors disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+            {loading ? "Locking Funds..." : `Join Pool — Lock ${formatCurrency(squad.stake_amount)}`}
           </button>
         </div>
       )}
