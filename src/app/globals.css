@@ -1,0 +1,231 @@
+@import "tailwindcss";
+
+/* ============================================================
+   OATH — GLOBAL DESIGN SYSTEM
+   Brutalist · Monochrome · Analog · Premium
+   ============================================================ */
+
+:root {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --muted: #71717a;
+  --border: #27272a;
+  --crimson: #dc2626;
+  --crimson-dark: #991b1b;
+  --surface: #0a0a0f;
+  --surface-raised: #111114;
+  --font-geist-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-geist-mono: 'JetBrains Mono', 'SF Mono', monospace;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-crimson: var(--crimson);
+  --color-crimson-dark: var(--crimson-dark);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* ---- Base ---- */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+  color: var(--foreground);
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+/* ---- Scrollbar (brutalist) ---- */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* ---- Selection ---- */
+::selection {
+  background: #dc2626;
+  color: #fff;
+}
+
+/* ---- Noise Overlay (fixed, global) ---- */
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 128px 128px;
+}
+
+/* ---- Scanline effect (optional ambient) ---- */
+.scanline-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+}
+
+/* ---- Stake number typography ---- */
+.stake-number {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+}
+
+/* ---- Timer typography ---- */
+.timer-display {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.06em;
+  line-height: 0.85;
+}
+
+/* ---- Countdown pulse ---- */
+@keyframes urgentPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.urgent-pulse {
+  animation: urgentPulse 1s ease-in-out infinite;
+}
+
+/* ---- Crimson glow for failures ---- */
+.crimson-glow {
+  box-shadow: 0 0 40px rgba(220, 38, 38, 0.15), inset 0 0 40px rgba(220, 38, 38, 0.05);
+}
+
+/* ---- Border flash ---- */
+@keyframes borderFlash {
+  0%, 100% { border-color: #27272a; }
+  50% { border-color: #dc2626; }
+}
+.border-flash {
+  animation: borderFlash 2s ease-in-out infinite;
+}
+
+/* ---- Fade-in ---- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+/* ---- Slide up (for toasts) ---- */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.slide-up {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
+/* ---- Slide down (for toasts dismissal) ---- */
+@keyframes slideDown {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(100%); }
+}
+.slide-down {
+  animation: slideDown 0.3s ease-in forwards;
+}
+
+/* ---- Card hover lift ---- */
+.card-hover {
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.card-hover:hover {
+  transform: translateY(-1px);
+  border-color: #3f3f46;
+}
+
+/* ---- Input styles (brutalist) ---- */
+input, textarea, select {
+  background: transparent;
+  border: 1px solid #27272a;
+  color: #fafafa;
+  font-family: var(--font-geist-sans);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: #52525b;
+}
+input::placeholder, textarea::placeholder {
+  color: #52525b;
+}
+
+/* ---- Button reset ---- */
+button {
+  cursor: pointer;
+  font-family: var(--font-geist-sans);
+}
+
+/* ---- Tab indicator ---- */
+.tab-active {
+  position: relative;
+}
+.tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #fafafa;
+}
+
+/* ---- Progress bar ---- */
+.progress-bar {
+  background: #27272a;
+  overflow: hidden;
+}
+.progress-fill {
+  background: #fafafa;
+  transition: width 0.5s ease;
+}
+.progress-fill-danger {
+  background: #dc2626;
+  transition: width 0.5s ease;
+}
+
+/* ---- Toast container ---- */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+}
