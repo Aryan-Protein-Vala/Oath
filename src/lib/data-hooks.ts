@@ -398,6 +398,100 @@ function validatePositiveAmount(amount: unknown): number | null {
   return Math.round(n * 100) / 100;
 }
 
+// ---- addFunds — manual deposit or gateway success ----
+export async function addFunds(amount: number, description: string = "Deposit"): Promise<{ error: string | null }> {
+  const validAmount = validatePositiveAmount(amount);
+  if (!validAmount) return { error: "Invalid amount" };
+
+  if (isMockMode()) {
+    const currentWallet = getInitialMockWallet();
+    const updatedWallet = { ...currentWallet, balance: currentWallet.balance + validAmount, total_deposited: currentWallet.total_deposited + validAmount };
+    setMockWallet(updatedWallet);
+    const newTx: Transaction = {
+      id: `tx-${Date.now()}`,
+      wallet_id: currentWallet.id,
+      type: "deposit",
+      amount: validAmount,
+      description,
+      created_at: new Date().toISOString(),
+    };
+    setMockTransactions([newTx, ...getMockTransactions()]);
+    return { error: null };
+  }
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data: wallet } = await supabase.from("wallets").select("id, balance, total_deposited").eq("user_id", user.id).single();
+  if (!wallet) return { error: "Wallet not found" };
+
+  const { error: updateError } = await supabase
+    .from("wallets")
+    .update({ balance: wallet.balance + validAmount, total_deposited: wallet.total_deposited + validAmount })
+    .eq("id", wallet.id);
+  
+  if (updateError) return { error: updateError.message };
+
+  await supabase.from("transactions").insert({
+    wallet_id: wallet.id,
+    type: "deposit",
+    amount: validAmount,
+    description,
+  });
+
+  notifyDataUpdated();
+  return { error: null };
+}
+
+// ---- requestWithdrawal — manual withdrawal ----
+export async function requestWithdrawal(amount: number): Promise<{ error: string | null }> {
+  const validAmount = validatePositiveAmount(amount);
+  if (!validAmount) return { error: "Invalid amount" };
+
+  if (isMockMode()) {
+    const currentWallet = getInitialMockWallet();
+    if (currentWallet.balance < validAmount) return { error: "Insufficient balance" };
+    const updatedWallet = { ...currentWallet, balance: currentWallet.balance - validAmount, total_withdrawn: (currentWallet.total_withdrawn || 0) + validAmount };
+    setMockWallet(updatedWallet);
+    const newTx: Transaction = {
+      id: `tx-${Date.now()}`,
+      wallet_id: currentWallet.id,
+      type: "withdrawal",
+      amount: validAmount,
+      description: "Withdrawal Requested",
+      created_at: new Date().toISOString(),
+    };
+    setMockTransactions([newTx, ...getMockTransactions()]);
+    return { error: null };
+  }
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data: wallet } = await supabase.from("wallets").select("id, balance, total_withdrawn").eq("user_id", user.id).single();
+  if (!wallet) return { error: "Wallet not found" };
+  if (wallet.balance < validAmount) return { error: "Insufficient balance" };
+
+  const { error: updateError } = await supabase
+    .from("wallets")
+    .update({ balance: wallet.balance - validAmount, total_withdrawn: (wallet.total_withdrawn || 0) + validAmount })
+    .eq("id", wallet.id);
+  
+  if (updateError) return { error: updateError.message };
+
+  await supabase.from("transactions").insert({
+    wallet_id: wallet.id,
+    type: "withdrawal",
+    amount: validAmount,
+    description: "Withdrawal Requested",
+  });
+
+  notifyDataUpdated();
+  return { error: null };
+}
+
 // ---- createOath — create oath + lock escrow ----
 export async function createOath(data: {
   oath_statement: string;
