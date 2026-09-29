@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { formatCurrency as utilsFormatCurrency } from "./utils";
 
 export type Region = "global" | "in";
 
@@ -45,10 +46,7 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const formatCurrency = (usdAmount: number) => {
-    if (region === "in") {
-      return `₹${usdAmount.toLocaleString("en-IN")}`;
-    }
-    return `$${usdAmount.toLocaleString("en-US")}`;
+    return utilsFormatCurrency(usdAmount, region);
   };
 
   return (

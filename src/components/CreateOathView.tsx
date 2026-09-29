@@ -32,6 +32,9 @@ interface CreateOathViewProps {
   onOathCreated?: () => void;
 }
 
+import { useRegion } from "@/lib/region-context";
+import { convertToUSD } from "@/lib/utils";
+
 export default function CreateOathView({ walletBalance, onOathCreated }: CreateOathViewProps) {
   const { region, formatCurrency: formatRegionCurrency } = useRegion();
   // Form state
@@ -47,8 +50,9 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   const [infoModal, setInfoModal] = useState<{ title: string; desc: string } | null>(null);
 
   const stakeNum = parseFloat(stakeAmount) || 0;
-  const houseCut = Math.round(stakeNum * 0.1);
-  const isOverBudget = stakeNum > walletBalance;
+  const stakeUsd = convertToUSD(stakeNum, region);
+  const houseCutUsd = Math.round(stakeUsd * 0.1);
+  const isOverBudget = stakeUsd > walletBalance;
 
   // Handle mobile-exclusive features
   const handleMobileExclusive = (feature: string) => {
@@ -81,7 +85,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
       oath_type: oathType,
       verification_method: verificationMethod,
       consequence_type: consequenceType,
-      stake_amount: stakeNum,
+      stake_amount: stakeUsd,
       nominee_email: nomineeEmail || undefined,
       social_ransom_phone: socialPhone || undefined,
       social_ransom_message: socialMessage || undefined,

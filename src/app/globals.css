@@ -182,20 +182,22 @@ body {
   border-color: #3f3f46;
 }
 
-/* ---- Input styles (brutalist) ---- */
-input, textarea, select {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: inherit;
-  font-family: var(--font-geist-sans);
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-input:focus, textarea:focus, select:focus {
-  border-color: #52525b;
-}
-input::placeholder, textarea::placeholder {
-  color: var(--muted);
+@layer base {
+  /* ---- Input styles (brutalist) ---- */
+  input, textarea, select {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: inherit;
+    font-family: var(--font-geist-sans);
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  input:focus, textarea:focus, select:focus {
+    border-color: #52525b;
+  }
+  input::placeholder, textarea::placeholder {
+    color: var(--muted);
+  }
 }
 
 /* ---- Button reset ---- */

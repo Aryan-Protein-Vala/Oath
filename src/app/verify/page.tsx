@@ -8,10 +8,12 @@ import { formatCurrency } from "@/lib/utils";
 import { getMockOaths, verifyNominee } from "@/lib/data-hooks";
 import { createClient } from "@/lib/supabase/client";
 import type { Oath } from "@/lib/types";
+import { useRegion } from "@/lib/region-context";
 
 function VerifyContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || searchParams.get("id") || "demo-token";
+  const { region } = useRegion();
 
   const [verdict, setVerdict] = useState<"success" | "penalty" | null>(null);
   const [note, setNote] = useState("");
@@ -98,8 +100,8 @@ function VerifyContent() {
           </h1>
           <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300 font-mono mb-6 leading-relaxed">
             {verdict === "success"
-              ? `Oath has been verified. ${oath ? formatCurrency(oath.stake_amount) : "$0"} released from escrow.`
-              : `Oath marked as failed. ${oath ? formatCurrency(oath.stake_amount) : "$0"} forfeited to penalty ledger.`}
+              ? `Oath has been verified. ${oath ? formatCurrency(oath.stake_amount, region) : (region === "in" ? "₹0" : "$0")} released from escrow.`
+              : `Oath marked as failed. ${oath ? formatCurrency(oath.stake_amount, region) : (region === "in" ? "₹0" : "$0")} forfeited to penalty ledger.`}
           </p>
           <Link
             href="/"
@@ -156,7 +158,7 @@ function VerifyContent() {
             <span>Sworn by @{oath?.creator?.username || "user"}</span>
             <span>·</span>
             <span className="font-black text-red-600 dark:text-red-500 stake-number">
-              {oath ? formatCurrency(oath.stake_amount) : "$500"} at stake
+              {oath ? formatCurrency(oath.stake_amount, region) : (region === "in" ? "₹500" : "$500")} at stake
             </span>
           </div>
         </div>

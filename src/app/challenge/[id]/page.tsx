@@ -9,12 +9,14 @@ import { useAuth } from "@/lib/auth-context";
 import { getMockOaths, acceptDuoChallenge } from "@/lib/data-hooks";
 import { createClient } from "@/lib/supabase/client";
 import type { Oath } from "@/lib/types";
+import { useRegion } from "@/lib/region-context";
 
 export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const oathId = resolvedParams.id;
   const router = useRouter();
   const { user, wallet, refreshWallet } = useAuth();
+  const { region } = useRegion();
 
   const [oath, setOath] = useState<Oath | null>(null);
   const [loading, setLoading] = useState(true);
@@ -152,7 +154,7 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
               Challenge Accepted
             </h2>
             <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300 font-mono mb-6 leading-relaxed">
-              Your stake of {oath ? formatCurrency(oath.stake_amount) : "$0"} has been locked in escrow. May the most disciplined rival win.
+              Your stake of {oath ? formatCurrency(oath.stake_amount, region) : (region === "in" ? "₹0" : "$0")} has been locked in escrow. May the most disciplined rival win.
             </p>
             <Link
               href="/"
@@ -193,13 +195,13 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
                 <div>
                   <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Your Stake</span>
                   <span className="text-lg font-mono font-black text-zinc-950 dark:text-zinc-100">
-                    {oath ? formatCurrency(oath.stake_amount) : "$0"}
+                    {oath ? formatCurrency(oath.stake_amount, region) : (region === "in" ? "₹0" : "$0")}
                   </span>
                 </div>
                 <div>
                   <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Winner Takes</span>
                   <span className="text-lg font-mono font-black text-red-600 dark:text-red-500">
-                    {oath ? formatCurrency(oath.stake_amount * 2 * 0.9) : "$0"}
+                    {oath ? formatCurrency(oath.stake_amount * 2 * 0.9, region) : (region === "in" ? "₹0" : "$0")}
                   </span>
                 </div>
               </div>
@@ -231,7 +233,7 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
                 <div className="flex justify-between items-center text-xs font-mono text-zinc-600 dark:text-zinc-400 px-1">
                   <span>Your Available Balance:</span>
                   <span className="font-bold text-zinc-950 dark:text-zinc-100">
-                    {wallet ? formatCurrencyPrecise(wallet.balance) : "$0"}
+                    {wallet ? formatCurrencyPrecise(wallet.balance, region) : (region === "in" ? "₹0.00" : "$0.00")}
                   </span>
                 </div>
                 <button
@@ -248,7 +250,7 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
                       <Loader2 className="w-4 h-4 animate-spin" /> Locking Escrow...
                     </span>
                   ) : (
-                    `Accept & Lock ${oath ? formatCurrency(oath.stake_amount) : ""}`
+                    `Accept & Lock ${oath ? formatCurrency(oath.stake_amount, region) : ""}`
                   )}
                 </button>
               </div>

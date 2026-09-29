@@ -14,9 +14,10 @@ import {
   Check,
 } from "lucide-react";
 import { createDuoChallenge } from "@/lib/data-hooks";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, convertToUSD } from "@/lib/utils";
 import { showToast } from "./Toast";
 import type { Wallet } from "@/lib/types";
+import { useRegion } from "@/lib/region-context";
 
 interface DuoChallengeModalProps {
   wallet: Wallet;
@@ -34,8 +35,11 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
   const [oathId, setOathId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const { region, formatCurrency: formatRegionCurrency } = useRegion();
+
   const stakeNum = parseFloat(stake) || 0;
-  const isOverBudget = stakeNum > wallet.balance;
+  const stakeUsd = convertToUSD(stakeNum, region);
+  const isOverBudget = stakeUsd > wallet.balance;
   const inviteLink = oathId ? `${typeof window !== "undefined" ? window.location.origin : ""}/challenge/${oathId}` : "";
 
   const handleCreate = async () => {
@@ -52,7 +56,7 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
     const { oath, error } = await createDuoChallenge({
       oath_statement: statement,
       deadline: new Date(deadline).toISOString(),
-      stake_amount: stakeNum,
+      stake_amount: stakeUsd,
       opponent_username: opponentUsername.trim() || undefined,
     });
 
@@ -131,7 +135,7 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
                   Each wagers
                 </label>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-zinc-500 dark:text-zinc-400 font-black text-lg">$</span>
+                  <span className="text-zinc-500 dark:text-zinc-400 font-black text-lg">{region === "in" ? "₹" : "$"}</span>
                   <input
                     type="number"
                     value={stake}

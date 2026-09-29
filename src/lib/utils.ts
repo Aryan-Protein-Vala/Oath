@@ -2,44 +2,56 @@
 // OATH — Utility Functions
 // ============================================================
 
+const EXCHANGE_RATE_USD_TO_INR = 90;
+
+export function convertToLocal(usdAmount: number, region: "global" | "in" = "global"): number {
+  return region === "in" ? usdAmount * EXCHANGE_RATE_USD_TO_INR : usdAmount;
+}
+
+export function convertToUSD(localAmount: number, region: "global" | "in" = "global"): number {
+  return region === "in" ? localAmount / EXCHANGE_RATE_USD_TO_INR : localAmount;
+}
+
 /**
  * Format a number as currency (USD or INR)
  */
 export function formatCurrency(amount: number, region: "global" | "in" = "global"): string {
+  const localAmount = convertToLocal(amount, region);
   if (region === "in") {
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
+    }).format(localAmount);
   }
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(localAmount);
 }
 
 /**
  * Format currency with cents
  */
 export function formatCurrencyPrecise(amount: number, region: "global" | "in" = "global"): string {
+  const localAmount = convertToLocal(amount, region);
   if (region === "in") {
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(amount);
+    }).format(localAmount);
   }
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(amount);
+  }).format(localAmount);
 }
 
 /**

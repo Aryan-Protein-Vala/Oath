@@ -235,7 +235,7 @@ export default function LandingView() {
               {
                 step: "02",
                 title: "Lock The Penalty",
-                desc: "Lock in cash, give us your boss's phone number, or commit to a physical penalty. Whatever it is, it stays locked until the deadline hits.",
+                desc: "Lock in funds, give us your boss's or ex's phone number we dont care who, or commit to a physical penalty. Whatever it is, it stays locked until the deadline hits.",
                 icon: <Lock className="w-12 h-12" />
               },
               {
@@ -283,7 +283,7 @@ export default function LandingView() {
             {[
               {
                 title: "The Money Pit",
-                desc: "The classic. You fail, you lose your locked cash. We take 10% and burn the rest.",
+                desc: "The classic. You fail, you lose your locked funds. We take 10% and burn the rest.",
                 icon: <DollarSign className="w-8 h-8 text-zinc-950 dark:text-zinc-50" />
               },
               {
@@ -401,7 +401,7 @@ export default function LandingView() {
         >
           {Array.from({ length: 20 }).map((_, i) => (
             <span key={i} className="flex items-center gap-12">
-              <span>WE TAKE 10% OF THE CASH, OR 100% OF YOUR DIGNITY</span>
+              <span>WE TRIGGER THE PENALTY, OR 100% OF YOUR DIGNITY</span>
               <Skull className="w-10 h-10" />
             </span>
           ))}

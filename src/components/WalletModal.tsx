@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { depositFunds, withdrawFunds } from "@/lib/data-hooks";
 import { mockTransactions } from "@/lib/mock-data";
-import { formatCurrencyPrecise, formatRelativeTime } from "@/lib/utils";
+import { formatCurrencyPrecise, formatRelativeTime, convertToUSD } from "@/lib/utils";
 import type { Wallet, Transaction } from "@/lib/types";
 import { showToast } from "./Toast";
 import { useRegion } from "@/lib/region-context";
@@ -50,7 +50,8 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
   const QUICK_AMOUNTS = region === "in" ? [500, 1000, 2500, 5000, 10000, 25000] : [25, 50, 100, 250, 500, 1000];
 
   const amountNum = parseFloat(amount) || 0;
-  const canWithdraw = amountNum > 0 && amountNum <= wallet.balance;
+  const amountUsd = convertToUSD(amountNum, region);
+  const canWithdraw = amountNum > 0 && amountUsd <= wallet.balance;
   const canDeposit = amountNum > 0 && amountNum <= 50000;
 
   const activeTransactions = transactions.length > 0 ? transactions : mockTransactions;
@@ -61,8 +62,8 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
 
     const { error } =
       tab === "deposit"
-        ? await depositFunds(amountNum)
-        : await withdrawFunds(amountNum);
+        ? await depositFunds(amountUsd)
+        : await withdrawFunds(amountUsd);
 
     if (error) {
       showToast(error, "error");

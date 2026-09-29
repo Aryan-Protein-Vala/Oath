@@ -13,9 +13,10 @@ import {
   Loader2,
 } from "lucide-react";
 import type { Oath, GroupMember, Wallet } from "@/lib/types";
-import { formatCurrency, getTimeRemaining, formatRelativeTime } from "@/lib/utils";
+import { formatCurrency as utilsFormatCurrency, getTimeRemaining, formatRelativeTime } from "@/lib/utils";
 import { joinSquad, castVote } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
+import { useRegion } from "@/lib/region-context";
 
 interface LobbiesViewProps {
   squads: Oath[];
@@ -96,6 +97,7 @@ function SquadCard({
   isSelected: boolean;
   onClick: () => void;
 }) {
+  const { region } = useRegion();
   const time = getTimeRemaining(squad.deadline);
   const memberCount = squad.members?.length ?? 0;
   const spotsLeft = Math.max(0, squad.max_players - memberCount);
@@ -133,7 +135,7 @@ function SquadCard({
             <div className="flex items-center gap-1.5">
               <DollarSign className="w-3 h-3 text-zinc-500" />
               <span className="text-[10px] font-mono font-black text-zinc-900 dark:text-zinc-300 stake-number">
-                {formatCurrency(squad.stake_amount)}/player
+                {utilsFormatCurrency(squad.stake_amount, region)}/player
               </span>
             </div>
 
@@ -179,7 +181,7 @@ function SquadCard({
         {/* Right — Pool total & status */}
         <div className="flex flex-col items-end shrink-0">
           <span className="text-lg font-black stake-number text-zinc-950 dark:text-zinc-200 tracking-tight">
-            {formatCurrency(poolTotal)}
+            {utilsFormatCurrency(poolTotal, region)}
           </span>
           <span className="text-[9px] font-mono font-bold text-zinc-500 mt-0.5">POOL</span>
           <span
@@ -210,6 +212,7 @@ function SquadDetail({
   onClose: () => void;
   onJoined?: () => void;
 }) {
+  const { region } = useRegion();
   const [loading, setLoading] = useState(false);
   const memberCount = squad.members?.length ?? 0;
   const spotsLeft = Math.max(0, squad.max_players - memberCount);
@@ -267,11 +270,11 @@ function SquadDetail({
       {/* Stats Row */}
       <div className="grid grid-cols-3 border-b-2 border-zinc-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-950/30">
         <div className="px-4 py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center">
-          <p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{formatCurrency(poolTotal)}</p>
+          <p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{utilsFormatCurrency(poolTotal, region)}</p>
           <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Total Pool</p>
         </div>
         <div className="px-4 py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center">
-          <p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{formatCurrency(squad.stake_amount)}</p>
+          <p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{utilsFormatCurrency(squad.stake_amount, region)}</p>
           <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Per Player</p>
         </div>
         <div className="px-4 py-3 text-center">
@@ -320,7 +323,7 @@ function SquadDetail({
             className="w-full flex items-center justify-center gap-2 py-3.5 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 text-sm font-black tracking-tight uppercase hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {loading ? "Locking Funds..." : `Join Pool — Lock ${formatCurrency(squad.stake_amount)}`}
+            {loading ? "Locking Funds..." : `Join Pool — Lock ${utilsFormatCurrency(squad.stake_amount, region)}`}
           </button>
         </div>
       )}

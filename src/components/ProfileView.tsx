@@ -6,8 +6,9 @@ import {
   DollarSign,
   LogOut,
 } from "lucide-react";
-import { formatCurrency, formatCurrencyPrecise, formatRelativeTime } from "@/lib/utils";
+import { formatCurrency as utilsFormatCurrency, formatCurrencyPrecise as utilsFormatCurrencyPrecise, formatRelativeTime } from "@/lib/utils";
 import type { Profile, Wallet, Transaction } from "@/lib/types";
+import { useRegion } from "@/lib/region-context";
 
 interface ProfileViewProps {
   profile: Profile;
@@ -17,6 +18,7 @@ interface ProfileViewProps {
 }
 
 export default function ProfileView({ profile, wallet, transactions, onSignOut }: ProfileViewProps) {
+  const { region } = useRegion();
   const completionRate =
     profile.oaths_created > 0
       ? Math.round((profile.oaths_completed / profile.oaths_created) * 100)
@@ -82,9 +84,9 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
 
         {/* Money stats */}
         <div className="p-4 border-b-2 border-zinc-200 dark:border-zinc-800/40 space-y-3">
-          <MoneyRow label="Total Staked" value={profile.total_staked} />
-          <MoneyRow label="Total Won" value={profile.total_won} positive />
-          <MoneyRow label="Total Lost" value={profile.total_lost} negative />
+          <MoneyRow label="Total Staked" value={profile.total_staked} region={region} />
+          <MoneyRow label="Total Won" value={profile.total_won} positive region={region} />
+          <MoneyRow label="Total Lost" value={profile.total_lost} negative region={region} />
         </div>
 
         {/* Wallet summary */}
@@ -95,19 +97,19 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
           <div className="flex justify-between items-center">
             <span className="text-[11px] font-mono text-zinc-500 font-bold">Available</span>
             <span className="text-sm font-black stake-number text-zinc-950 dark:text-zinc-200">
-              {formatCurrencyPrecise(wallet.balance)}
+              {utilsFormatCurrencyPrecise(wallet.balance, region)}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-[11px] font-mono text-zinc-500 font-bold">In Escrow</span>
             <span className="text-sm font-black stake-number text-zinc-500">
-              {formatCurrencyPrecise(wallet.escrow_locked)}
+              {utilsFormatCurrencyPrecise(wallet.escrow_locked, region)}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-[11px] font-mono text-zinc-500 font-bold">All-time In</span>
             <span className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-400 stake-number">
-              {formatCurrencyPrecise(wallet.total_deposited)}
+              {utilsFormatCurrencyPrecise(wallet.total_deposited, region)}
             </span>
           </div>
         </div>
@@ -141,7 +143,7 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
               <p className="text-xs font-mono font-bold text-zinc-500">No transactions recorded yet</p>
             </div>
           ) : (
-            transactions.map((tx, i) => <LedgerRow key={tx.id} tx={tx} index={i} />)
+            transactions.map((tx, i) => <LedgerRow key={tx.id} tx={tx} index={i} region={region} />)
           )}
         </div>
       </div>
@@ -179,11 +181,13 @@ function MoneyRow({
   value,
   positive,
   negative,
+  region,
 }: {
   label: string;
   value: number;
   positive?: boolean;
   negative?: boolean;
+  region: any;
 }) {
   return (
     <div className="flex items-center justify-between">
@@ -198,7 +202,7 @@ function MoneyRow({
           positive ? "text-zinc-950 dark:text-zinc-300" : negative ? "text-red-600" : "text-zinc-700 dark:text-zinc-400"
         }`}
       >
-        {formatCurrency(value)}
+        {utilsFormatCurrency(value, region)}
       </span>
     </div>
   );
@@ -224,7 +228,7 @@ const TX_PREFIX: Record<string, string> = {
   house_cut: "-",
 };
 
-function LedgerRow({ tx, index }: { tx: Transaction; index: number }) {
+function LedgerRow({ tx, index, region }: { tx: Transaction; index: number; region: any }) {
   return (
     <div
       className="flex items-center justify-between px-5 py-3.5 border-b-2 border-zinc-200 dark:border-zinc-800/25 hover:bg-zinc-100 dark:hover:bg-zinc-900/30 transition-colors fade-in"
@@ -243,7 +247,7 @@ function LedgerRow({ tx, index }: { tx: Transaction; index: number }) {
         </div>
       </div>
       <span className={`text-sm font-black stake-number ml-4 shrink-0 ${TX_COLORS[tx.type] ?? "text-zinc-500"}`}>
-        {TX_PREFIX[tx.type]}${tx.amount.toFixed(0)}
+        {TX_PREFIX[tx.type]}{utilsFormatCurrency(tx.amount, region)}
       </span>
     </div>
   );

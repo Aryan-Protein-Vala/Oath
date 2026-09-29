@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { ChevronRight, User, Users, Upload, Eye, XCircle, Shield, AlertTriangle, X } from "lucide-react";
 import type { Oath } from "@/lib/types";
-import { getTimeRemaining, padZero, formatCurrency, formatRelativeTime } from "@/lib/utils";
+import { getTimeRemaining, padZero, formatCurrency as utilsFormatCurrency, formatRelativeTime } from "@/lib/utils";
+import { useRegion } from "@/lib/region-context";
 import ProofUploadModal from "./ProofUploadModal";
 import { forfeitOath } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
@@ -103,6 +104,7 @@ export default function ActiveOathsView({ oaths, onProofSubmitted }: ActiveOaths
 }
 
 function OathListItem({ oath, isSelected, onClick }: { oath: Oath; isSelected: boolean; onClick: () => void }) {
+  const { region } = useRegion();
   const time = getTimeRemaining(oath.deadline);
   const typeIcon =
     oath.oath_type === "solo" ? <User className="w-3 h-3" /> : <Users className="w-3 h-3" />;
@@ -127,7 +129,7 @@ function OathListItem({ oath, isSelected, onClick }: { oath: Oath; isSelected: b
             <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 uppercase font-semibold">{oath.oath_type}</span>
             <span className="text-zinc-400">·</span>
             <span className="text-[10px] font-mono font-black text-zinc-800 dark:text-zinc-300 stake-number">
-              {formatCurrency(oath.stake_amount)}
+              {utilsFormatCurrency(oath.stake_amount, region)}
             </span>
           </div>
         </div>
@@ -153,6 +155,7 @@ function OathCountdownCard({
   onViewDetails: () => void;
   onForfeit: () => void;
 }) {
+  const { region } = useRegion();
   const [now, setNow] = useState(() => Date.now());
   const [timeState, setTimeState] = useState(() => getTimeRemaining(oath.deadline));
 
@@ -368,6 +371,7 @@ function OathDetailsModal({ oath, onClose }: { oath: Oath; onClose: () => void }
 }
 
 function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () => void; onForfeited: () => void }) {
+  const { region } = useRegion();
   const [excuse, setExcuse] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -396,7 +400,7 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
         </p>
         <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 mb-4 leading-relaxed">
           Forfeiting immediately terminates this oath. Your locked stake of{" "}
-          <strong className="text-red-600 dark:text-red-500 font-bold">{formatCurrency(oath.stake_amount)}</strong> will be permanently forfeited, and your excuse will be posted to the Wall of Shame.
+          <strong className="text-red-600 dark:text-red-500 font-bold">{utilsFormatCurrency(oath.stake_amount, region)}</strong> will be permanently forfeited, and your excuse will be posted to the Wall of Shame.
         </p>
 
         <div className="mb-4">
@@ -418,7 +422,7 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
             disabled={loading}
             className="flex-1 py-3 bg-red-600 text-white font-black text-xs uppercase tracking-wider hover:bg-red-700 transition-colors disabled:opacity-50"
           >
-            {loading ? "Processing..." : `Forfeit ${formatCurrency(oath.stake_amount)}`}
+            {loading ? "Processing..." : `Forfeit ${utilsFormatCurrency(oath.stake_amount, region)}`}
           </button>
           <button
             onClick={onClose}
