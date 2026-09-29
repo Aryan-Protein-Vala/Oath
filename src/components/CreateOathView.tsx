@@ -16,6 +16,10 @@ import {
   Smartphone,
   ChevronRight,
   AlertCircle,
+  Flame,
+  Activity,
+  UserX,
+  PieChart
 } from "lucide-react";
 import type { OathType, VerificationMethod, ConsequenceType } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
@@ -133,6 +137,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 onClick={() => {
                   setOathType("solo");
                   setVerificationMethod("solo_lonely");
+                  setConsequenceType("fiat");
                 }}
               />
               <TypeButton
@@ -143,6 +148,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 onClick={() => {
                   setOathType("duo");
                   setVerificationMethod("peer");
+                  setConsequenceType("bounty_transfer");
                 }}
               />
               <TypeButton
@@ -153,6 +159,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 onClick={() => {
                   setOathType("squad");
                   setVerificationMethod("quorum");
+                  setConsequenceType("deadweight_tag");
                 }}
               />
             </div>
@@ -163,41 +170,105 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
             <label className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em] mb-3 block">
               Consequence
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <TypeButton
-                icon={<DollarSign className="w-4 h-4" />}
-                label="Fiat"
-                sublabel="Lose money"
-                isActive={consequenceType === "fiat"}
-                onClick={() => setConsequenceType("fiat")}
-              />
-              <TypeButton
-                icon={<MessageSquare className="w-4 h-4" />}
-                label="Social Ransom"
-                sublabel="Embarrassment"
-                isActive={consequenceType === "social_ransom"}
-                onClick={() => setConsequenceType("social_ransom")}
-              />
-              <TypeButton
-                icon={<Lock className="w-3.5 h-3.5" />}
-                label="App Blocking"
-                sublabel="Lock apps"
-                isActive={consequenceType === "app_blocking"}
-                onClick={() => handleMobileExclusive("App Blocking")}
-                disabled
-              />
-              <TypeButton
-                icon={<Zap className="w-4 h-4" />}
-                label="Combined"
-                sublabel="All of above"
-                isActive={consequenceType === "combined"}
-                onClick={() => setConsequenceType("combined")}
-              />
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {oathType === "solo" && (
+                <>
+                  <TypeButton
+                    icon={<DollarSign className="w-4 h-4" />}
+                    label="Fiat"
+                    sublabel="Lose money"
+                    isActive={consequenceType === "fiat"}
+                    onClick={() => setConsequenceType("fiat")}
+                  />
+                  <TypeButton
+                    icon={<MessageSquare className="w-4 h-4" />}
+                    label="Social Ransom"
+                    sublabel="Confession SMS"
+                    isActive={consequenceType === "social_ransom"}
+                    onClick={() => setConsequenceType("social_ransom")}
+                  />
+                  <TypeButton
+                    icon={<Lock className="w-3.5 h-3.5" />}
+                    label="Digital Lockout"
+                    sublabel="App blackout"
+                    isActive={consequenceType === "app_blocking"}
+                    onClick={() => handleMobileExclusive("Digital Lockout")}
+                    disabled
+                  />
+                  <TypeButton
+                    icon={<Flame className="w-4 h-4" />}
+                    label="Anti-Charity"
+                    sublabel="Hate donation"
+                    isActive={consequenceType === "anti_charity"}
+                    onClick={() => setConsequenceType("anti_charity")}
+                  />
+                  <TypeButton
+                    icon={<AlertCircle className="w-4 h-4" />}
+                    label="Public Shame"
+                    sublabel="Wall of Shame"
+                    isActive={consequenceType === "public_shame"}
+                    onClick={() => setConsequenceType("public_shame")}
+                  />
+                </>
+              )}
+
+              {oathType === "duo" && (
+                <>
+                  <TypeButton
+                    icon={<DollarSign className="w-4 h-4" />}
+                    label="Direct Bounty"
+                    sublabel="Winner takes all"
+                    isActive={consequenceType === "bounty_transfer"}
+                    onClick={() => setConsequenceType("bounty_transfer")}
+                  />
+                  <TypeButton
+                    icon={<Activity className="w-4 h-4" />}
+                    label="Physical Debt"
+                    sublabel="Servant clause"
+                    isActive={consequenceType === "physical_debt"}
+                    onClick={() => setConsequenceType("physical_debt")}
+                  />
+                  <TypeButton
+                    icon={<Flame className="w-4 h-4" />}
+                    label="M.A.D."
+                    sublabel="Mutual destruction"
+                    isActive={consequenceType === "mutual_destruction"}
+                    onClick={() => setConsequenceType("mutual_destruction")}
+                  />
+                </>
+              )}
+
+              {oathType === "squad" && (
+                <>
+                  <TypeButton
+                    icon={<UserX className="w-4 h-4" />}
+                    label="Deadweight Tag"
+                    sublabel="Public squad tag"
+                    isActive={consequenceType === "deadweight_tag"}
+                    onClick={() => setConsequenceType("deadweight_tag")}
+                  />
+                  <TypeButton
+                    icon={<PieChart className="w-4 h-4" />}
+                    label="Bounty Split"
+                    sublabel="Losers fund winners"
+                    isActive={consequenceType === "bounty_split"}
+                    onClick={() => setConsequenceType("bounty_split")}
+                  />
+                  <TypeButton
+                    icon={<Lock className="w-4 h-4" />}
+                    label="Squad Lockdown"
+                    sublabel="Collective blackout"
+                    isActive={consequenceType === "squad_lockdown"}
+                    onClick={() => handleMobileExclusive("Squad Lockdown")}
+                    disabled
+                  />
+                </>
+              )}
             </div>
           </div>
 
           {/* SOCIAL RANSOM FIELDS */}
-          {(consequenceType === "social_ransom" || consequenceType === "combined") && (
+          {(consequenceType === "social_ransom") && (
             <div className="border border-zinc-800 p-4 bg-zinc-950/50 space-y-3 fade-in">
               <div className="flex items-center gap-2 mb-1">
                 <Phone className="w-3.5 h-3.5 text-zinc-500" />

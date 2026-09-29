@@ -5,7 +5,7 @@
 export type OathType = "solo" | "duo" | "squad";
 export type OathStatus = "pending" | "active" | "completed" | "failed" | "disputed" | "cancelled";
 export type VerificationMethod = "nominee" | "peer" | "quorum" | "solo_lonely" | "app_blocking";
-export type ConsequenceType = "fiat" | "social_ransom" | "app_blocking" | "combined";
+export type ConsequenceType = "fiat" | "social_ransom" | "app_blocking" | "combined" | "anti_charity" | "public_shame" | "bounty_transfer" | "physical_debt" | "mutual_destruction" | "deadweight_tag" | "bounty_split" | "squad_lockdown";
 export type ProofStatus = "pending_review" | "verified" | "rejected" | "disputed";
 export type TransactionType = "deposit" | "withdrawal" | "escrow_lock" | "escrow_release" | "penalty" | "reward" | "house_cut";
 export type WallType = "shame" | "honor";

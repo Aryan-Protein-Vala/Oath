@@ -289,12 +289,12 @@ export default function LandingView() {
               <Shield className="w-16 h-16 text-zinc-950 dark:text-zinc-400 mb-8 group-hover:text-zinc-50 transition-colors" />
               <h3 className="text-4xl font-black tracking-tight mb-4 uppercase text-zinc-950 dark:text-zinc-100 group-hover:text-zinc-50 transition-colors">Solo Oath</h3>
               <p className="text-lg text-zinc-700 dark:text-zinc-400 mb-8 font-bold group-hover:text-zinc-300 transition-colors leading-snug">
-                You vs. Yourself. Nominate a friend to act as the judge. If you fail, the house takes a 10% cut and the rest is burned.
+                You vs. Yourself. Pick your poison: Social Ransom (we text your boss), Digital Lockout, Anti-Charity Donations, or Public Humiliation.
               </p>
               <ul className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-500 space-y-3 group-hover:text-zinc-400 transition-colors">
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> 1 Player</li>
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Nominee Verification</li>
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Pure Accountability</li>
+                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Social Ransom</li>
+                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Digital Lockout</li>
+                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Public Humiliation</li>
               </ul>
             </motion.div>
 
@@ -307,12 +307,12 @@ export default function LandingView() {
               <Swords className="w-16 h-16 text-red-600 dark:text-red-500 mb-8 group-hover:text-white transition-colors" />
               <h3 className="text-4xl font-black tracking-tight mb-4 uppercase text-zinc-950 dark:text-zinc-100 group-hover:text-white transition-colors">Duo Challenge</h3>
               <p className="text-lg text-zinc-800 dark:text-zinc-300 mb-8 font-bold group-hover:text-red-100 transition-colors leading-snug">
-                Head-to-head. You and an opponent lock equal stakes. The winner takes the entire pot (minus house cut). Loser goes home crying.
+                Head-to-head. Opponents lock equal stakes. Choose Direct Bounty, Physical Debt (100 burpees on video), or Mutual Assured Destruction (both fail, we take it all).
               </p>
               <ul className="text-sm font-mono font-bold text-red-700 dark:text-red-400 space-y-3 group-hover:text-red-200 transition-colors">
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> 2 Players</li>
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Peer Verification</li>
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Winner Takes All</li>
+                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Direct Bounty</li>
+                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Physical Debt</li>
+                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Mutual Assured Destruction</li>
               </ul>
             </motion.div>
 
@@ -324,12 +324,12 @@ export default function LandingView() {
               <Users className="w-16 h-16 text-zinc-950 dark:text-zinc-400 mb-8 group-hover:text-zinc-50 transition-colors" />
               <h3 className="text-4xl font-black tracking-tight mb-4 uppercase text-zinc-950 dark:text-zinc-100 group-hover:text-zinc-50 transition-colors">Squad Pool</h3>
               <p className="text-lg text-zinc-700 dark:text-zinc-400 mb-8 font-bold group-hover:text-zinc-300 transition-colors leading-snug">
-                Up to 8 players. Everyone locks a stake. Everyone must complete the task. Those who fail forfeit their stake to those who succeed.
+                Up to 8 players. Enforce the group with the Deadweight Tag, The Bounty Split, or Squad Lockdown (one fails, everyone's apps are blocked).
               </p>
               <ul className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-500 space-y-3 group-hover:text-zinc-400 transition-colors">
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> 3-8 Players</li>
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Quorum Verification</li>
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Massive Payouts</li>
+                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> The Bounty Split</li>
+                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> The Deadweight Tag</li>
+                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Squad Lockdown</li>
               </ul>
             </motion.div>
 
