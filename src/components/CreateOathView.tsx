@@ -32,9 +32,7 @@ interface CreateOathViewProps {
   onOathCreated?: () => void;
 }
 
-import { useRegion } from "@/lib/region-context";
 import { convertToUSD } from "@/lib/utils";
-
 export default function CreateOathView({ walletBalance, onOathCreated }: CreateOathViewProps) {
   const { region, formatCurrency: formatRegionCurrency } = useRegion();
   // Form state
