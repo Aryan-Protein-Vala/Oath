@@ -593,6 +593,7 @@ function TypeButton({
   isActive,
   onClick,
   disabled,
+  onInfo,
 }: {
   icon: React.ReactNode;
   label: string;

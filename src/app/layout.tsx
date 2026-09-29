@@ -32,8 +32,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="h-full overflow-hidden bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 transition-colors duration-300">
+      <body suppressHydrationWarning className="h-full overflow-hidden bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 transition-colors duration-300">
         {/* SVG Noise Grain Overlay — Global, fixed, non-interactive */}
         <div className="noise-overlay" aria-hidden="true" />
         <div className="scanline-overlay" aria-hidden="true" />

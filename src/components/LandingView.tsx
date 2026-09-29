@@ -265,17 +265,71 @@ export default function LandingView() {
         </div>
       </section>
 
+      {/* The Consequences Section */}
+      <section className="py-32 px-6 bg-zinc-50 dark:bg-zinc-950 border-t-4 border-zinc-950 dark:border-zinc-800">
+        <div className="max-w-7xl mx-auto w-full">
+          <div className="text-center mb-24">
+            <h2 className="text-6xl sm:text-8xl font-black tracking-tighter uppercase text-zinc-950 dark:text-zinc-50">
+              Pick Your Penalty
+            </h2>
+            <p className="text-xl sm:text-2xl text-zinc-600 dark:text-zinc-400 font-bold mt-4 max-w-3xl mx-auto">
+              We don&apos;t just take your money. If financial loss isn&apos;t painful enough, we offer more creative ways to ruin your day when you fail.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {
+                title: "The Money Pit",
+                desc: "The classic. You fail, you lose your locked cash. We take 10% and burn the rest.",
+                icon: <DollarSign className="w-8 h-8 text-zinc-950 dark:text-zinc-50" />
+              },
+              {
+                title: "Social Ransom",
+                desc: "We text a pre-written, highly embarrassing message to your mom, boss, or ex if you fail.",
+                icon: <Zap className="w-8 h-8 text-zinc-950 dark:text-zinc-50" />
+              },
+              {
+                title: "Anti-Charity",
+                desc: "Your money gets donated to a cause or political party you absolutely despise.",
+                icon: <Flame className="w-8 h-8 text-red-600" />
+              },
+              {
+                title: "Physical Debt",
+                desc: "You owe 100 burpees on video before you can unlock your account again.",
+                icon: <Skull className="w-8 h-8 text-zinc-950 dark:text-zinc-50" />
+              }
+            ].map((c, i) => (
+              <motion.div
+                key={c.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.1 }}
+                className="p-8 border-4 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-[#0a0a0f] hover:-translate-y-2 hover:shadow-[8px_8px_0px_0px_rgba(9,9,11,1)] dark:hover:shadow-[0_0_20px_rgba(255,255,255,0.1)] transition-all"
+              >
+                <div className="mb-6">{c.icon}</div>
+                <h3 className="text-2xl font-black uppercase mb-3 text-zinc-950 dark:text-zinc-100 tracking-tight">{c.title}</h3>
+                <p className="text-sm font-bold text-zinc-600 dark:text-zinc-400">{c.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Modes Section */}
       <section className="py-32 px-6 border-t-4 border-zinc-950 dark:border-zinc-800/60 bg-white dark:bg-[#0a0a0f]">
         <div className="max-w-7xl mx-auto w-full">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}
-            className="mb-20"
+            className="mb-20 text-center sm:text-left flex flex-col sm:flex-row items-center sm:items-end justify-between gap-6"
           >
-            <h2 className="text-6xl sm:text-8xl font-black tracking-tighter uppercase mb-4 text-zinc-950 dark:text-zinc-50 leading-[0.9]">
-              Choose Your <br className="hidden sm:block" /> Torture
-            </h2>
-            <p className="text-2xl font-bold text-zinc-600 dark:text-zinc-400">Three ways to lose your money.</p>
+            <div>
+              <h2 className="text-6xl sm:text-8xl font-black tracking-tighter uppercase mb-4 text-zinc-950 dark:text-zinc-50 leading-[0.9]">
+                Choose Your <br className="hidden sm:block" /> Battlefield
+              </h2>
+              <p className="text-2xl font-bold text-zinc-600 dark:text-zinc-400">Play solo, or drag your friends into hell with you.</p>
+            </div>
           </motion.div>
 
           <div className="grid lg:grid-cols-3 gap-8">
@@ -286,14 +340,14 @@ export default function LandingView() {
               className="group border-4 border-zinc-950 dark:border-zinc-800 p-10 bg-zinc-50 dark:bg-[#09090b] hover:bg-zinc-950 dark:hover:bg-zinc-800 transition-colors duration-500 shadow-[8px_8px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
             >
               <Shield className="w-16 h-16 text-zinc-950 dark:text-zinc-400 mb-8 group-hover:text-zinc-50 transition-colors" />
-              <h3 className="text-4xl font-black tracking-tight mb-4 uppercase text-zinc-950 dark:text-zinc-100 group-hover:text-zinc-50 transition-colors">Solo Oath</h3>
+              <h3 className="text-4xl font-black tracking-tight mb-4 uppercase text-zinc-950 dark:text-zinc-100 group-hover:text-zinc-50 transition-colors">Solo Mode</h3>
               <p className="text-lg text-zinc-700 dark:text-zinc-400 mb-8 font-bold group-hover:text-zinc-300 transition-colors leading-snug">
-                You vs. Yourself. Pick your poison: Social Ransom (we text your boss), Digital Lockout, Anti-Charity Donations, or Public Humiliation.
+                You vs. Yourself. No one else to blame. You set the goal, you pick the penalty, you provide the proof. Pure accountability.
               </p>
-              <ul className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-500 space-y-3 group-hover:text-zinc-400 transition-colors">
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Social Ransom</li>
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Digital Lockout</li>
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Public Humiliation</li>
+              <ul className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-500 space-y-3 group-hover:text-zinc-400 transition-colors border-t-2 border-zinc-200 dark:border-zinc-700 pt-6 mt-auto">
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Absolute control</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Use Social Ransom</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Nominate a referee</li>
               </ul>
             </motion.div>
 
@@ -306,29 +360,29 @@ export default function LandingView() {
               <Swords className="w-16 h-16 text-red-600 dark:text-red-500 mb-8 group-hover:text-white transition-colors" />
               <h3 className="text-4xl font-black tracking-tight mb-4 uppercase text-zinc-950 dark:text-zinc-100 group-hover:text-white transition-colors">Duo Challenge</h3>
               <p className="text-lg text-zinc-800 dark:text-zinc-300 mb-8 font-bold group-hover:text-red-100 transition-colors leading-snug">
-                Head-to-head. Opponents lock equal stakes. Choose Direct Bounty, Physical Debt (100 burpees on video), or Mutual Assured Destruction (both fail, we take it all).
+                Head-to-head combat. You and a rival lock equal stakes. Either someone wins the pot (Direct Bounty), or you both fail and lose it all (M.A.D.).
               </p>
-              <ul className="text-sm font-mono font-bold text-red-700 dark:text-red-400 space-y-3 group-hover:text-red-200 transition-colors">
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Direct Bounty</li>
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Physical Debt</li>
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Mutual Assured Destruction</li>
+              <ul className="text-sm font-mono font-bold text-red-700 dark:text-red-400 space-y-3 group-hover:text-red-200 transition-colors border-t-2 border-red-200 dark:border-red-800 pt-6 mt-auto">
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Direct Bounty (Winner takes all)</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Mutual Assured Destruction</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Verification by Opponent</li>
               </ul>
             </motion.div>
 
             {/* Squad */}
             <motion.div 
               initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.3 }}
-              className="group border-4 border-zinc-950 dark:border-zinc-800 p-10 bg-zinc-50 dark:bg-[#09090b] hover:bg-zinc-950 dark:hover:bg-zinc-800 transition-colors duration-500 shadow-[8px_8px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
+              className="group border-4 border-zinc-950 dark:border-zinc-800 p-10 bg-zinc-50 dark:bg-[#09090b] hover:bg-zinc-950 dark:hover:bg-zinc-800 transition-colors duration-500 shadow-[8px_8px_0px_0px_rgba(9,9,11,1)] dark:shadow-none flex flex-col"
             >
               <Users className="w-16 h-16 text-zinc-950 dark:text-zinc-400 mb-8 group-hover:text-zinc-50 transition-colors" />
               <h3 className="text-4xl font-black tracking-tight mb-4 uppercase text-zinc-950 dark:text-zinc-100 group-hover:text-zinc-50 transition-colors">Squad Pool</h3>
               <p className="text-lg text-zinc-700 dark:text-zinc-400 mb-8 font-bold group-hover:text-zinc-300 transition-colors leading-snug">
-                Up to 8 players. Enforce the group with the Deadweight Tag, The Bounty Split, or Squad Lockdown (one fails, everyone&apos;s apps are blocked).
+                Up to 8 players commit to a shared goal. If someone slacks, they face the Deadweight Tag, or even worse: Squad Lockdown (one fails, everyone suffers).
               </p>
-              <ul className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-500 space-y-3 group-hover:text-zinc-400 transition-colors">
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> The Bounty Split</li>
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> The Deadweight Tag</li>
-                <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> Squad Lockdown</li>
+              <ul className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-500 space-y-3 group-hover:text-zinc-400 transition-colors border-t-2 border-zinc-200 dark:border-zinc-700 pt-6 mt-auto">
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Quorum Verification (&gt;50% vote)</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Deadweight Tag (Shaming)</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Squad Lockdown penalty</li>
               </ul>
             </motion.div>
 
