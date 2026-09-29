@@ -43,7 +43,7 @@ export default function ActiveOathsView({ oaths, onProofSubmitted }: ActiveOaths
   }
 
   return (
-    <div className="flex-1 flex overflow-hidden">
+    <div className="flex-1 flex overflow-hidden" suppressHydrationWarning>
       {/* Sidebar */}
       <div className="w-72 border-r-2 border-zinc-950 dark:border-zinc-800/60 flex flex-col overflow-y-auto shrink-0 bg-white dark:bg-transparent">
         <div className="px-4 py-3 border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/50">
@@ -110,6 +110,7 @@ function OathListItem({ oath, isSelected, onClick }: { oath: Oath; isSelected: b
   return (
     <button
       onClick={onClick}
+      suppressHydrationWarning
       className={`w-full text-left px-4 py-3.5 border-b-2 border-zinc-200 dark:border-zinc-800/30 transition-all ${
         isSelected
           ? "bg-zinc-200 dark:bg-zinc-900/80 shadow-[inset_4px_0_0_0_rgba(220,38,38,1)]"
@@ -168,7 +169,7 @@ function OathCountdownCard({
   const progressPercent = Math.min(100, Math.max(0, (progressElapsed / (progressTotal || 1)) * 100));
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-8 relative overflow-hidden bg-zinc-50 dark:bg-transparent">
+    <div className="flex-1 flex flex-col items-center justify-center px-8 relative overflow-hidden bg-zinc-50 dark:bg-transparent" suppressHydrationWarning>
       {/* Crimson glow when urgent */}
       {timeState.isUrgent && (
         <div className="absolute inset-0 pointer-events-none crimson-glow" />
