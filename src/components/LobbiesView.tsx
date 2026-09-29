@@ -17,6 +17,7 @@ import { formatCurrency as utilsFormatCurrency, getTimeRemaining, formatRelative
 import { joinSquad, castVote } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
 import { useRegion } from "@/lib/region-context";
+import { useAuth } from "@/lib/auth-context";
 
 interface LobbiesViewProps {
   squads: Oath[];
@@ -25,7 +26,6 @@ interface LobbiesViewProps {
 }
 
 export default function LobbiesView({ squads, wallet, onJoined }: LobbiesViewProps) {
-  const { region } = useRegion();
   const [selectedSquadId, setSelectedSquadId] = useState<string | null>(null);
 
   const selectedSquad = squads.find((s) => s.id === selectedSquadId) || null;
@@ -213,6 +213,7 @@ function SquadDetail({
   onClose: () => void;
   onJoined?: () => void;
 }) {
+  const { user } = useAuth();
   const { region } = useRegion();
   const [loading, setLoading] = useState(false);
   const memberCount = squad.members?.length ?? 0;
@@ -297,6 +298,7 @@ function SquadDetail({
             key={member.id}
             member={member}
             index={index}
+            currentUserId={user?.id}
             onVote={handleVote}
           />
         ))}
@@ -335,13 +337,19 @@ function SquadDetail({
 function MemberLogEntry({
   member,
   index,
+  currentUserId,
   onVote,
 }: {
   member: GroupMember;
   index: number;
+  currentUserId?: string;
   onVote: (memberId: string, vote: boolean) => void;
 }) {
   const { region } = useRegion();
+  const isCurrentUser = Boolean(currentUserId && member.user_id === currentUserId);
+  const hasVoted = Boolean(currentUserId && member.voted_by?.includes(currentUserId));
+  const isConcluded = member.status === "completed" || member.status === "failed";
+
   return (
     <div
       className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800/25 fade-in bg-white dark:bg-transparent hover:bg-zinc-50 dark:hover:bg-zinc-900/20"
@@ -356,9 +364,16 @@ function MemberLogEntry({
         </div>
 
         <div>
-          <span className="text-sm text-zinc-950 dark:text-zinc-200 font-bold">
-            @{member.user?.username ?? "unknown"}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-zinc-950 dark:text-zinc-200 font-bold">
+              @{member.user?.username ?? "unknown"}
+            </span>
+            {isCurrentUser && (
+              <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-400 dark:border-zinc-700">
+                YOU
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 stake-number font-bold">
               {utilsFormatCurrency(member.stake_amount, region)} staked
@@ -374,25 +389,37 @@ function MemberLogEntry({
 
       {/* Voting / Status */}
       <div className="flex items-center gap-2">
-        {member.proof_submitted && (
+        {member.proof_submitted && !isConcluded && (
           <div className="flex items-center gap-1.5 mr-2">
             <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
               {member.votes_received}/{member.votes_needed}
             </span>
-            <button
-              onClick={() => onVote(member.id, true)}
-              className="p-1.5 border border-zinc-400 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-300 text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors bg-zinc-100 dark:bg-zinc-800"
-              title="Vote: Approve proof"
-            >
-              <ThumbsUp className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => onVote(member.id, false)}
-              className="p-1.5 border border-zinc-400 dark:border-zinc-700 hover:border-red-600 text-zinc-700 dark:text-zinc-400 hover:text-red-600 transition-colors bg-zinc-100 dark:bg-zinc-800"
-              title="Vote: Reject proof"
-            >
-              <ThumbsDown className="w-3.5 h-3.5" />
-            </button>
+            {isCurrentUser ? (
+              <span className="text-[9px] font-mono text-zinc-500 italic px-1">
+                Your proof
+              </span>
+            ) : hasVoted ? (
+              <span className="text-[9px] font-mono font-bold text-zinc-500 px-1.5 py-0.5 border border-zinc-300 dark:border-zinc-800">
+                Voted
+              </span>
+            ) : (
+              <>
+                <button
+                  onClick={() => onVote(member.id, true)}
+                  className="p-1.5 border border-zinc-400 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-300 text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors bg-zinc-100 dark:bg-zinc-800"
+                  title="Vote: Approve proof"
+                >
+                  <ThumbsUp className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => onVote(member.id, false)}
+                  className="p-1.5 border border-zinc-400 dark:border-zinc-700 hover:border-red-600 text-zinc-700 dark:text-zinc-400 hover:text-red-600 transition-colors bg-zinc-100 dark:bg-zinc-800"
+                  title="Vote: Reject proof"
+                >
+                  <ThumbsDown className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )}
           </div>
         )}
         <span

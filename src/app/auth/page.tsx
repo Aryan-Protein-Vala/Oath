@@ -1,12 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, Zap, AlertCircle, Loader2, ArrowLeft, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function AuthPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-[#09090b]">
+        <Loader2 className="w-8 h-8 animate-spin text-zinc-950 dark:text-zinc-50" />
+      </div>
+    }>
+      <AuthForm />
+    </Suspense>
+  );
+}
+
+function AuthForm() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,6 +28,8 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectUrl = searchParams.get("redirect") || "/";
 
   const handleDemoFill = () => {
     setMode("signin");
@@ -48,7 +62,7 @@ export default function AuthPage() {
     if (err) {
       setError(err);
     } else {
-      router.push("/");
+      router.push(redirectUrl);
     }
     setLoading(false);
   };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   X,
   Users,
@@ -35,7 +35,15 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
   const [oathId, setOathId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const { region, formatCurrency: formatRegionCurrency } = useRegion();
+  const { region } = useRegion();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   const stakeNum = parseFloat(stake) || 0;
   const stakeUsd = convertToUSD(stakeNum, region);
@@ -78,15 +86,20 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="duo-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+    >
       <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 shadow-[10px_10px_0px_0px_rgba(9,9,11,1)] dark:shadow-none fade-in">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b-2 border-zinc-200 dark:border-zinc-800">
           <div className="flex items-center gap-2">
             <Swords className="w-5 h-5 text-red-500" />
-            <h3 className="text-sm font-black text-zinc-950 dark:text-zinc-100 tracking-tight">DUO CHALLENGE</h3>
+            <h3 id="duo-modal-title" className="text-sm font-black text-zinc-950 dark:text-zinc-100 tracking-tight">DUO CHALLENGE</h3>
           </div>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors p-1">
+          <button onClick={onClose} aria-label="Close modal" className="text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors p-1">
             <X className="w-4 h-4" />
           </button>
         </div>

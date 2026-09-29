@@ -23,7 +23,7 @@ import {
   X
 } from "lucide-react";
 import type { OathType, VerificationMethod, ConsequenceType } from "@/lib/types";
-import { formatCurrency } from "@/lib/utils";
+import { convertToUSD } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
 import { showToast } from "./Toast";
 
@@ -32,7 +32,6 @@ interface CreateOathViewProps {
   onOathCreated?: () => void;
 }
 
-import { convertToUSD } from "@/lib/utils";
 export default function CreateOathView({ walletBalance, onOathCreated }: CreateOathViewProps) {
   const { region, formatCurrency: formatRegionCurrency } = useRegion();
   // Form state
@@ -49,7 +48,6 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
 
   const stakeNum = parseFloat(stakeAmount) || 0;
   const stakeUsd = convertToUSD(stakeNum, region);
-  const houseCutUsd = Math.round(stakeUsd * 0.1);
   const isOverBudget = stakeUsd > walletBalance;
 
   // Handle mobile-exclusive features
@@ -76,10 +74,28 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
       showToast("Set a deadline. An oath without a deadline is a wish.", "error");
       return;
     }
+
+    const deadlineDate = new Date(deadline);
+    if (!deadline.includes("T")) {
+      deadlineDate.setHours(23, 59, 59, 999);
+    }
+    if (deadlineDate.getTime() <= Date.now()) {
+      showToast("Deadline must be in the future.", "error");
+      return;
+    }
+    if (verificationMethod === "nominee" && !nomineeEmail.trim()) {
+      showToast("Please provide the nominee referee email.", "error");
+      return;
+    }
+    if (consequenceType === "social_ransom" && (!socialPhone.trim() || !socialMessage.trim())) {
+      showToast("Social ransom requires both a recipient phone number and a ransom message.", "error");
+      return;
+    }
+
     setSubmitting(true);
     const { error } = await createOath({
       oath_statement: oathStatement,
-      deadline: new Date(deadline).toISOString(),
+      deadline: deadlineDate.toISOString(),
       oath_type: oathType,
       verification_method: verificationMethod,
       consequence_type: consequenceType,

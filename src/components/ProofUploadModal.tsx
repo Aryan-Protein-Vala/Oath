@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   X,
   Upload,
@@ -32,6 +32,14 @@ export default function ProofUploadModal({ oath, onClose, onSuccess }: ProofUplo
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   const handleFile = (f: File) => {
     setFile(f);
@@ -89,23 +97,28 @@ export default function ProofUploadModal({ oath, onClose, onSuccess }: ProofUplo
   };
 
   const canSubmit = (() => {
-    if (proofType === "link") return linkUrl.trim().length > 5;
-    if (proofType === "text") return textNote.trim().length > 10;
+    if (proofType === "link") return /^https?:\/\/.+/i.test(linkUrl.trim());
+    if (proofType === "text") return textNote.trim().length >= 10 && textNote.length <= 500;
     return file !== null;
   })();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="proof-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+    >
       <div className="w-full max-w-md mx-4 bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 fade-in shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.05)]">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b-2 border-zinc-950 dark:border-zinc-800">
           <div>
-            <h3 className="text-sm font-black text-zinc-950 dark:text-zinc-100 tracking-tight">SUBMIT PROOF</h3>
+            <h3 id="proof-modal-title" className="text-sm font-black text-zinc-950 dark:text-zinc-100 tracking-tight">SUBMIT PROOF</h3>
             <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-500 mt-0.5 truncate max-w-xs">
               {oath.oath_statement}
             </p>
           </div>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 transition-colors p-1">
+          <button onClick={onClose} aria-label="Close modal" className="text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 transition-colors p-1">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -215,6 +228,7 @@ export default function ProofUploadModal({ oath, onClose, onSuccess }: ProofUplo
                 <textarea
                   value={textNote}
                   onChange={(e) => setTextNote(e.target.value)}
+                  maxLength={500}
                   placeholder="Describe exactly what you did and how you verified it..."
                   className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors resize-none"
                   rows={4}
@@ -232,6 +246,7 @@ export default function ProofUploadModal({ oath, onClose, onSuccess }: ProofUplo
                 <textarea
                   value={textNote}
                   onChange={(e) => setTextNote(e.target.value)}
+                  maxLength={500}
                   placeholder="Add any context for your verifier..."
                   className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors resize-none"
                   rows={2}

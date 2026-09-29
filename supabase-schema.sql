@@ -438,3 +438,115 @@ CREATE TRIGGER update_wallets_timestamp
 
 CREATE TRIGGER update_oaths_timestamp
   BEFORE UPDATE ON oaths FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Auto-settle wallet escrow and ledger upon oath completion or failure
+CREATE OR REPLACE FUNCTION on_oath_status_settle()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_stake NUMERIC(12,2);
+  v_wallet_id UUID;
+  v_creator_id UUID;
+  v_opponent_id UUID;
+  v_pot NUMERIC(12,2);
+  v_cut NUMERIC(12,2);
+  v_winner_payout NUMERIC(12,2);
+BEGIN
+  IF (OLD.status = 'active' AND NEW.status IN ('completed', 'failed')) THEN
+    v_stake := NEW.stake_amount;
+    v_creator_id := NEW.creator_id;
+    v_opponent_id := NEW.opponent_id;
+
+    -- Solo oath settlement
+    IF NEW.oath_type = 'solo' THEN
+      SELECT id INTO v_wallet_id FROM wallets WHERE user_id = v_creator_id;
+      IF NEW.status = 'completed' THEN
+        UPDATE wallets 
+        SET balance = balance + v_stake,
+            escrow_locked = GREATEST(0, escrow_locked - v_stake),
+            total_won = total_won + v_stake
+        WHERE user_id = v_creator_id;
+
+        IF v_wallet_id IS NOT NULL THEN
+          INSERT INTO transactions (wallet_id, oath_id, type, amount, description)
+          VALUES (v_wallet_id, NEW.id, 'escrow_release', v_stake, 'Completed: ' || NEW.oath_statement);
+        END IF;
+
+        INSERT INTO wall_entries (oath_id, user_id, wall_type, oath_statement, stake_amount)
+        VALUES (NEW.id, v_creator_id, 'honor', NEW.oath_statement, v_stake);
+      ELSE -- failed
+        UPDATE wallets 
+        SET escrow_locked = GREATEST(0, escrow_locked - v_stake),
+            total_lost = total_lost + v_stake
+        WHERE user_id = v_creator_id;
+
+        IF v_wallet_id IS NOT NULL THEN
+          INSERT INTO transactions (wallet_id, oath_id, type, amount, description)
+          VALUES (v_wallet_id, NEW.id, 'penalty', v_stake, 'Forfeited/Failed: ' || NEW.oath_statement);
+        END IF;
+
+        INSERT INTO wall_entries (oath_id, user_id, wall_type, oath_statement, stake_amount, excuse)
+        VALUES (NEW.id, v_creator_id, 'shame', NEW.oath_statement, v_stake, COALESCE(NEW.failure_excuse, 'Failed to complete oath.'));
+      END IF;
+
+    -- Duo oath settlement
+    ELSIF NEW.oath_type = 'duo' THEN
+      v_pot := v_stake * 2;
+      v_cut := v_pot * (COALESCE(NEW.house_cut_percent, 10.00) / 100.00);
+      v_winner_payout := v_pot - v_cut;
+
+      SELECT id INTO v_wallet_id FROM wallets WHERE user_id = v_creator_id;
+
+      IF NEW.status = 'completed' THEN
+        -- Creator won
+        UPDATE wallets 
+        SET balance = balance + v_winner_payout,
+            escrow_locked = GREATEST(0, escrow_locked - v_stake),
+            total_won = total_won + (v_winner_payout - v_stake)
+        WHERE user_id = v_creator_id;
+
+        IF v_opponent_id IS NOT NULL THEN
+          UPDATE wallets 
+          SET escrow_locked = GREATEST(0, escrow_locked - v_stake),
+              total_lost = total_lost + v_stake
+          WHERE user_id = v_opponent_id;
+        END IF;
+
+        IF v_wallet_id IS NOT NULL THEN
+          INSERT INTO transactions (wallet_id, oath_id, type, amount, description)
+          VALUES (v_wallet_id, NEW.id, 'escrow_release', v_winner_payout, 'Won Duo Challenge: ' || NEW.oath_statement);
+        END IF;
+
+        INSERT INTO wall_entries (oath_id, user_id, wall_type, oath_statement, stake_amount)
+        VALUES (NEW.id, v_creator_id, 'honor', NEW.oath_statement, v_stake);
+      ELSE -- Creator failed / opponent won
+        UPDATE wallets 
+        SET escrow_locked = GREATEST(0, escrow_locked - v_stake),
+            total_lost = total_lost + v_stake
+        WHERE user_id = v_creator_id;
+
+        IF v_opponent_id IS NOT NULL THEN
+          UPDATE wallets 
+          SET balance = balance + v_winner_payout,
+              escrow_locked = GREATEST(0, escrow_locked - v_stake),
+              total_won = total_won + (v_winner_payout - v_stake)
+          WHERE user_id = v_opponent_id;
+        END IF;
+
+        IF v_wallet_id IS NOT NULL THEN
+          INSERT INTO transactions (wallet_id, oath_id, type, amount, description)
+          VALUES (v_wallet_id, NEW.id, 'penalty', v_stake, 'Lost Duo Challenge: ' || NEW.oath_statement);
+        END IF;
+
+        INSERT INTO wall_entries (oath_id, user_id, wall_type, oath_statement, stake_amount, excuse)
+        VALUES (NEW.id, v_creator_id, 'shame', NEW.oath_statement, v_stake, COALESCE(NEW.failure_excuse, 'Lost duo duel.'));
+      END IF;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_oath_settled
+  AFTER UPDATE OF status ON oaths
+  FOR EACH ROW EXECUTE FUNCTION on_oath_status_settle();

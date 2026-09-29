@@ -17,7 +17,6 @@ import { useOaths, useSquadLobbies, useWall, useTransactions } from "@/lib/data-
 import {
   mockProfile,
   mockWallet,
-  mockActiveOaths,
   mockSquadOaths,
   mockWallOfShame,
   mockWallOfHonor,

@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { formatCurrency as utilsFormatCurrency, formatCurrencyPrecise as utilsFormatCurrencyPrecise, formatRelativeTime } from "@/lib/utils";
 import type { Profile, Wallet, Transaction } from "@/lib/types";
-import { useRegion } from "@/lib/region-context";
+import { useRegion, type Region } from "@/lib/region-context";
 
 interface ProfileViewProps {
   profile: Profile;
@@ -187,7 +187,7 @@ function MoneyRow({
   value: number;
   positive?: boolean;
   negative?: boolean;
-  region: any;
+  region: Region;
 }) {
   return (
     <div className="flex items-center justify-between">
@@ -228,7 +228,7 @@ const TX_PREFIX: Record<string, string> = {
   house_cut: "-",
 };
 
-function LedgerRow({ tx, index, region }: { tx: Transaction; index: number; region: any }) {
+function LedgerRow({ tx, index, region }: { tx: Transaction; index: number; region: Region }) {
   return (
     <div
       className="flex items-center justify-between px-5 py-3.5 border-b-2 border-zinc-200 dark:border-zinc-800/25 hover:bg-zinc-100 dark:hover:bg-zinc-900/30 transition-colors fade-in"

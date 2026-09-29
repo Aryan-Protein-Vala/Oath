@@ -21,7 +21,6 @@ interface WallViewProps {
 
 export default function WallView({ entries, type }: WallViewProps) {
   const isShame = type === "shame";
-  const { region } = useRegion();
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-zinc-50 dark:bg-transparent">

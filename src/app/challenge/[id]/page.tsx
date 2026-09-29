@@ -230,29 +230,43 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
             {/* Action Buttons */}
             {user ? (
               <div className="space-y-3">
-                <div className="flex justify-between items-center text-xs font-mono text-zinc-600 dark:text-zinc-400 px-1">
-                  <span>Your Available Balance:</span>
-                  <span className="font-bold text-zinc-950 dark:text-zinc-100">
-                    {wallet ? formatCurrencyPrecise(wallet.balance, region) : (region === "in" ? "₹0.00" : "$0.00")}
-                  </span>
-                </div>
-                <button
-                  onClick={handleAccept}
-                  disabled={accepting || (wallet ? wallet.balance < (oath?.stake_amount || 0) : false)}
-                  className={`w-full py-4 text-sm font-black uppercase tracking-tight transition-all border-2 ${
-                    wallet && wallet.balance < (oath?.stake_amount || 0)
-                      ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border-transparent cursor-not-allowed"
-                      : "bg-red-600 text-white border-red-600 hover:bg-red-700 shadow-[4px_4px_0px_0px_rgba(220,38,38,1)] dark:shadow-none"
-                  }`}
-                >
-                  {accepting ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Locking Escrow...
-                    </span>
-                  ) : (
-                    `Accept & Lock ${oath ? formatCurrency(oath.stake_amount, region) : ""}`
-                  )}
-                </button>
+                {user.id === oath?.creator_id ? (
+                  <div className="p-4 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 text-xs font-mono text-center space-y-1">
+                    <p className="font-bold text-zinc-950 dark:text-zinc-100">You created this challenge.</p>
+                    <p className="text-zinc-600 dark:text-zinc-400">Share this link with your opponent so they can lock their stake.</p>
+                  </div>
+                ) : oath?.status !== "pending" ? (
+                  <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border-2 border-emerald-600 text-xs font-mono text-center space-y-1">
+                    <p className="font-bold text-emerald-800 dark:text-emerald-300">Challenge is {oath?.status}.</p>
+                    <p className="text-zinc-600 dark:text-zinc-400">Both stakes have already been locked into escrow.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center text-xs font-mono text-zinc-600 dark:text-zinc-400 px-1">
+                      <span>Your Available Balance:</span>
+                      <span className="font-bold text-zinc-950 dark:text-zinc-100">
+                        {wallet ? formatCurrencyPrecise(wallet.balance, region) : (region === "in" ? "₹0.00" : "$0.00")}
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleAccept}
+                      disabled={accepting || (wallet ? wallet.balance < (oath?.stake_amount || 0) : false)}
+                      className={`w-full py-4 text-sm font-black uppercase tracking-tight transition-all border-2 ${
+                        wallet && wallet.balance < (oath?.stake_amount || 0)
+                          ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border-transparent cursor-not-allowed"
+                          : "bg-red-600 text-white border-red-600 hover:bg-red-700 shadow-[4px_4px_0px_0px_rgba(220,38,38,1)] dark:shadow-none"
+                      }`}
+                    >
+                      {accepting ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" /> Locking Escrow...
+                        </span>
+                      ) : (
+                        `Accept & Lock ${oath ? formatCurrency(oath.stake_amount, region) : ""}`
+                      )}
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <Link

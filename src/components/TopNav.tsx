@@ -28,7 +28,7 @@ export default function TopNav({
   onDuoClick,
 }: TopNavProps) {
   const { resolvedTheme, setTheme } = useTheme();
-  const { region, setRegion, formatCurrency } = useRegion();
+  const { region, setRegion } = useRegion();
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   return (

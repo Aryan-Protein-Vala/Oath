@@ -4,12 +4,14 @@ import * as React from "react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import type { ThemeProviderProps } from "next-themes";
 
-export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
-  const [mounted, setMounted] = React.useState(false);
+const emptySubscribe = () => () => {};
 
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
+export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  const mounted = React.useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
 
   if (!mounted) {
     return <>{children}</>;

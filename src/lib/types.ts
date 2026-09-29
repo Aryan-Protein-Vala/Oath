@@ -100,6 +100,7 @@ export interface GroupMember {
   votes_received: number;
   votes_needed: number;
   is_winner: boolean;
+  voted_by?: string[];
 }
 
 export interface Proof {

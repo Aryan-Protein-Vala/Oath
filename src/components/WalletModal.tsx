@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   X,
   Plus,
@@ -38,14 +38,20 @@ const TX_ICON: Record<string, React.ReactNode> = {
   house_cut: <DollarSign className="w-3.5 h-3.5 text-zinc-500" />,
 };
 
-const QUICK_AMOUNTS = [25, 50, 100, 250, 500, 1000];
-
 export default function WalletModal({ wallet, transactions = [], onClose, onRefresh }: WalletModalProps) {
   const [tab, setTab] = useState<ModalTab>("overview");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const { region, formatCurrency: formatRegionCurrency } = useRegion();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   const QUICK_AMOUNTS = region === "in" ? [500, 1000, 2500, 5000, 10000, 25000] : [25, 50, 100, 250, 500, 1000];
 
@@ -80,12 +86,17 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="wallet-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+    >
       <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b-2 border-zinc-950 dark:border-zinc-800">
-          <h3 className="text-sm font-black text-zinc-950 dark:text-zinc-100 tracking-tight uppercase">ESCROW WALLET</h3>
-          <button onClick={onClose} className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+          <h3 id="wallet-modal-title" className="text-sm font-black text-zinc-950 dark:text-zinc-100 tracking-tight uppercase">ESCROW WALLET</h3>
+          <button onClick={onClose} aria-label="Close wallet" className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
             <X className="w-4 h-4" />
           </button>
         </div>
