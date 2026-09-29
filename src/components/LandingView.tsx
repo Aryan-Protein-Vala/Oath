@@ -119,8 +119,8 @@ export default function LandingView() {
               href="/auth"
               className="w-full group flex items-center justify-center gap-3 py-6 bg-red-600 text-white text-xl sm:text-2xl font-black tracking-tight uppercase hover:bg-red-700 transition-all border-4 border-zinc-950 dark:border-red-600 shadow-[8px_8px_0px_0px_rgba(9,9,11,1)] dark:shadow-[0_0_30px_rgba(220,38,38,0.3)] hover:-translate-y-2 hover:shadow-[12px_12px_0px_0px_rgba(9,9,11,1)] dark:hover:shadow-[0_0_50px_rgba(220,38,38,0.5)] active:translate-y-0 active:shadow-[0px_0px_0px_0px_rgba(9,9,11,1)] dark:active:shadow-none rounded-none"
             >
-              <DollarSign className="w-8 h-8 group-hover:rotate-12 transition-transform" />
-              Lock In The Cash
+              <Zap className="w-8 h-8 group-hover:rotate-12 transition-transform" />
+              Lock In Your Penalty
             </Link>
           </motion.div>
         </motion.div>
@@ -151,7 +151,7 @@ export default function LandingView() {
                 You buy a $10 course and never open it. You set a goal and forget it by Tuesday. Why? Because losing $10 or hurting your own feelings isn&apos;t painful enough.
               </p>
               <p className="text-xl sm:text-2xl text-zinc-950 dark:text-zinc-300 leading-snug font-black p-6 bg-red-50 dark:bg-zinc-800/50 border-l-8 border-red-600">
-                But what if you lose $500? What if it&apos;s publicly posted that you&apos;re a failure? Suddenly, you&apos;ll find the time.
+                But what if you lose $500? What if we text your boss that you&apos;re a failure, or force you to do 100 burpees on video? Suddenly, you&apos;ll find the time.
               </p>
             </motion.div>
             
@@ -180,7 +180,7 @@ export default function LandingView() {
                 </div>
                 <div className="flex items-center gap-6 mt-8 pt-8 border-t-4 border-zinc-950 dark:border-zinc-800">
                   <XCircle className="w-12 h-12 text-red-600 shrink-0 animate-pulse" />
-                  <span className="text-3xl sm:text-4xl font-black uppercase text-zinc-950 dark:text-zinc-100 leading-tight tracking-tighter">&ldquo;I don&apos;t want to lose $1,000&rdquo;</span>
+                  <span className="text-3xl sm:text-4xl font-black uppercase text-zinc-950 dark:text-zinc-100 leading-tight tracking-tighter">&ldquo;I don&apos;t want to lose $1,000 or my dignity&rdquo;</span>
                 </div>
               </div>
             </motion.div>
@@ -232,14 +232,14 @@ export default function LandingView() {
               },
               {
                 step: "02",
-                title: "Lock The Stake",
-                desc: "Deposit real money into escrow. Not fake internet tokens. Real, hard cash. It stays locked until the deadline hits.",
+                title: "Lock The Penalty",
+                desc: "Lock in cash, give us your boss's phone number, or commit to a physical penalty. Whatever it is, it stays locked until the deadline hits.",
                 icon: <Lock className="w-12 h-12" />
               },
               {
                 step: "03",
                 title: "Prove It. Or Bleed.",
-                desc: "Upload proof. Your peers verify it. If you succeed, you keep your pride and money. If you fail, we take the cash.",
+                desc: "Upload proof for your referees, opponents, or the squad to verify. Succeed, and keep your pride. Fail, and the penalty is ruthlessly executed.",
                 icon: <Flame className="w-12 h-12 text-red-600" />
               }
             ].map((s, i) => (
@@ -399,7 +399,7 @@ export default function LandingView() {
         >
           {Array.from({ length: 20 }).map((_, i) => (
             <span key={i} className="flex items-center gap-12">
-              <span>THE HOUSE TAKES 10% ON ALL FAILURES</span>
+              <span>WE TAKE 10% OF THE CASH, OR 100% OF YOUR DIGNITY</span>
               <Skull className="w-10 h-10" />
             </span>
           ))}
@@ -498,7 +498,7 @@ export default function LandingView() {
             TIME TO PUT UP OR SHUT UP.
           </h2>
           <p className="text-2xl sm:text-3xl text-zinc-700 dark:text-zinc-400 mb-12 font-bold max-w-2xl mx-auto leading-snug">
-            Stop pretending you&apos;re going to do it &ldquo;tomorrow&rdquo;. Lock the stake right now.
+            Stop pretending you&apos;re going to do it &ldquo;tomorrow&rdquo;. Lock your penalty right now.
           </p>
           <Link
             href="/auth"
@@ -517,7 +517,7 @@ export default function LandingView() {
             <div className="h-6 w-1 bg-red-600" />
           </div>
           <p className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-500 uppercase tracking-widest text-center md:text-left max-w-md">
-            © {new Date().getFullYear()} OATH PLATFORM. WE ARE NOT A BANK. WE JUST TAKE YOUR MONEY WHEN YOU FAIL.
+            © {new Date().getFullYear()} OATH PLATFORM. WE ARE NOT A BANK. WE JUST RUIN YOUR DAY WHEN YOU FAIL.
           </p>
           <div className="flex gap-6">
             <Link href="#" className="text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Terms</Link>
