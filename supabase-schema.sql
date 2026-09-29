@@ -14,7 +14,20 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TYPE oath_type AS ENUM ('solo', 'duo', 'squad');
 CREATE TYPE oath_status AS ENUM ('pending', 'active', 'completed', 'failed', 'disputed', 'cancelled');
 CREATE TYPE verification_method AS ENUM ('nominee', 'peer', 'quorum', 'solo_lonely', 'app_blocking');
-CREATE TYPE consequence_type AS ENUM ('fiat', 'social_ransom', 'app_blocking', 'combined');
+CREATE TYPE consequence_type AS ENUM (
+  'anti_charity',
+  'public_shame',
+  'bounty_transfer',
+  'physical_debt',
+  'mutual_destruction',
+  'deadweight_tag',
+  'bounty_split',
+  'squad_lockdown',
+  'fiat',
+  'social_ransom',
+  'app_blocking',
+  'combined'
+);
 CREATE TYPE proof_status AS ENUM ('pending_review', 'verified', 'rejected', 'disputed');
 CREATE TYPE transaction_type AS ENUM ('deposit', 'withdrawal', 'escrow_lock', 'escrow_release', 'penalty', 'reward', 'house_cut');
 CREATE TYPE wall_type AS ENUM ('shame', 'honor');
@@ -91,9 +104,10 @@ CREATE TABLE oaths (
   stake_amount NUMERIC(12,2) DEFAULT 0,
   house_cut_percent NUMERIC(4,2) DEFAULT 10.00 CHECK (house_cut_percent >= 5 AND house_cut_percent <= 15),
   
-  -- Social ransom
+  -- Social ransom & Nominee
   social_ransom_phone TEXT,
   social_ransom_message TEXT,
+  nominee_email TEXT,
   
   -- Status
   status oath_status NOT NULL DEFAULT 'pending',
@@ -253,6 +267,10 @@ CREATE POLICY "Users can view own transactions"
   ON transactions FOR SELECT 
   USING (wallet_id IN (SELECT id FROM wallets WHERE user_id = auth.uid()));
 
+CREATE POLICY "Users can insert own transactions"
+  ON transactions FOR INSERT 
+  WITH CHECK (wallet_id IN (SELECT id FROM wallets WHERE user_id = auth.uid()));
+
 -- Oaths
 ALTER TABLE oaths ENABLE ROW LEVEL SECURITY;
 
@@ -267,8 +285,12 @@ CREATE POLICY "Active oaths are viewable by participants"
 CREATE POLICY "Users can create oaths"
   ON oaths FOR INSERT WITH CHECK (auth.uid() = creator_id);
 
-CREATE POLICY "Creators can update own oaths"
-  ON oaths FOR UPDATE USING (auth.uid() = creator_id);
+CREATE POLICY "Creators and participants can update oaths"
+  ON oaths FOR UPDATE USING (
+    auth.uid() = creator_id 
+    OR auth.uid() = opponent_id
+    OR id IN (SELECT oath_id FROM group_members WHERE user_id = auth.uid())
+  );
 
 -- Nominees
 ALTER TABLE nominees ENABLE ROW LEVEL SECURITY;
@@ -315,6 +337,12 @@ CREATE POLICY "Proofs viewable by oath participants"
 CREATE POLICY "Users can submit proofs"
   ON proofs FOR INSERT WITH CHECK (auth.uid() = submitted_by);
 
+CREATE POLICY "Oath participants can update proof review"
+  ON proofs FOR UPDATE USING (
+    oath_id IN (SELECT id FROM oaths WHERE creator_id = auth.uid() OR opponent_id = auth.uid())
+    OR oath_id IN (SELECT oath_id FROM group_members WHERE user_id = auth.uid())
+  );
+
 -- Votes
 ALTER TABLE votes ENABLE ROW LEVEL SECURITY;
 
@@ -330,11 +358,32 @@ CREATE POLICY "Squad members can vote"
     AND oath_id IN (SELECT oath_id FROM group_members WHERE user_id = auth.uid())
   );
 
+CREATE POLICY "Users can update own votes"
+  ON votes FOR UPDATE USING (auth.uid() = voter_id);
+
 -- Wall Entries
 ALTER TABLE wall_entries ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Wall entries are public"
   ON wall_entries FOR SELECT USING (true);
+
+CREATE POLICY "Users can insert wall entries"
+  ON wall_entries FOR INSERT WITH CHECK (
+    auth.uid() = user_id
+    OR auth.uid() IN (SELECT creator_id FROM oaths WHERE id = oath_id)
+  );
+
+-- ============================================================
+-- STORAGE BUCKET CONFIGURATION (Run in Supabase Dashboard / SQL)
+-- ============================================================
+-- INSERT INTO storage.buckets (id, name, public) VALUES ('oath-proofs', 'oath-proofs', true)
+-- ON CONFLICT (id) DO NOTHING;
+
+-- CREATE POLICY "Public read for oath-proofs" ON storage.objects
+--   FOR SELECT USING (bucket_id = 'oath-proofs');
+
+-- CREATE POLICY "Authenticated users can upload oath-proofs" ON storage.objects
+--   FOR INSERT WITH CHECK (bucket_id = 'oath-proofs' AND auth.role() = 'authenticated');
 
 -- ============================================================
 -- FUNCTIONS & TRIGGERS

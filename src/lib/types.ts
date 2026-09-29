@@ -7,6 +7,7 @@ export type OathStatus = "pending" | "active" | "completed" | "failed" | "disput
 export type VerificationMethod = "nominee" | "peer" | "quorum" | "solo_lonely" | "app_blocking";
 export type ConsequenceType = "fiat" | "social_ransom" | "app_blocking" | "combined" | "anti_charity" | "public_shame" | "bounty_transfer" | "physical_debt" | "mutual_destruction" | "deadweight_tag" | "bounty_split" | "squad_lockdown";
 export type ProofStatus = "pending_review" | "verified" | "rejected" | "disputed";
+export type ProofType = "photo" | "video" | "screenshot" | "link" | "text";
 export type TransactionType = "deposit" | "withdrawal" | "escrow_lock" | "escrow_release" | "penalty" | "reward" | "house_cut";
 export type WallType = "shame" | "honor";
 
@@ -58,6 +59,7 @@ export interface Oath {
   house_cut_percent: number;
   social_ransom_phone?: string;
   social_ransom_message?: string;
+  nominee_email?: string;
   status: OathStatus;
   min_players: number;
   max_players: number;

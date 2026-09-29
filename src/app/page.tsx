@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import TopNav from "@/components/TopNav";
 import ActiveOathsView from "@/components/ActiveOathsView";
@@ -61,11 +61,11 @@ export default function Home() {
   // Use real data if available, fall back to mock data for UI dev
   const activeProfile = profile ?? mockProfile;
   const activeWallet = wallet ?? mockWallet;
-  const activeOaths = user ? oaths : mockActiveOaths;
-  const activeLobbies = user ? lobbies : mockSquadOaths;
-  const activeShame = user && shameEntries.length > 0 ? shameEntries : mockWallOfShame;
-  const activeHonor = user && honorEntries.length > 0 ? honorEntries : mockWallOfHonor;
-  const activeTx = user && transactions.length > 0 ? transactions : mockTransactions;
+  const activeOaths = oaths.length > 0 ? oaths : mockActiveOaths;
+  const activeLobbies = lobbies.length > 0 ? lobbies : mockSquadOaths;
+  const activeShame = shameEntries.length > 0 ? shameEntries : mockWallOfShame;
+  const activeHonor = honorEntries.length > 0 ? honorEntries : mockWallOfHonor;
+  const activeTx = transactions.length > 0 ? transactions : mockTransactions;
 
   const handleSignOut = async () => {
     await signOut();
@@ -89,7 +89,7 @@ export default function Home() {
         {currentView === "active" && (
           <ActiveOathsView
             oaths={activeOaths}
-            onProofSubmitted={refreshOaths}
+            onProofSubmitted={() => { refreshOaths(); refreshWallet(); }}
           />
         )}
         {currentView === "create" && (
@@ -99,7 +99,7 @@ export default function Home() {
           />
         )}
         {currentView === "lobbies" && (
-          <LobbiesView squads={activeLobbies} wallet={activeWallet} onJoined={refreshOaths} />
+          <LobbiesView squads={activeLobbies} wallet={activeWallet} onJoined={() => { refreshOaths(); refreshWallet(); }} />
         )}
         {currentView === "wall_shame" && (
           <WallView entries={activeShame} type="shame" />
@@ -121,6 +121,7 @@ export default function Home() {
       {showWalletModal && (
         <WalletModal
           wallet={activeWallet}
+          transactions={activeTx}
           onClose={() => setShowWalletModal(false)}
           onRefresh={refreshWallet}
         />

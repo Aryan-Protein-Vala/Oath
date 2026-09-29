@@ -1,18 +1,18 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 import type { Profile, Wallet } from "@/lib/types";
 import { mockProfile, mockWallet } from "@/lib/mock-data";
 
-const ADMIN_MOCK_USER = {
+export const ADMIN_MOCK_USER = {
   id: "admin-mock-id",
-  email: process.env.NEXT_PUBLIC_ADMIN_EMAIL,
+  email: process.env.NEXT_PUBLIC_ADMIN_EMAIL || "aryansharma24112003@gmail.com",
   app_metadata: {},
-  user_metadata: { username: "Admin_Aryan" },
+  user_metadata: { username: "AryanTheAdmin" },
   aud: "authenticated",
-  created_at: new Date().toISOString(),
+  created_at: "2025-01-01T00:00:00Z",
 } as User;
 
 interface AuthContextType {
@@ -30,13 +30,56 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function getInitialMockProfile(): Profile {
+  if (typeof window === "undefined") return { ...mockProfile, username: "AryanTheAdmin" };
+  try {
+    const saved = localStorage.getItem("oath_mock_profile");
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return { ...mockProfile, username: "AryanTheAdmin" };
+}
+
+export function getInitialMockWallet(): Wallet {
+  if (typeof window === "undefined") return { ...mockWallet, balance: 5000, escrow_locked: 500 };
+  try {
+    const saved = localStorage.getItem("oath_mock_wallet");
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return { ...mockWallet, balance: 5000, escrow_locked: 500 };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const supabase = useMemo(() => createClient(), []);
+
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window !== "undefined" && localStorage.getItem("oath_admin_logged_in") === "true") {
+      return ADMIN_MOCK_USER;
+    }
+    return null;
+  });
+
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+
+  const [profile, setProfile] = useState<Profile | null>(() => {
+    if (typeof window !== "undefined" && localStorage.getItem("oath_admin_logged_in") === "true") {
+      return getInitialMockProfile();
+    }
+    return null;
+  });
+
+  const [wallet, setWallet] = useState<Wallet | null>(() => {
+    if (typeof window !== "undefined" && localStorage.getItem("oath_admin_logged_in") === "true") {
+      return getInitialMockWallet();
+    }
+    return null;
+  });
+
+  const [loading, setLoading] = useState<boolean>(() => {
+    if (typeof window !== "undefined" && localStorage.getItem("oath_admin_logged_in") === "true") {
+      return false;
+    }
+    return true;
+  });
 
   const fetchProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
@@ -57,14 +100,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   useEffect(() => {
-    // Check for mock admin session first
     const isAdmin = typeof window !== "undefined" && localStorage.getItem("oath_admin_logged_in") === "true";
     if (isAdmin) {
-      setUser(ADMIN_MOCK_USER);
-      setProfile({ ...mockProfile, username: "AryanTheAdmin" });
-      setWallet({ ...mockWallet, balance: 99999 });
-      setLoading(false);
-      return;
+      // Mock admin is active; listen for local data updates
+      const handleDataUpdate = () => {
+        setWallet(getInitialMockWallet());
+        setProfile(getInitialMockProfile());
+      };
+      window.addEventListener("oath_data_updated", handleDataUpdate);
+      return () => window.removeEventListener("oath_data_updated", handleDataUpdate);
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -85,14 +129,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase, fetchProfile, fetchWallet]);
 
   const signIn = async (email: string, password: string) => {
-    if (
-      email === process.env.NEXT_PUBLIC_ADMIN_EMAIL &&
-      password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD
-    ) {
+    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "aryansharma24112003@gmail.com";
+    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "Aryan@24";
+
+    if (email === adminEmail && password === adminPassword) {
       localStorage.setItem("oath_admin_logged_in", "true");
       setUser(ADMIN_MOCK_USER);
-      setProfile({ ...mockProfile, username: "AryanTheAdmin" });
-      setWallet({ ...mockWallet, balance: 99999 });
+      setProfile(getInitialMockProfile());
+      setWallet(getInitialMockWallet());
+      setLoading(false);
       return { error: null };
     }
 
@@ -114,14 +159,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setProfile(null);
     setWallet(null);
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch {}
   };
 
   const refreshProfile = async () => {
+    const isAdmin = typeof window !== "undefined" && localStorage.getItem("oath_admin_logged_in") === "true";
+    if (isAdmin) {
+      setProfile(getInitialMockProfile());
+      return;
+    }
     if (user) await fetchProfile(user.id);
   };
 
   const refreshWallet = async () => {
+    const isAdmin = typeof window !== "undefined" && localStorage.getItem("oath_admin_logged_in") === "true";
+    if (isAdmin) {
+      setWallet(getInitialMockWallet());
+      return;
+    }
     if (user) await fetchWallet(user.id);
   };
 

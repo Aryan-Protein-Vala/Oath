@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Skull,
-  TrendingDown,
   DollarSign,
   Crosshair,
   Zap,
@@ -23,14 +22,14 @@ import {
   Lock
 } from "lucide-react";
 
-export default function LandingView() {
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+const emptySubscribe = () => () => {};
 
-  useEffect(() => setMounted(true), []);
+export default function LandingView() {
+  const { setTheme, resolvedTheme } = useTheme();
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
+    setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
 
   if (!mounted) return null;
@@ -53,7 +52,7 @@ export default function LandingView() {
               className="p-2 rounded-none border-2 border-transparent hover:border-zinc-950 dark:hover:border-zinc-700 transition-all"
               aria-label="Toggle theme"
             >
-              {theme === "dark" ? (
+              {resolvedTheme === "dark" ? (
                 <Sun className="w-5 h-5 text-zinc-400" />
               ) : (
                 <Moon className="w-5 h-5 text-zinc-950" />
@@ -149,10 +148,10 @@ export default function LandingView() {
                 <span className="text-zinc-950 dark:text-zinc-100 underline decoration-red-600 decoration-8 underline-offset-8">Pain is reliable.</span>
               </h2>
               <p className="text-xl sm:text-2xl text-zinc-700 dark:text-zinc-400 font-bold mb-6 leading-snug">
-                You buy a $10 course and never open it. You set a goal and forget it by Tuesday. Why? Because losing $10 or hurting your own feelings isn't painful enough.
+                You buy a $10 course and never open it. You set a goal and forget it by Tuesday. Why? Because losing $10 or hurting your own feelings isn&apos;t painful enough.
               </p>
               <p className="text-xl sm:text-2xl text-zinc-950 dark:text-zinc-300 leading-snug font-black p-6 bg-red-50 dark:bg-zinc-800/50 border-l-8 border-red-600">
-                But what if you lose $500? What if it's publicly posted that you're a failure? Suddenly, you'll find the time.
+                But what if you lose $500? What if it&apos;s publicly posted that you&apos;re a failure? Suddenly, you&apos;ll find the time.
               </p>
             </motion.div>
             
@@ -169,19 +168,19 @@ export default function LandingView() {
               <div className="space-y-8 mt-6">
                 <div className="flex items-center gap-6 opacity-40 line-through hover:opacity-100 transition-opacity">
                   <CheckCircle2 className="w-10 h-10 text-zinc-950 dark:text-zinc-400 shrink-0" />
-                  <span className="text-2xl sm:text-3xl font-black font-mono">"I'll do it tomorrow"</span>
+                  <span className="text-2xl sm:text-3xl font-black font-mono">&ldquo;I&apos;ll do it tomorrow&rdquo;</span>
                 </div>
                 <div className="flex items-center gap-6 opacity-40 line-through hover:opacity-100 transition-opacity">
                   <CheckCircle2 className="w-10 h-10 text-zinc-950 dark:text-zinc-400 shrink-0" />
-                  <span className="text-2xl sm:text-3xl font-black font-mono">"I'm just too busy"</span>
+                  <span className="text-2xl sm:text-3xl font-black font-mono">&ldquo;I&apos;m just too busy&rdquo;</span>
                 </div>
                 <div className="flex items-center gap-6 opacity-40 line-through hover:opacity-100 transition-opacity">
                   <CheckCircle2 className="w-10 h-10 text-zinc-950 dark:text-zinc-400 shrink-0" />
-                  <span className="text-2xl sm:text-3xl font-black font-mono">"I need to read more"</span>
+                  <span className="text-2xl sm:text-3xl font-black font-mono">&ldquo;I need to read more&rdquo;</span>
                 </div>
                 <div className="flex items-center gap-6 mt-8 pt-8 border-t-4 border-zinc-950 dark:border-zinc-800">
                   <XCircle className="w-12 h-12 text-red-600 shrink-0 animate-pulse" />
-                  <span className="text-3xl sm:text-4xl font-black uppercase text-zinc-950 dark:text-zinc-100 leading-tight tracking-tighter">"I don't want to lose $1,000"</span>
+                  <span className="text-3xl sm:text-4xl font-black uppercase text-zinc-950 dark:text-zinc-100 leading-tight tracking-tighter">&ldquo;I don&apos;t want to lose $1,000&rdquo;</span>
                 </div>
               </div>
             </motion.div>
@@ -324,7 +323,7 @@ export default function LandingView() {
               <Users className="w-16 h-16 text-zinc-950 dark:text-zinc-400 mb-8 group-hover:text-zinc-50 transition-colors" />
               <h3 className="text-4xl font-black tracking-tight mb-4 uppercase text-zinc-950 dark:text-zinc-100 group-hover:text-zinc-50 transition-colors">Squad Pool</h3>
               <p className="text-lg text-zinc-700 dark:text-zinc-400 mb-8 font-bold group-hover:text-zinc-300 transition-colors leading-snug">
-                Up to 8 players. Enforce the group with the Deadweight Tag, The Bounty Split, or Squad Lockdown (one fails, everyone's apps are blocked).
+                Up to 8 players. Enforce the group with the Deadweight Tag, The Bounty Split, or Squad Lockdown (one fails, everyone&apos;s apps are blocked).
               </p>
               <ul className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-500 space-y-3 group-hover:text-zinc-400 transition-colors">
                 <li className="flex items-center gap-2"><ArrowRight className="w-4 h-4"/> The Bounty Split</li>
@@ -410,7 +409,7 @@ export default function LandingView() {
                 transition={{ duration: 0.5, delay: i * 0.1 }}
                 className="p-8 border-4 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-900/40 flex flex-col justify-between shadow-[8px_8px_0px_0px_rgba(9,9,11,1)] dark:shadow-none hover:-translate-y-2 hover:shadow-[12px_12px_0px_0px_rgba(9,9,11,1)] transition-all duration-300"
               >
-                <div className="text-4xl text-zinc-300 dark:text-zinc-700 mb-4 leading-none font-serif">"</div>
+                <div className="text-4xl text-zinc-300 dark:text-zinc-700 mb-4 leading-none font-serif">&ldquo;</div>
                 <p className="text-lg font-bold text-zinc-900 dark:text-zinc-200 mb-8 leading-snug">{t.quote}</p>
                 <div className="flex items-center justify-between border-t-2 border-zinc-200 dark:border-zinc-800 pt-6 mt-auto">
                   <span className="text-sm font-mono font-black text-zinc-600 dark:text-zinc-500 uppercase">@{t.author}</span>
@@ -445,7 +444,7 @@ export default function LandingView() {
             TIME TO PUT UP OR SHUT UP.
           </h2>
           <p className="text-2xl sm:text-3xl text-zinc-700 dark:text-zinc-400 mb-12 font-bold max-w-2xl mx-auto leading-snug">
-            Stop pretending you're going to do it "tomorrow". Lock the stake right now.
+            Stop pretending you&apos;re going to do it &ldquo;tomorrow&rdquo;. Lock the stake right now.
           </p>
           <Link
             href="/auth"

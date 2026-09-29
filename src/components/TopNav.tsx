@@ -1,8 +1,12 @@
 "use client";
 
-import { Wallet, Plus, Minus, Swords, User } from "lucide-react";
+import { useSyncExternalStore } from "react";
+import { Wallet, Plus, Swords, Sun, Moon } from "lucide-react";
+import { useTheme } from "next-themes";
 import { formatCurrencyPrecise } from "@/lib/utils";
 import type { Wallet as WalletType } from "@/lib/types";
+
+const emptySubscribe = () => () => {};
 
 interface TopNavProps {
   wallet: WalletType;
@@ -21,6 +25,9 @@ export default function TopNav({
   onWalletClick,
   onDuoClick,
 }: TopNavProps) {
+  const { resolvedTheme, setTheme } = useTheme();
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
+
   return (
     <nav className="w-full border-b-2 sm:border-b-4 border-zinc-950 dark:border-zinc-800/80 bg-zinc-50/95 dark:bg-[#09090b]/95 backdrop-blur-md transition-colors duration-300">
       <div className="flex items-center justify-between h-14 sm:h-16 px-5 max-w-7xl mx-auto w-full">
@@ -50,6 +57,18 @@ export default function TopNav({
 
         {/* Right Side */}
         <div className="flex items-center gap-3">
+          {/* Theme Toggle Button */}
+          {mounted && (
+            <button
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+              className="p-2 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+              aria-label="Toggle theme"
+              title={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {resolvedTheme === "dark" ? <Sun className="w-4 h-4 text-zinc-300" /> : <Moon className="w-4 h-4 text-zinc-800" />}
+            </button>
+          )}
+
           {/* Duo Challenge Button */}
           <button
             onClick={onDuoClick}

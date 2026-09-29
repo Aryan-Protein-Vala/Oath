@@ -7,16 +7,27 @@
    ============================================================ */
 
 :root {
+  --background: #fafafa;
+  --foreground: #09090b;
+  --muted: #71717a;
+  --border: #e4e4e7;
+  --crimson: #dc2626;
+  --crimson-dark: #991b1b;
+  --surface: #ffffff;
+  --surface-raised: #f4f4f5;
+  --font-geist-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-geist-mono: 'JetBrains Mono', 'SF Mono', monospace;
+}
+
+.dark {
   --background: #09090b;
   --foreground: #fafafa;
-  --muted: #71717a;
+  --muted: #a1a1aa;
   --border: #27272a;
   --crimson: #dc2626;
   --crimson-dark: #991b1b;
   --surface: #0a0a0f;
   --surface-raised: #111114;
-  --font-geist-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-geist-mono: 'JetBrains Mono', 'SF Mono', monospace;
 }
 
 @theme inline {
@@ -49,7 +60,6 @@ body {
   font-family: var(--font-geist-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow: hidden;
 }
 
 /* ---- Scrollbar (brutalist) ---- */
@@ -175,8 +185,8 @@ body {
 /* ---- Input styles (brutalist) ---- */
 input, textarea, select {
   background: transparent;
-  border: 1px solid #27272a;
-  color: #fafafa;
+  border: 1px solid var(--border);
+  color: inherit;
   font-family: var(--font-geist-sans);
   outline: none;
   transition: border-color 0.15s ease;
@@ -185,7 +195,7 @@ input:focus, textarea:focus, select:focus {
   border-color: #52525b;
 }
 input::placeholder, textarea::placeholder {
-  color: #52525b;
+  color: var(--muted);
 }
 
 /* ---- Button reset ---- */

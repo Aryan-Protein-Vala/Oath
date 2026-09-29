@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff, Zap, AlertCircle, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Eye, EyeOff, Zap, AlertCircle, Loader2, ArrowLeft, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 
@@ -15,6 +16,13 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
   const router = useRouter();
+
+  const handleDemoFill = () => {
+    setMode("signin");
+    setEmail(process.env.NEXT_PUBLIC_ADMIN_EMAIL || "aryansharma24112003@gmail.com");
+    setPassword(process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "Aryan@24");
+    setError(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,15 +54,32 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 px-6 transition-colors duration-300">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 px-6 py-12 transition-colors duration-300">
       <div className="noise-overlay" aria-hidden="true" />
       <div className="scanline-overlay" aria-hidden="true" />
 
-      <div className="w-full max-w-sm fade-in bg-white dark:bg-[#09090b] p-8 border-4 border-zinc-950 dark:border-transparent shadow-[12px_12px_0px_0px_rgba(9,9,11,1)] dark:shadow-none">
+      <div className="w-full max-w-sm fade-in bg-white dark:bg-[#09090b] p-8 border-4 border-zinc-950 dark:border-zinc-800 shadow-[12px_12px_0px_0px_rgba(9,9,11,1)] dark:shadow-none">
+        {/* Navigation Back */}
+        <div className="mb-6 flex items-center justify-between">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors uppercase tracking-wider"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
+          </Link>
+          <button
+            type="button"
+            onClick={handleDemoFill}
+            className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-mono font-bold uppercase tracking-wider text-red-600 dark:text-red-400 border border-red-600/40 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+          >
+            <Shield className="w-2.5 h-2.5" /> Auto-fill Demo
+          </button>
+        </div>
+
         {/* Brand */}
-        <div className="mb-10 text-center">
+        <div className="mb-8 text-center">
           <h1 className="text-4xl font-black tracking-[-0.08em] text-zinc-950 dark:text-zinc-50">OATH</h1>
-          <p className="text-[10px] font-mono font-bold text-zinc-600 tracking-[0.25em] uppercase mt-1">
+          <p className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 tracking-[0.25em] uppercase mt-1">
             Stake everything.
           </p>
         </div>

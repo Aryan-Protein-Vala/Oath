@@ -7,8 +7,6 @@ import type {
   Wallet,
   Oath,
   WallEntry,
-  GroupMember,
-  Proof,
   Transaction,
 } from "./types";
 
