@@ -4,6 +4,8 @@ import { useSyncExternalStore } from "react";
 import { Wallet, Plus, Swords, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { formatCurrencyPrecise } from "@/lib/utils";
+import { useRegion } from "@/lib/region-context";
+import { Globe, MapPin } from "lucide-react";
 import type { Wallet as WalletType } from "@/lib/types";
 
 const emptySubscribe = () => () => {};
@@ -26,6 +28,7 @@ export default function TopNav({
   onDuoClick,
 }: TopNavProps) {
   const { resolvedTheme, setTheme } = useTheme();
+  const { region, setRegion, formatCurrency } = useRegion();
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   return (
@@ -57,6 +60,25 @@ export default function TopNav({
 
         {/* Right Side */}
         <div className="flex items-center gap-3">
+          {/* Region Toggle Button */}
+          {mounted && (
+            <button
+              onClick={() => setRegion(region === "global" ? "in" : "global")}
+              className="p-2 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none flex items-center gap-1"
+              aria-label="Toggle region"
+              title={region === "global" ? "Switch to India" : "Switch to Global"}
+            >
+              {region === "global" ? (
+                <Globe className="w-4 h-4 text-zinc-800 dark:text-zinc-300" />
+              ) : (
+                <MapPin className="w-4 h-4 text-zinc-800 dark:text-zinc-300" />
+              )}
+              <span className="text-[10px] font-mono font-bold uppercase hidden sm:inline-block">
+                {region === "global" ? "GLB" : "IN"}
+              </span>
+            </button>
+          )}
+
           {/* Theme Toggle Button */}
           {mounted && (
             <button
@@ -86,10 +108,10 @@ export default function TopNav({
             <Wallet className="w-4 h-4 text-zinc-950 dark:text-zinc-500" />
             <div className="flex flex-col text-left">
               <span className="text-xs font-mono font-black text-zinc-950 dark:text-zinc-50 stake-number leading-none">
-                {formatCurrencyPrecise(wallet.balance)}
+                {formatCurrencyPrecise(wallet.balance, region)}
               </span>
               <span className="text-[9px] font-mono font-bold text-zinc-600 dark:text-zinc-500 leading-none mt-0.5">
-                {formatCurrencyPrecise(wallet.escrow_locked)} locked
+                {formatCurrencyPrecise(wallet.escrow_locked, region)} locked
               </span>
             </div>
             <div className="flex items-center gap-0.5 ml-0.5">

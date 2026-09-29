@@ -17,6 +17,7 @@ import { mockTransactions } from "@/lib/mock-data";
 import { formatCurrencyPrecise, formatRelativeTime } from "@/lib/utils";
 import type { Wallet, Transaction } from "@/lib/types";
 import { showToast } from "./Toast";
+import { useRegion } from "@/lib/region-context";
 
 interface WalletModalProps {
   wallet: Wallet;
@@ -44,6 +45,9 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const { region, formatCurrency: formatRegionCurrency } = useRegion();
+
+  const QUICK_AMOUNTS = region === "in" ? [500, 1000, 2500, 5000, 10000, 25000] : [25, 50, 100, 250, 500, 1000];
 
   const amountNum = parseFloat(amount) || 0;
   const canWithdraw = amountNum > 0 && amountNum <= wallet.balance;
@@ -65,7 +69,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
     } else {
       setDone(true);
       showToast(
-        tab === "deposit" ? `$${amountNum} deposited into available balance.` : `$${amountNum} withdrawn.`,
+        tab === "deposit" ? `${formatRegionCurrency(amountNum)} deposited into available balance.` : `${formatRegionCurrency(amountNum)} withdrawn.`,
         "success"
       );
       onRefresh();
@@ -90,13 +94,13 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           <div className="px-5 py-4 border-r-2 border-zinc-200 dark:border-zinc-800">
             <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest font-bold mb-1">Available</p>
             <p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">
-              {formatCurrencyPrecise(wallet.balance)}
+              {formatCurrencyPrecise(wallet.balance, region)}
             </p>
           </div>
           <div className="px-5 py-4">
             <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest font-bold mb-1">Locked in Escrow</p>
             <p className="text-2xl font-black stake-number text-zinc-500">
-              {formatCurrencyPrecise(wallet.escrow_locked)}
+              {formatCurrencyPrecise(wallet.escrow_locked, region)}
             </p>
           </div>
         </div>
@@ -151,7 +155,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                   {/* Amount input */}
                   <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-950/50">
                     <div className="flex items-center gap-2">
-                      <span className="text-2xl font-black text-zinc-500">$</span>
+                      <span className="text-2xl font-black text-zinc-500">{region === "in" ? "₹" : "$"}</span>
                       <input
                         type="number"
                         value={amount}
@@ -183,7 +187,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                             : "border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-600 hover:text-zinc-900"
                         }`}
                       >
-                        ${a}
+                        {formatRegionCurrency(a)}
                       </button>
                     ))}
                   </div>
@@ -218,12 +222,12 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                     )}
                     {loading
                       ? "Processing..."
-                      : `${tab === "deposit" ? "Deposit" : "Withdraw"} ${amountNum > 0 ? `$${amountNum}` : ""}`}
+                      : `${tab === "deposit" ? (region === "in" ? "Deposit via Razorpay" : "Deposit via PayPal") : "Withdraw"} ${amountNum > 0 ? formatRegionCurrency(amountNum) : ""}`}
                   </button>
 
                   <p className="text-[10px] font-mono text-zinc-500 text-center">
                     {tab === "deposit"
-                      ? "Simulated deposit — funds update instantly in your escrow ledger."
+                      ? (region === "in" ? "Simulating secure payment via Razorpay. Funds update instantly." : "Simulating secure payment via PayPal. Funds update instantly.")
                       : "Withdrawals return to your linked account."}
                   </p>
                 </>

@@ -21,11 +21,13 @@ import {
   AlertTriangle,
   Lock
 } from "lucide-react";
+import { useRegion } from "@/lib/region-context";
 
 const emptySubscribe = () => () => {};
 
 export default function LandingView() {
   const { setTheme, resolvedTheme } = useTheme();
+  const { formatCurrency } = useRegion();
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   const toggleTheme = () => {
@@ -148,10 +150,10 @@ export default function LandingView() {
                 <span className="text-zinc-950 dark:text-zinc-100 underline decoration-red-600 decoration-8 underline-offset-8">Pain is reliable.</span>
               </h2>
               <p className="text-xl sm:text-2xl text-zinc-700 dark:text-zinc-400 font-bold mb-6 leading-snug">
-                You buy a $10 course and never open it. You set a goal and forget it by Tuesday. Why? Because losing $10 or hurting your own feelings isn&apos;t painful enough.
+                You buy a {formatCurrency(10)} course and never open it. You set a goal and forget it by Tuesday. Why? Because losing {formatCurrency(10)} or hurting your own feelings isn&apos;t painful enough.
               </p>
               <p className="text-xl sm:text-2xl text-zinc-950 dark:text-zinc-300 leading-snug font-black p-6 bg-red-50 dark:bg-zinc-800/50 border-l-8 border-red-600">
-                But what if you lose $500? What if we text your boss that you&apos;re a failure, or force you to do 100 burpees on video? Suddenly, you&apos;ll find the time.
+                But what if you lose {formatCurrency(500)}? What if we text your boss that you&apos;re a failure, or force you to do 100 burpees on video? Suddenly, you&apos;ll find the time.
               </p>
             </motion.div>
             
@@ -180,7 +182,7 @@ export default function LandingView() {
                 </div>
                 <div className="flex items-center gap-6 mt-8 pt-8 border-t-4 border-zinc-950 dark:border-zinc-800">
                   <XCircle className="w-12 h-12 text-red-600 shrink-0 animate-pulse" />
-                  <span className="text-3xl sm:text-4xl font-black uppercase text-zinc-950 dark:text-zinc-100 leading-tight tracking-tighter">&ldquo;I don&apos;t want to lose $1,000 or my dignity&rdquo;</span>
+                  <span className="text-3xl sm:text-4xl font-black uppercase text-zinc-950 dark:text-zinc-100 leading-tight tracking-tighter">&ldquo;I don&apos;t want to lose {formatCurrency(1000)} or my dignity&rdquo;</span>
                 </div>
               </div>
             </motion.div>
@@ -419,28 +421,28 @@ export default function LandingView() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
-                quote: "I lost $500 because I hit snooze instead of going for a run. I hate this app. 10/10 will use again tomorrow.",
+                quote: `I lost ${formatCurrency(500)} because I hit snooze instead of going for a run. I hate this app. 10/10 will use again tomorrow.`,
                 author: "Alex_Dev",
                 result: "FAILED",
-                amt: "-$500"
+                amt: `-${formatCurrency(500)}`
               },
               {
-                quote: "I actually shipped my MVP because I was terrified of losing my rent money to my co-founder. Brutal but it works.",
+                quote: `I actually shipped my MVP because I was terrified of losing my rent money to my co-founder. Brutal but it works.`,
                 author: "Sarah_Ships",
                 result: "SUCCESS",
-                amt: "+$1000"
+                amt: `+${formatCurrency(1000)}`
               },
               {
-                quote: "My friends rejected my proof because my squat wasn't parallel. I lost $50. Now I have no friends and no money.",
+                quote: `My friends rejected my proof because my squat wasn't parallel. I lost ${formatCurrency(50)}. Now I have no friends and no money.`,
                 author: "GymBro99",
                 result: "FAILED",
-                amt: "-$50"
+                amt: `-${formatCurrency(50)}`
               },
               {
                 quote: "If you don't have the discipline, this app forces it onto you with a sledgehammer. Highly recommended.",
                 author: "CEO_Mindset",
                 result: "SUCCESS",
-                amt: "+$250"
+                amt: `+${formatCurrency(250)}`
               },
               {
                 quote: "I put my phone number in the social ransom field. I failed. It texted my mom that I'm a failure. I am never procrastinating again.",
@@ -452,7 +454,7 @@ export default function LandingView() {
                 quote: "This is the most aggressive, stressful, and toxic productivity tool I've ever used. I've never been more productive.",
                 author: "DesignGod",
                 result: "SUCCESS",
-                amt: "+$100"
+                amt: `+${formatCurrency(100)}`
               }
             ].map((t, i) => (
               <motion.div

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 import type { WallEntry } from "@/lib/types";
+import { useRegion } from "@/lib/region-context";
 
 interface WallViewProps {
   entries: WallEntry[];
@@ -20,6 +21,7 @@ interface WallViewProps {
 
 export default function WallView({ entries, type }: WallViewProps) {
   const isShame = type === "shame";
+  const { region } = useRegion();
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-zinc-50 dark:bg-transparent">
@@ -85,6 +87,7 @@ function WallEntryCard({
   index: number;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const { region } = useRegion();
 
   return (
     <div
@@ -159,7 +162,7 @@ function WallEntryCard({
               }`}
             >
               {isShame ? "-" : "+"}
-              {formatCurrency(entry.stake_amount)}
+              {formatCurrency(entry.stake_amount, region)}
             </span>
           </div>
           <span

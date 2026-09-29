@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import type { OathType, VerificationMethod, ConsequenceType } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
+import { useRegion } from "@/lib/region-context";
 import { showToast } from "./Toast";
 
 interface CreateOathViewProps {
@@ -32,6 +33,7 @@ interface CreateOathViewProps {
 }
 
 export default function CreateOathView({ walletBalance, onOathCreated }: CreateOathViewProps) {
+  const { region, formatCurrency: formatRegionCurrency } = useRegion();
   // Form state
   const [oathStatement, setOathStatement] = useState("");
   const [oathType, setOathType] = useState<OathType>("solo");
@@ -300,13 +302,13 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 value={socialPhone}
                 onChange={(e) => setSocialPhone(e.target.value)}
                 placeholder="Friend's phone number"
-                className="w-full px-3 py-3 text-sm bg-zinc-50 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-700 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none"
+                className="w-full px-3 py-3 text-sm bg-white dark:bg-zinc-950 border-2 border-zinc-950 dark:border-zinc-700 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none"
               />
               <textarea
                 value={socialMessage}
                 onChange={(e) => setSocialMessage(e.target.value)}
                 placeholder="The embarrassing message that gets sent if you fail..."
-                className="w-full px-3 py-3 text-sm resize-none bg-zinc-50 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-700 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none"
+                className="w-full px-3 py-3 text-sm resize-none bg-white dark:bg-zinc-950 border-2 border-zinc-950 dark:border-zinc-700 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none"
                 rows={3}
               />
             </div>
@@ -320,7 +322,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 Or I lose
               </label>
               <div className="flex items-center gap-2">
-                <span className="text-2xl font-black text-zinc-500">$</span>
+                <span className="text-2xl font-black text-zinc-500">{region === "in" ? "₹" : "$"}</span>
                 <input
                   type="number"
                   value={stakeAmount}
@@ -337,11 +339,11 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                     isOverBudget ? "text-red-500" : "text-zinc-600 dark:text-zinc-400"
                   }`}
                 >
-                  Balance: {formatCurrency(walletBalance)}
+                  Balance: {formatRegionCurrency(walletBalance)}
                 </span>
                 {stakeNum > 0 && (
                   <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
-                    House: {formatCurrency(houseCut)}
+                    House: {formatRegionCurrency(houseCut)}
                   </span>
                 )}
               </div>
@@ -357,7 +359,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                         : "border-zinc-300 text-zinc-700 hover:text-zinc-950 hover:border-zinc-500 dark:border-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
                     }`}
                   >
-                    ${amount}
+                    {formatRegionCurrency(amount)}
                   </button>
                 ))}
               </div>
@@ -461,7 +463,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 value={nomineeEmail}
                 onChange={(e) => setNomineeEmail(e.target.value)}
                 placeholder="nominee@email.com or +1234567890"
-                className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors"
+                className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
               />
               <p className="text-[10px] font-bold text-zinc-500 mt-2.5 font-mono">
                 They&apos;ll receive a unique link to verify or enforce penalty.
@@ -524,7 +526,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                   )}
                   {" "}or I lose{" "}
                   <span className={`font-black ${isOverBudget ? "text-red-500" : "text-zinc-950 dark:text-zinc-50"}`}>
-                    {formatCurrency(stakeNum)}
+                    {formatRegionCurrency(stakeNum)}
                   </span>
                   .&rdquo;
                 </p>
@@ -542,7 +544,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 }`}
               >
                 <Zap className="w-4 h-4" />
-                {submitting ? "Locking Escrow..." : `Lock ${formatCurrency(stakeNum)} & Create Oath`}
+                {submitting ? "Locking Escrow..." : `Lock ${formatRegionCurrency(stakeNum)} & Create Oath`}
               </button>
             </div>
 

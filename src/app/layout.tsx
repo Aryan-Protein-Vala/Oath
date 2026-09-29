@@ -3,6 +3,8 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { RegionProvider } from "@/lib/region-context";
+import Loader from "@/components/Loader";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -35,15 +37,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <body suppressHydrationWarning className="h-full overflow-hidden bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 transition-colors duration-300">
-        {/* SVG Noise Grain Overlay — Global, fixed, non-interactive */}
-        <div className="noise-overlay" aria-hidden="true" />
-        <div className="scanline-overlay" aria-hidden="true" />
+        <RegionProvider>
+          {/* SVG Noise Grain Overlay — Global, fixed, non-interactive */}
+          <div className="noise-overlay" aria-hidden="true" />
+          <div className="scanline-overlay" aria-hidden="true" />
 
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
-        </ThemeProvider>
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+            <AuthProvider>
+              <Loader />
+              {children}
+            </AuthProvider>
+          </ThemeProvider>
+        </RegionProvider>
       </body>
     </html>
   );
