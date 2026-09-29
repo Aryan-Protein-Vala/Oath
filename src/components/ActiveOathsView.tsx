@@ -15,6 +15,7 @@ interface ActiveOathsViewProps {
 }
 
 export default function ActiveOathsView({ oaths, onProofSubmitted }: ActiveOathsViewProps) {
+  const { region } = useRegion();
   const [selectedOathId, setSelectedOathId] = useState<string | null>(
     oaths.length > 0 ? oaths[0].id : null
   );
@@ -228,7 +229,7 @@ function OathCountdownCard({
       <div className="text-center mb-6">
         <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-[0.2em] font-bold mb-1">At stake</p>
         <p className="text-4xl sm:text-5xl font-black text-zinc-950 dark:text-zinc-50 stake-number tracking-tight">
-          {formatCurrency(oath.stake_amount)}
+          {utilsFormatCurrency(oath.stake_amount, region)}
         </p>
         <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-500 mt-1">
           {oath.house_cut_percent}% house cut on failure
@@ -303,6 +304,7 @@ function Sep({ urgent, large }: { urgent?: boolean; large?: boolean }) {
 }
 
 function OathDetailsModal({ oath, onClose }: { oath: Oath; onClose: () => void }) {
+  const { region } = useRegion();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <div className="w-full max-w-lg bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
@@ -333,11 +335,11 @@ function OathDetailsModal({ oath, onClose }: { oath: Oath; onClose: () => void }
             </div>
             <div>
               <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Stake Locked</span>
-              <span className="text-sm font-mono font-black text-zinc-900 dark:text-zinc-200">{formatCurrency(oath.stake_amount)}</span>
+              <span className="text-sm font-mono font-black text-zinc-900 dark:text-zinc-200">{utilsFormatCurrency(oath.stake_amount, region)}</span>
             </div>
             <div>
               <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">House Cut</span>
-              <span className="text-sm font-mono font-black text-zinc-900 dark:text-zinc-200">{oath.house_cut_percent}% ({formatCurrency(oath.stake_amount * 0.1)})</span>
+              <span className="text-sm font-mono font-black text-zinc-900 dark:text-zinc-200">{oath.house_cut_percent}% ({utilsFormatCurrency(oath.stake_amount * 0.1, region)})</span>
             </div>
           </div>
 

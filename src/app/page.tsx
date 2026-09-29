@@ -61,7 +61,7 @@ export default function Home() {
   // Use real data if available, fall back to mock data for UI dev
   const activeProfile = profile ?? mockProfile;
   const activeWallet = wallet ?? mockWallet;
-  const activeOaths = oaths.length > 0 ? oaths : mockActiveOaths;
+  const activeOaths = oaths;
   const activeLobbies = lobbies.length > 0 ? lobbies : mockSquadOaths;
   const activeShame = shameEntries.length > 0 ? shameEntries : mockWallOfShame;
   const activeHonor = honorEntries.length > 0 ? honorEntries : mockWallOfHonor;
@@ -90,6 +90,7 @@ export default function Home() {
           <ActiveOathsView
             oaths={activeOaths}
             onProofSubmitted={() => { refreshOaths(); refreshWallet(); }}
+            onCreateClick={() => setCurrentView("create")}
           />
         )}
         {currentView === "create" && (

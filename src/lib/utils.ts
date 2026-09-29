@@ -66,7 +66,11 @@ export function getTimeRemaining(deadline: string): {
   isExpired: boolean;
   isUrgent: boolean;
 } {
-  const total = new Date(deadline).getTime() - Date.now();
+  const deadlineTime = new Date(deadline).getTime();
+  if (isNaN(deadlineTime)) {
+    return { total: 0, days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true, isUrgent: false };
+  }
+  const total = deadlineTime - Date.now();
   const isExpired = total <= 0;
 
   if (isExpired) {

@@ -25,6 +25,7 @@ interface LobbiesViewProps {
 }
 
 export default function LobbiesView({ squads, wallet, onJoined }: LobbiesViewProps) {
+  const { region } = useRegion();
   const [selectedSquadId, setSelectedSquadId] = useState<string | null>(null);
 
   const selectedSquad = squads.find((s) => s.id === selectedSquadId) || null;
@@ -340,6 +341,7 @@ function MemberLogEntry({
   index: number;
   onVote: (memberId: string, vote: boolean) => void;
 }) {
+  const { region } = useRegion();
   return (
     <div
       className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800/25 fade-in bg-white dark:bg-transparent hover:bg-zinc-50 dark:hover:bg-zinc-900/20"
@@ -359,7 +361,7 @@ function MemberLogEntry({
           </span>
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 stake-number font-bold">
-              {formatCurrency(member.stake_amount)} staked
+              {utilsFormatCurrency(member.stake_amount, region)} staked
             </span>
             {member.proof_submitted && (
               <span className="text-[9px] font-mono text-zinc-600 dark:text-zinc-400 flex items-center gap-1 font-bold">

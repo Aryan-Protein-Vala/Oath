@@ -345,7 +345,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 </span>
                 {stakeNum > 0 && (
                   <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
-                    House: {formatRegionCurrency(houseCut)}
+                    House: {formatRegionCurrency(stakeNum * 0.1)}
                   </span>
                 )}
               </div>
