@@ -83,9 +83,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (isMock) {
         setWallet(getInitialMockWallet());
         setProfile(getInitialMockProfile());
-      } else if (user) {
-        await fetchProfile(user.id);
-        await fetchWallet(user.id);
+      } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          await fetchProfile(session.user.id);
+          await fetchWallet(session.user.id);
+        }
       }
     };
     window.addEventListener("oath_data_updated", handleDataUpdate);
@@ -109,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("oath_data_updated", handleDataUpdate);
       subscription.unsubscribe();
     };
-  }, [supabase, fetchProfile, fetchWallet, user]);
+  }, [supabase, fetchProfile, fetchWallet]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
