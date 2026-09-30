@@ -44,6 +44,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   const [socialPhone, setSocialPhone] = useState("");
   const [socialMessage, setSocialMessage] = useState("");
   const [nomineeEmail, setNomineeEmail] = useState("");
+  const [antiCharityCause, setAntiCharityCause] = useState("Opposing Political Party");
   const [infoModal, setInfoModal] = useState<{ title: string; desc: string } | null>(null);
 
   const stakeNum = parseFloat(stakeAmount) || 0;
@@ -57,18 +58,24 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
 
   const [submitting, setSubmitting] = useState(false);
 
+  const financialConsequences = ["fiat", "anti_charity", "bounty_transfer", "mutual_destruction", "bounty_split"];
+  const isFinancial = financialConsequences.includes(consequenceType);
+
   const handleSubmit = async () => {
     if (!oathStatement.trim()) {
       showToast("You need to swear to something.", "error");
       return;
     }
-    if (stakeNum <= 0) {
-      showToast("No stake, no oath. Put something on the line.", "error");
-      return;
-    }
-    if (isOverBudget) {
-      showToast("Insufficient funds. Deposit more or lower the stake.", "error");
-      return;
+    
+    if (isFinancial) {
+      if (stakeNum <= 0) {
+        showToast("No stake, no oath. Put something on the line.", "error");
+        return;
+      }
+      if (isOverBudget) {
+        showToast("Insufficient funds. Deposit more or lower the stake.", "error");
+        return;
+      }
     }
     if (!deadline) {
       showToast("Set a deadline. An oath without a deadline is a wish.", "error");
@@ -79,7 +86,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
     if (!deadline.includes("T")) {
       deadlineDate.setHours(23, 59, 59, 999);
     }
-    if (deadlineDate.getTime() <= Date.now()) {
+    if (deadlineDate.getTime() <= new Date().getTime()) {
       showToast("Deadline must be in the future.", "error");
       return;
     }
@@ -92,14 +99,19 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
       return;
     }
 
+    const statementWithCause =
+      consequenceType === "anti_charity"
+        ? `${oathStatement.trim()} [Anti-Charity: ${antiCharityCause}]`
+        : oathStatement.trim();
+
     setSubmitting(true);
     const { error } = await createOath({
-      oath_statement: oathStatement,
+      oath_statement: statementWithCause,
       deadline: deadlineDate.toISOString(),
       oath_type: oathType,
       verification_method: verificationMethod,
       consequence_type: consequenceType,
-      stake_amount: stakeUsd,
+      stake_amount: isFinancial ? stakeUsd : 0,
       nominee_email: nomineeEmail || undefined,
       social_ransom_phone: socialPhone || undefined,
       social_ransom_message: socialMessage || undefined,
@@ -332,56 +344,89 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
             </div>
           )}
 
-          {/* STAKE & DEADLINE ROW */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* STAKE AMOUNT */}
-            <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950/50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
-              <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.2em] mb-2 block">
-                Or I lose
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-2xl font-black text-zinc-500">{region === "in" ? "₹" : "$"}</span>
-                <input
-                  type="number"
-                  value={stakeAmount}
-                  onChange={(e) => setStakeAmount(e.target.value)}
-                  placeholder="0"
-                  min="1"
-                  className="w-full text-3xl font-black text-zinc-950 dark:text-zinc-100 bg-transparent border-0 p-0 stake-number focus:outline-none"
-                  style={{ outline: "none", border: "none" }}
-                />
-              </div>
-              <div className="flex items-center justify-between mt-2">
-                <span
-                  className={`text-[10px] font-mono font-bold ${
-                    isOverBudget ? "text-red-500" : "text-zinc-600 dark:text-zinc-400"
-                  }`}
-                >
-                  Balance: {formatRegionCurrency(walletBalance)}
+          {consequenceType === "anti_charity" && (
+            <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950/50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none space-y-3 fade-in">
+              <div className="flex items-center gap-2 mb-1">
+                <Flame className="w-4 h-4 text-red-600" />
+                <span className="text-[11px] font-mono font-bold text-zinc-950 dark:text-zinc-400 uppercase tracking-[0.2em]">
+                  Despised Anti-Charity Cause
                 </span>
-                {stakeNum > 0 && (
-                  <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
-                    House: {formatRegionCurrency(stakeNum * 0.1)}
-                  </span>
-                )}
               </div>
-              {/* Quick stake buttons */}
-              <div className="flex flex-wrap items-center gap-2 mt-3">
-                {[25, 50, 100, 250, 500].map((amount) => (
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                Choose a cause or ideology you despise. If you forfeit or fail, 100% of your net stake is forfeited to:
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {["Opposing Political Party", "Scientology Foundation", "Anti-Renewable Coal PAC", "Tobacco Research Institute"].map((cause) => (
                   <button
-                    key={amount}
-                    onClick={() => setStakeAmount(amount.toString())}
-                    className={`px-3 py-1.5 text-[10px] font-mono font-bold border-2 transition-colors ${
-                      stakeNum === amount
-                        ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-500 dark:text-zinc-200 dark:bg-zinc-800"
-                        : "border-zinc-300 text-zinc-700 hover:text-zinc-950 hover:border-zinc-500 dark:border-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                    key={cause}
+                    type="button"
+                    onClick={() => setAntiCharityCause(cause)}
+                    className={`p-2.5 text-xs font-mono font-bold border-2 text-left transition-colors ${
+                      antiCharityCause === cause
+                        ? "border-red-600 bg-red-950/20 text-red-600 dark:text-red-400"
+                        : "border-zinc-300 dark:border-zinc-800 text-zinc-700 dark:text-zinc-400 hover:border-zinc-500"
                     }`}
                   >
-                    {formatRegionCurrency(amount)}
+                    {cause}
                   </button>
                 ))}
               </div>
             </div>
+          )}
+
+          {/* STAKE & DEADLINE ROW */}
+          <div className={`grid grid-cols-1 gap-4 ${isFinancial ? "sm:grid-cols-2" : ""}`}>
+            {/* STAKE AMOUNT */}
+            {isFinancial && (
+              <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950/50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
+                <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.2em] mb-2 block">
+                  Or I lose
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-black text-zinc-500">{region === "in" ? "₹" : "$"}</span>
+                  <input
+                    type="number"
+                    value={stakeAmount}
+                    onChange={(e) => setStakeAmount(e.target.value)}
+                    placeholder="0"
+                    min="1"
+                    className="w-full text-3xl font-black text-zinc-950 dark:text-zinc-100 bg-transparent border-0 p-0 stake-number focus:outline-none"
+                    style={{ outline: "none", border: "none" }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <span
+                    className={`text-[10px] font-mono font-bold ${
+                      isOverBudget ? "text-red-500" : "text-zinc-600 dark:text-zinc-400"
+                    }`}
+                  >
+                    Balance: {formatRegionCurrency(walletBalance)}
+                  </span>
+                  {stakeNum > 0 && (
+                    <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
+                      House: {formatRegionCurrency(stakeUsd * 0.1)}
+                    </span>
+                  )}
+                </div>
+                {/* Quick stake buttons */}
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  {(region === "in" ? [500, 1000, 2500, 5000, 10000] : [25, 50, 100, 250, 500]).map((amount) => (
+                    <button
+                      key={amount}
+                      type="button"
+                      onClick={() => setStakeAmount(amount.toString())}
+                      className={`px-3 py-1.5 text-[10px] font-mono font-bold border-2 transition-colors ${
+                        stakeNum === amount
+                          ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-500 dark:text-zinc-200 dark:bg-zinc-800"
+                          : "border-zinc-300 text-zinc-700 hover:text-zinc-950 hover:border-zinc-500 dark:border-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                      }`}
+                    >
+                      {region === "in" ? `₹${amount}` : `$${amount}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* DEADLINE */}
             <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950/50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
@@ -477,7 +522,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 </span>
               </div>
               <input
-                type="email"
+                type="text"
                 value={nomineeEmail}
                 onChange={(e) => setNomineeEmail(e.target.value)}
                 placeholder="nominee@email.com or +1234567890"
@@ -544,7 +589,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                   )}
                   {" "}or I lose{" "}
                   <span className={`font-black ${isOverBudget ? "text-red-500" : "text-zinc-950 dark:text-zinc-50"}`}>
-                    {formatRegionCurrency(stakeNum)}
+                    {formatRegionCurrency(stakeUsd)}
                   </span>
                   .&rdquo;
                 </p>
@@ -562,7 +607,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 }`}
               >
                 <Zap className="w-4 h-4" />
-                {submitting ? "Locking Escrow..." : `Lock ${formatRegionCurrency(stakeNum)} & Create Oath`}
+                {submitting ? "Locking Escrow..." : `Lock ${formatRegionCurrency(stakeUsd)} & Create Oath`}
               </button>
             </div>
 
@@ -634,8 +679,8 @@ function TypeButton({
       <button
         type="button"
         onClick={onClick}
-        disabled={disabled}
-        className="absolute inset-0 w-full h-full"
+        aria-disabled={disabled}
+        className="absolute inset-0 w-full h-full cursor-pointer"
       />
       
       {onInfo && (

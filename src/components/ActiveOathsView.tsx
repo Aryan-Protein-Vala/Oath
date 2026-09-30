@@ -144,7 +144,7 @@ function OathListItem({ oath, isSelected, onClick }: { oath: Oath; isSelected: b
         </div>
         <div className="flex flex-col items-end shrink-0">
           <span className={`text-[10px] font-mono font-black stake-number ${time.isUrgent ? "text-red-600 dark:text-red-500" : "text-zinc-600 dark:text-zinc-400"}`}>
-            {time.isExpired ? "DONE" : time.days > 0 ? `${time.days}d` : `${time.hours}h`}
+            {time.isExpired ? "EXP" : time.days > 0 ? `${time.days}d` : time.hours > 0 ? `${time.hours}h` : `${time.minutes}m`}
           </span>
           <ChevronRight className={`w-3 h-3 mt-1 ${isSelected ? "text-zinc-800 dark:text-zinc-300" : "text-zinc-400 dark:text-zinc-600"}`} />
         </div>
@@ -176,9 +176,11 @@ function OathCountdownCard({
     return () => clearInterval(interval);
   }, [oath.deadline]);
 
-  const progressTotal = new Date(oath.deadline).getTime() - new Date(oath.created_at).getTime();
-  const progressElapsed = now - new Date(oath.created_at).getTime();
-  const progressPercent = Math.min(100, Math.max(0, (progressElapsed / (progressTotal || 1)) * 100));
+  const deadlineMs = new Date(oath.deadline).getTime();
+  const createdMs = new Date(oath.created_at).getTime();
+  const progressTotal = isNaN(deadlineMs) || isNaN(createdMs) ? 1 : Math.max(1, deadlineMs - createdMs);
+  const progressElapsed = isNaN(createdMs) ? 0 : Math.max(0, now - createdMs);
+  const progressPercent = Math.min(100, Math.max(0, (progressElapsed / progressTotal) * 100));
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-8 relative overflow-hidden bg-zinc-50 dark:bg-transparent" suppressHydrationWarning>
@@ -264,40 +266,55 @@ function OathCountdownCard({
 
       {/* Actions */}
       {(() => {
-        const isActionable = oath.status === "active" && !timeState.isExpired;
+        const isExpired = timeState.isExpired;
+        const isActionable = oath.status === "active" && !isExpired;
+        const hasSubmittedProof = (oath.proofs && oath.proofs.length > 0) || oath.status === "pending";
+
         return (
           <div className="flex items-center gap-2.5">
-            <button
-              onClick={onSubmitProof}
-              disabled={!isActionable}
-              className={`flex items-center gap-2 px-5 py-2.5 text-sm font-black tracking-tight uppercase transition-colors border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none ${
-                isActionable
-                  ? "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-zinc-950 dark:border-transparent"
-                  : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border-zinc-300 dark:border-zinc-800 cursor-not-allowed shadow-none"
-              }`}
-            >
-              <Upload className="w-3.5 h-3.5" />
-              Submit Proof
-            </button>
-            <button
-              onClick={onViewDetails}
-              className="flex items-center gap-2 px-5 py-2.5 border-2 border-zinc-950 dark:border-zinc-700 text-zinc-900 dark:text-zinc-300 text-sm font-bold tracking-tight hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              Details
-            </button>
-            <button
-              onClick={onForfeit}
-              disabled={!isActionable}
-              className={`flex items-center gap-2 px-4 py-2.5 border-2 text-xs font-black uppercase tracking-tight transition-colors shadow-[2px_2px_0px_0px_rgba(220,38,38,1)] dark:shadow-none ${
-                isActionable
-                  ? "border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                  : "border-zinc-300 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600 cursor-not-allowed shadow-none"
-              }`}
-            >
-              <XCircle className="w-3.5 h-3.5" />
-              Forfeit
-            </button>
+            {isExpired && oath.status === "active" ? (
+              <button
+                onClick={onForfeit}
+                className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white border-2 border-red-700 text-sm font-black tracking-tight uppercase hover:bg-red-700 transition-colors shadow-[2px_2px_0px_0px_rgba(220,38,38,1)]"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                Resolve Expired (Forfeit)
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={onSubmitProof}
+                  disabled={!isActionable || hasSubmittedProof}
+                  className={`flex items-center gap-2 px-5 py-2.5 text-sm font-black tracking-tight uppercase transition-colors border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none ${
+                    isActionable && !hasSubmittedProof
+                      ? "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-zinc-950 dark:border-transparent"
+                      : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border-zinc-300 dark:border-zinc-800 cursor-not-allowed shadow-none"
+                  }`}
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  {hasSubmittedProof ? "Proof In Review" : "Submit Proof"}
+                </button>
+                <button
+                  onClick={onViewDetails}
+                  className="flex items-center gap-2 px-5 py-2.5 border-2 border-zinc-950 dark:border-zinc-700 text-zinc-900 dark:text-zinc-300 text-sm font-bold tracking-tight hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  Details
+                </button>
+                <button
+                  onClick={onForfeit}
+                  disabled={!isActionable}
+                  className={`flex items-center gap-2 px-4 py-2.5 border-2 text-xs font-black uppercase tracking-tight transition-colors shadow-[2px_2px_0px_0px_rgba(220,38,38,1)] dark:shadow-none ${
+                    isActionable
+                      ? "border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                      : "border-zinc-300 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600 cursor-not-allowed shadow-none"
+                  }`}
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  Forfeit
+                </button>
+              </>
+            )}
           </div>
         );
       })()}

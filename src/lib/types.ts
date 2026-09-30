@@ -143,6 +143,7 @@ export interface WallEntry {
 export interface ToastMessage {
   id: string;
   message: string;
+  title?: string;
   type: "error" | "success" | "info";
   duration?: number;
 }

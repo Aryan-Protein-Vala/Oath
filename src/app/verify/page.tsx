@@ -26,7 +26,7 @@ function VerifyContent() {
     const fetchOath = async () => {
       setLoading(true);
       const mockOaths = getMockOaths();
-      const local = mockOaths.find((o) => o.id === token || o.nominee_email);
+      const local = mockOaths.find((o) => o.id === token);
       if (local) {
         setOath(local);
         setLoading(false);
@@ -35,19 +35,28 @@ function VerifyContent() {
 
       try {
         const supabase = createClient();
+        // Check if token corresponds to a nominee verification token
+        const { data: nomineeData } = await supabase
+          .from("nominees")
+          .select("oath_id")
+          .eq("verification_token", token)
+          .maybeSingle();
+
+        const oathId = nomineeData?.oath_id || token;
+
         const { data } = await supabase
           .from("oaths")
           .select("*, creator:profiles!oaths_creator_id_fkey(*)")
-          .eq("id", token)
+          .eq("id", oathId)
           .single();
 
         if (data) {
           setOath(data as Oath);
         } else {
-          setOath(mockOaths[0] || null);
+          setOath(mockOaths.find((o) => o.status === "active") || mockOaths[0] || null);
         }
       } catch {
-        setOath(mockOaths[0] || null);
+        setOath(mockOaths.find((o) => o.status === "active") || mockOaths[0] || null);
       } finally {
         setLoading(false);
       }

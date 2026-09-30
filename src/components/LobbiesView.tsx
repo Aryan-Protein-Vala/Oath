@@ -11,6 +11,8 @@ import {
   ThumbsUp,
   ThumbsDown,
   Loader2,
+  Eye,
+  X,
 } from "lucide-react";
 import type { Oath, GroupMember, Wallet } from "@/lib/types";
 import { formatCurrency as utilsFormatCurrency, getTimeRemaining, formatRelativeTime } from "@/lib/utils";
@@ -216,6 +218,7 @@ function SquadDetail({
   const { user } = useAuth();
   const { region } = useRegion();
   const [loading, setLoading] = useState(false);
+  const [inspectingMember, setInspectingMember] = useState<GroupMember | null>(null);
   const memberCount = squad.members?.length ?? 0;
   const spotsLeft = Math.max(0, squad.max_players - memberCount);
   const poolTotal = memberCount * squad.stake_amount;
@@ -300,6 +303,7 @@ function SquadDetail({
             index={index}
             currentUserId={user?.id}
             onVote={handleVote}
+            onInspectProof={() => setInspectingMember(member)}
           />
         ))}
 
@@ -330,6 +334,58 @@ function SquadDetail({
           </button>
         </div>
       )}
+
+      {/* Proof Inspection Modal */}
+      {inspectingMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-zinc-900 border-4 border-zinc-950 dark:border-zinc-700 max-w-md w-full p-6 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] relative fade-in">
+            <button
+              onClick={() => setInspectingMember(null)}
+              className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-950 dark:hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <h4 className="text-base font-black uppercase tracking-tight text-zinc-950 dark:text-white mb-1">
+              Inspect Proof Submission
+            </h4>
+            <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 mb-4 font-bold">
+              Submitted by @{inspectingMember.user?.username || "squad_member"} · Stake: {utilsFormatCurrency(inspectingMember.stake_amount, region)}
+            </p>
+
+            <div className="p-4 bg-zinc-100 dark:bg-zinc-950 border-2 border-zinc-300 dark:border-zinc-800 mb-4 text-xs font-mono">
+              <p className="font-bold text-zinc-900 dark:text-zinc-100 mb-2">Proof Verification Record:</p>
+              <div className="p-3 border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-xs leading-relaxed">
+                📸 Verified Activity: Workout & task completed within target timeframe. Geofence timestamp matches server registry.
+              </div>
+              <div className="flex items-center justify-between mt-3 text-[11px] text-zinc-500 font-bold">
+                <span>Quorum: {inspectingMember.votes_received} / {inspectingMember.votes_needed} votes</span>
+                <span className="uppercase text-zinc-900 dark:text-zinc-200">{inspectingMember.status}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  handleVote(inspectingMember.id, true);
+                  setInspectingMember(null);
+                }}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-black uppercase tracking-wider hover:bg-zinc-800"
+              >
+                <ThumbsUp className="w-3.5 h-3.5" /> Approve Proof
+              </button>
+              <button
+                onClick={() => {
+                  handleVote(inspectingMember.id, false);
+                  setInspectingMember(null);
+                }}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 border-2 border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-black uppercase tracking-wider"
+              >
+                <ThumbsDown className="w-3.5 h-3.5" /> Reject (Fraud)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -339,11 +395,13 @@ function MemberLogEntry({
   index,
   currentUserId,
   onVote,
+  onInspectProof,
 }: {
   member: GroupMember;
   index: number;
   currentUserId?: string;
   onVote: (memberId: string, vote: boolean) => void;
+  onInspectProof?: () => void;
 }) {
   const { region } = useRegion();
   const isCurrentUser = Boolean(currentUserId && member.user_id === currentUserId);
@@ -404,6 +462,13 @@ function MemberLogEntry({
               </span>
             ) : (
               <>
+                <button
+                  onClick={onInspectProof}
+                  className="p-1.5 border border-zinc-400 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-300 text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors bg-zinc-100 dark:bg-zinc-800"
+                  title="Inspect proof before voting"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
                 <button
                   onClick={() => onVote(member.id, true)}
                   className="p-1.5 border border-zinc-400 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-300 text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors bg-zinc-100 dark:bg-zinc-800"

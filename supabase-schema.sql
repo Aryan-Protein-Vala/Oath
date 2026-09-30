@@ -462,9 +462,13 @@ BEGIN
       IF NEW.status = 'completed' THEN
         UPDATE wallets 
         SET balance = balance + v_stake,
-            escrow_locked = GREATEST(0, escrow_locked - v_stake),
-            total_won = total_won + v_stake
+            escrow_locked = GREATEST(0, escrow_locked - v_stake)
         WHERE user_id = v_creator_id;
+
+        UPDATE profiles
+        SET total_won = total_won + v_stake,
+            oaths_completed = oaths_completed + 1
+        WHERE id = v_creator_id;
 
         IF v_wallet_id IS NOT NULL THEN
           INSERT INTO transactions (wallet_id, oath_id, type, amount, description)
@@ -475,9 +479,13 @@ BEGIN
         VALUES (NEW.id, v_creator_id, 'honor', NEW.oath_statement, v_stake);
       ELSE -- failed
         UPDATE wallets 
-        SET escrow_locked = GREATEST(0, escrow_locked - v_stake),
-            total_lost = total_lost + v_stake
+        SET escrow_locked = GREATEST(0, escrow_locked - v_stake)
         WHERE user_id = v_creator_id;
+
+        UPDATE profiles
+        SET total_lost = total_lost + v_stake,
+            oaths_failed = oaths_failed + 1
+        WHERE id = v_creator_id;
 
         IF v_wallet_id IS NOT NULL THEN
           INSERT INTO transactions (wallet_id, oath_id, type, amount, description)
@@ -500,15 +508,23 @@ BEGIN
         -- Creator won
         UPDATE wallets 
         SET balance = balance + v_winner_payout,
-            escrow_locked = GREATEST(0, escrow_locked - v_stake),
-            total_won = total_won + (v_winner_payout - v_stake)
+            escrow_locked = GREATEST(0, escrow_locked - v_stake)
         WHERE user_id = v_creator_id;
+
+        UPDATE profiles
+        SET total_won = total_won + (v_winner_payout - v_stake),
+            oaths_completed = oaths_completed + 1
+        WHERE id = v_creator_id;
 
         IF v_opponent_id IS NOT NULL THEN
           UPDATE wallets 
-          SET escrow_locked = GREATEST(0, escrow_locked - v_stake),
-              total_lost = total_lost + v_stake
+          SET escrow_locked = GREATEST(0, escrow_locked - v_stake)
           WHERE user_id = v_opponent_id;
+
+          UPDATE profiles
+          SET total_lost = total_lost + v_stake,
+              oaths_failed = oaths_failed + 1
+          WHERE id = v_opponent_id;
         END IF;
 
         IF v_wallet_id IS NOT NULL THEN
@@ -520,16 +536,36 @@ BEGIN
         VALUES (NEW.id, v_creator_id, 'honor', NEW.oath_statement, v_stake);
       ELSE -- Creator failed / opponent won
         UPDATE wallets 
-        SET escrow_locked = GREATEST(0, escrow_locked - v_stake),
-            total_lost = total_lost + v_stake
+        SET escrow_locked = GREATEST(0, escrow_locked - v_stake)
         WHERE user_id = v_creator_id;
 
+        UPDATE profiles
+        SET total_lost = total_lost + v_stake,
+            oaths_failed = oaths_failed + 1
+        WHERE id = v_creator_id;
+
         IF v_opponent_id IS NOT NULL THEN
-          UPDATE wallets 
-          SET balance = balance + v_winner_payout,
-              escrow_locked = GREATEST(0, escrow_locked - v_stake),
-              total_won = total_won + (v_winner_payout - v_stake)
-          WHERE user_id = v_opponent_id;
+          IF NEW.consequence_type = 'mutual_destruction' THEN
+            -- In Mutual Assured Destruction, both lose their stakes to the house!
+            UPDATE wallets 
+            SET escrow_locked = GREATEST(0, escrow_locked - v_stake)
+            WHERE user_id = v_opponent_id;
+
+            UPDATE profiles
+            SET total_lost = total_lost + v_stake,
+                oaths_failed = oaths_failed + 1
+            WHERE id = v_opponent_id;
+          ELSE
+            UPDATE wallets 
+            SET balance = balance + v_winner_payout,
+                escrow_locked = GREATEST(0, escrow_locked - v_stake)
+            WHERE user_id = v_opponent_id;
+
+            UPDATE profiles
+            SET total_won = total_won + (v_winner_payout - v_stake),
+                oaths_completed = oaths_completed + 1
+            WHERE id = v_opponent_id;
+          END IF;
         END IF;
 
         IF v_wallet_id IS NOT NULL THEN

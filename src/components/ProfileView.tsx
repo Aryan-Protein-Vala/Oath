@@ -7,7 +7,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useState } from "react";
-import { formatCurrency as utilsFormatCurrency, formatCurrencyPrecise as utilsFormatCurrencyPrecise, formatRelativeTime } from "@/lib/utils";
+import { formatCurrency as utilsFormatCurrency, formatCurrencyPrecise as utilsFormatCurrencyPrecise, formatRelativeTime, convertToUSD } from "@/lib/utils";
 import type { Profile, Wallet, Transaction } from "@/lib/types";
 import { useRegion, type Region } from "@/lib/region-context";
 import { addFunds, requestWithdrawal } from "@/lib/data-hooks";
@@ -27,11 +27,24 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
 
   const handleWithdraw = async () => {
     setIsProcessing(true);
-    const { error } = await requestWithdrawal(wallet.balance); // Withdraw all
+    const inputVal = Number(depositAmount);
+    let withdrawUSD = wallet.balance;
+    if (!isNaN(inputVal) && inputVal > 0) {
+      const enteredUSD = region === "in" ? convertToUSD(inputVal, "in") : inputVal;
+      if (enteredUSD <= wallet.balance) {
+        withdrawUSD = enteredUSD;
+      }
+    }
+    const { error } = await requestWithdrawal(withdrawUSD);
     if (error) {
       showToast({ title: "Withdrawal Failed", description: error, type: "error" });
     } else {
-      showToast({ title: "Withdrawal Requested", description: "Your funds will be processed manually.", type: "success" });
+      showToast({
+        title: "Withdrawal Requested",
+        description: `Requested withdrawal of ${utilsFormatCurrencyPrecise(withdrawUSD, region)}. Your funds will be processed manually.`,
+        type: "success"
+      });
+      setDepositAmount("");
     }
     setIsProcessing(false);
   };
@@ -41,6 +54,7 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
     if (isNaN(amount) || amount <= 0) return;
     
     setIsProcessing(true);
+    const amountInUSD = region === "in" ? convertToUSD(amount, "in") : amount;
     
     if (region === "in") {
       try {
@@ -62,7 +76,7 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
           name: "Oath",
           description: "Wallet Deposit",
           order_id: order.id,
-          handler: async function (response: any) {
+          handler: async function (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) {
             const verifyRes = await fetch("/api/razorpay/verify", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -70,16 +84,17 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                amount: amount
+                amount: amount,
+                amount_usd: amountInUSD,
               }),
             });
             const verifyData = await verifyRes.json();
             if (verifyData.success) {
-              const { error } = await addFunds(amount, `Razorpay Deposit: ${response.razorpay_payment_id}`);
+              const { error } = await addFunds(amountInUSD, `Razorpay Deposit: ${response.razorpay_payment_id}`);
               if (error) {
                 showToast({ title: "Deposit Error", description: error, type: "error" });
               } else {
-                showToast({ title: "Deposit Successful", description: `Added ${amount} to your wallet.`, type: "success" });
+                showToast({ title: "Deposit Successful", description: `Added ₹${amount} to your wallet.`, type: "success" });
                 setDepositAmount("");
               }
             } else {
@@ -100,23 +115,30 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
           }
         };
 
-        const rzp = new (window as any).Razorpay(options);
-        rzp.on("payment.failed", function (response: any) {
-          showToast({ title: "Payment Failed", description: response.error.description, type: "error" });
+        interface RazorpayInstance {
+          on: (event: string, callback: (resp: { error?: { description?: string } }) => void) => void;
+          open: () => void;
+        }
+        type RazorpayConstructor = new (opts: unknown) => RazorpayInstance;
+        const RazorpayGlobal = (window as unknown as { Razorpay: RazorpayConstructor }).Razorpay;
+        const rzp = new RazorpayGlobal(options);
+        rzp.on("payment.failed", function (response: { error?: { description?: string } }) {
+          showToast({ title: "Payment Failed", description: response.error?.description || "Payment failed", type: "error" });
           setIsProcessing(false);
         });
         rzp.open();
-      } catch (err: any) {
-        showToast({ title: "Deposit Failed", description: err.message, type: "error" });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Deposit failed";
+        showToast({ title: "Deposit Failed", description: message, type: "error" });
         setIsProcessing(false);
       }
     } else {
       // Manual/PayPal fallback (just manual deposit for MVP as requested)
-      const { error } = await addFunds(amount, `Manual Deposit (Global)`);
+      const { error } = await addFunds(amountInUSD, `Manual Deposit (Global)`);
       if (error) {
         showToast({ title: "Deposit Error", description: error, type: "error" });
       } else {
-        showToast({ title: "Deposit Successful", description: `Added ${amount} to your wallet.`, type: "success" });
+        showToast({ title: "Deposit Successful", description: `Added $${amount} to your wallet.`, type: "success" });
         setDepositAmount("");
       }
       setIsProcessing(false);

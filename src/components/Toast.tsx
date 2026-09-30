@@ -14,15 +14,41 @@ function notifyListeners() {
   toastListeners.forEach((fn) => fn([...toastQueue]));
 }
 
-export function showToast(message: string, type: ToastMessage["type"] = "error", duration = 4000) {
+export type ToastOptions = {
+  title?: string;
+  description?: string;
+  message?: string;
+  type?: ToastMessage["type"];
+  duration?: number;
+};
+
+export function showToast(
+  messageOrOptions: string | ToastOptions,
+  type: ToastMessage["type"] = "error",
+  duration = 4000
+) {
   const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-  const toast: ToastMessage = { id, message, type, duration };
+  let message = "";
+  let title: string | undefined;
+  let resolvedType = type;
+  let resolvedDuration = duration;
+
+  if (typeof messageOrOptions === "object" && messageOrOptions !== null) {
+    title = messageOrOptions.title;
+    message = messageOrOptions.description || messageOrOptions.message || messageOrOptions.title || "";
+    if (messageOrOptions.type) resolvedType = messageOrOptions.type;
+    if (messageOrOptions.duration) resolvedDuration = messageOrOptions.duration;
+  } else {
+    message = String(messageOrOptions);
+  }
+
+  const toast: ToastMessage = { id, message, title, type: resolvedType, duration: resolvedDuration };
   toastQueue = [...toastQueue, toast];
   notifyListeners();
 
   setTimeout(() => {
     dismissToast(id);
-  }, duration);
+  }, resolvedDuration);
 }
 
 export function dismissToast(id: string) {
@@ -53,27 +79,35 @@ export function ToastContainer() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="toast-container">
+    <div className="toast-container fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-[90vw] sm:max-w-md">
       <div className="flex flex-col gap-2">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`slide-up cursor-pointer flex items-center gap-3 px-5 py-3 border ${
+            className={`slide-up cursor-pointer flex items-start gap-3 px-5 py-3 border ${
               toast.type === "error"
                 ? "bg-red-950/90 border-red-800 text-red-200"
                 : toast.type === "success"
                 ? "bg-zinc-900/90 border-zinc-700 text-zinc-200"
                 : "bg-zinc-900/90 border-zinc-700 text-zinc-300"
-            } backdrop-blur-sm min-w-[320px] max-w-[480px] shadow-lg`}
+            } backdrop-blur-sm min-w-[280px] max-w-[480px] shadow-lg`}
             onClick={() => dismissToast(toast.id)}
           >
             {toast.type === "error" && (
-              <span className="text-red-500 text-lg font-mono font-bold shrink-0">✕</span>
+              <span className="text-red-500 text-lg font-mono font-bold shrink-0 mt-0.5">✕</span>
             )}
             {toast.type === "success" && (
-              <span className="text-zinc-400 text-lg font-mono font-bold shrink-0">✓</span>
+              <span className="text-zinc-400 text-lg font-mono font-bold shrink-0 mt-0.5">✓</span>
             )}
-            <span className="text-sm font-medium tracking-tight">{toast.message}</span>
+            {toast.type === "info" && (
+              <span className="text-zinc-400 text-lg font-mono font-bold shrink-0 mt-0.5">ℹ</span>
+            )}
+            <div className="flex flex-col min-w-0">
+              {toast.title && toast.title !== toast.message && (
+                <span className="text-xs font-mono font-bold tracking-tight uppercase mb-0.5">{toast.title}</span>
+              )}
+              <span className="text-sm font-medium tracking-tight break-words">{toast.message}</span>
+            </div>
           </div>
         ))}
       </div>

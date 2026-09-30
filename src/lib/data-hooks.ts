@@ -17,9 +17,7 @@ import {
 import { useAuth, ADMIN_MOCK_USER, getInitialMockWallet } from "./auth-context";
 
 export function isMockMode(): boolean {
-  if (typeof window === "undefined") return false;
   return (
-    localStorage.getItem("oath_admin_logged_in") === "true" ||
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
   );
@@ -506,9 +504,18 @@ export async function createOath(data: {
   min_players?: number;
   max_players?: number;
 }): Promise<{ oath?: Oath; error: string | null }> {
-  const validStake = validatePositiveAmount(data.stake_amount);
-  if (validStake === null) {
-    return { error: "Stake amount must be a positive number." };
+  const isFinancial = data.consequence_type === "fiat" || data.consequence_type === "bounty_split" || data.consequence_type === "bounty_transfer";
+  const n = typeof data.stake_amount === "number" ? data.stake_amount : parseFloat(String(data.stake_amount));
+  let validStake = 0;
+  
+  if (isFinancial) {
+    const v = validatePositiveAmount(n);
+    if (v === null) {
+      return { error: "Stake amount must be a positive number for financial consequences." };
+    }
+    validStake = v;
+  } else {
+    validStake = 0;
   }
   if (new Date(data.deadline).getTime() <= Date.now()) {
     return { error: "Deadline must be in the future." };
@@ -600,6 +607,17 @@ export async function createOath(data: {
     .single();
 
   if (oathError) return { error: oathError.message };
+
+  // If squad oath, enroll creator in group_members
+  if (data.oath_type === "squad" && oath) {
+    await supabase.from("group_members").insert({
+      oath_id: oath.id,
+      user_id: user.id,
+      stake_amount: validStake,
+      status: "joined",
+      votes_needed: Math.ceil((data.max_players || 8) / 2),
+    });
+  }
 
   // If nominee email provided, register in nominees table
   if (data.nominee_email && oath) {
@@ -1137,6 +1155,16 @@ export async function createDuoChallenge(data: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
+  const { data: wallet } = await supabase
+    .from("wallets")
+    .select("*")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!wallet || wallet.balance < data.stake_amount) {
+    return { error: "Insufficient funds to wager on this challenge." };
+  }
+
   let opponentId: string | null = null;
   if (data.opponent_username) {
     const { data: opponent } = await supabase
@@ -1164,6 +1192,23 @@ export async function createDuoChallenge(data: {
     .single();
 
   if (error) return { error: error.message };
+
+  await supabase
+    .from("wallets")
+    .update({
+      balance: wallet.balance - data.stake_amount,
+      escrow_locked: wallet.escrow_locked + data.stake_amount,
+    })
+    .eq("user_id", user.id);
+
+  await supabase.from("transactions").insert({
+    wallet_id: wallet.id,
+    oath_id: oath.id,
+    type: "escrow_lock",
+    amount: data.stake_amount,
+    description: `Wager locked for Duo: ${data.oath_statement}`,
+  });
+
   notifyDataUpdated();
   return { oath, error: null };
 }
@@ -1218,13 +1263,49 @@ export async function acceptDuoChallenge(oathId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
+  const { data: targetOath } = await supabase
+    .from("oaths")
+    .select("*")
+    .eq("id", oathId)
+    .single();
+
+  if (!targetOath) return { error: "Challenge not found" };
+
+  const { data: opponentWallet } = await supabase
+    .from("wallets")
+    .select("*")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!opponentWallet || opponentWallet.balance < targetOath.stake_amount) {
+    return { error: "Insufficient funds to accept this challenge." };
+  }
+
   const { error } = await supabase
     .from("oaths")
     .update({ status: "active", opponent_id: user.id })
     .eq("id", oathId);
 
+  if (error) return { error: error.message };
+
+  await supabase
+    .from("wallets")
+    .update({
+      balance: opponentWallet.balance - targetOath.stake_amount,
+      escrow_locked: opponentWallet.escrow_locked + targetOath.stake_amount,
+    })
+    .eq("user_id", user.id);
+
+  await supabase.from("transactions").insert({
+    wallet_id: opponentWallet.id,
+    oath_id: oathId,
+    type: "escrow_lock",
+    amount: targetOath.stake_amount,
+    description: `Accepted Duo Challenge: ${targetOath.oath_statement}`,
+  });
+
   notifyDataUpdated();
-  return { error: error?.message ?? null };
+  return { error: null };
 }
 
 // ---- forfeitOath — give up and incur penalty ----
@@ -1320,6 +1401,24 @@ export async function forfeitOath(oathId: string, excuse?: string) {
         amount: oath.stake_amount,
         description: `Forfeited oath: ${oath.oath_statement}`,
       });
+
+      // Update total_lost in profile
+      if (oath.stake_amount > 0) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("total_lost")
+          .eq("id", oath.creator_id)
+          .single();
+          
+        if (profile) {
+          await supabase
+            .from("profiles")
+            .update({
+              total_lost: (profile.total_lost || 0) + oath.stake_amount
+            })
+            .eq("id", oath.creator_id);
+        }
+      }
     }
   } catch (err) {
     console.warn("Wallet forfeit fallback note:", err);
@@ -1464,6 +1563,16 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
           amount: winnerPayout,
           description: isDuo ? `Won Duo Challenge: ${oath.oath_statement}` : `Completed: ${oath.oath_statement}`,
         });
+
+        // Update total_won in profile
+        if (winnerPayout > 0) {
+          const { data: profile } = await supabase.from("profiles").select("total_won").eq("id", oath.creator_id).single();
+          if (profile) {
+            await supabase.from("profiles").update({
+              total_won: (profile.total_won || 0) + winnerPayout
+            }).eq("id", oath.creator_id);
+          }
+        }
       }
 
       if (isDuo && oath.opponent_id) {
@@ -1488,15 +1597,48 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
           amount: oath.stake_amount,
           description: `Failed: ${oath.oath_statement}`,
         });
+
+        // Update total_lost in profile
+        if (oath.stake_amount > 0) {
+          const { data: profile } = await supabase.from("profiles").select("total_lost").eq("id", oath.creator_id).single();
+          if (profile) {
+            await supabase.from("profiles").update({
+              total_lost: (profile.total_lost || 0) + oath.stake_amount
+            }).eq("id", oath.creator_id);
+          }
+        }
       }
 
       if (isDuo && oath.opponent_id) {
         const { data: opponentWallet } = await supabase.from("wallets").select("*").eq("user_id", oath.opponent_id).single();
         if (opponentWallet) {
-          await supabase.from("wallets").update({
-            balance: opponentWallet.balance + winnerPayout,
-            escrow_locked: Math.max(0, opponentWallet.escrow_locked - oath.stake_amount),
-          }).eq("id", opponentWallet.id);
+          if (oath.consequence_type === "mutual_destruction") {
+            // In Mutual Assured Destruction, both players lose 100% of their stakes!
+            await supabase.from("wallets").update({
+              escrow_locked: Math.max(0, opponentWallet.escrow_locked - oath.stake_amount),
+            }).eq("id", opponentWallet.id);
+
+            await supabase.from("transactions").insert({
+              wallet_id: opponentWallet.id,
+              oath_id: oath.id,
+              type: "penalty",
+              amount: oath.stake_amount,
+              description: `M.A.D. Forfeiture Penalty: ${oath.oath_statement}`,
+            });
+          } else {
+            await supabase.from("wallets").update({
+              balance: opponentWallet.balance + winnerPayout,
+              escrow_locked: Math.max(0, opponentWallet.escrow_locked - oath.stake_amount),
+            }).eq("id", opponentWallet.id);
+
+            await supabase.from("transactions").insert({
+              wallet_id: opponentWallet.id,
+              oath_id: oath.id,
+              type: "reward",
+              amount: winnerPayout,
+              description: `Won Duo Challenge Bounty: ${oath.oath_statement}`,
+            });
+          }
         }
       }
     }
