@@ -3,7 +3,7 @@
 import React from "react";
 
 import { useSyncExternalStore } from "react";
-import { Wallet, Plus, Swords, Sun, Moon, Zap, PenLine, Users, Skull, Crown, User } from "lucide-react";
+import { Wallet, Plus, Bell, Sun, Moon, Zap, PenLine, Users, Skull, Crown, User } from "lucide-react";
 import { useTheme } from "next-themes";
 import { formatCurrencyPrecise } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
@@ -18,7 +18,7 @@ interface TopNavProps {
   onViewChange: (view: string) => void;
   username: string;
   onWalletClick: () => void;
-  onDuoClick: () => void;
+  onNotificationsClick: () => void;
 }
 
 export default function TopNav({
@@ -27,7 +27,7 @@ export default function TopNav({
   onViewChange,
   username,
   onWalletClick,
-  onDuoClick,
+  onNotificationsClick,
 }: TopNavProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const { region, setRegion } = useRegion();
@@ -93,14 +93,13 @@ export default function TopNav({
             </button>
           )}
 
-          {/* Duo Challenge Button */}
+          {/* Notifications Button */}
           <button
-            onClick={onDuoClick}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all text-[10px] font-mono font-bold uppercase tracking-wide shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none"
-            title="Duo Challenge"
+            onClick={onNotificationsClick}
+            className="flex items-center justify-center p-2 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-950 dark:text-zinc-100 bg-white dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none"
+            title="Notifications"
           >
-            <Swords className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Challenge</span>
+            <Bell className="w-4 h-4" />
           </button>
 
           {/* Wallet Balance */}

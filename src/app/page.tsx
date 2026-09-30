@@ -10,7 +10,7 @@ import WallView from "@/components/WallView";
 import ProfileView from "@/components/ProfileView";
 import LandingView from "@/components/LandingView";
 import WalletModal from "@/components/WalletModal";
-import DuoChallengeModal from "@/components/DuoChallengeModal";
+import NotificationsPanel from "@/components/NotificationsPanel";
 import { ToastContainer } from "@/components/Toast";
 import { useAuth } from "@/lib/auth-context";
 import { useOaths, useSquadLobbies, useWall, useTransactions } from "@/lib/data-hooks";
@@ -28,7 +28,7 @@ type View = "active" | "create" | "lobbies" | "wall_shame" | "wall_honor" | "pro
 export default function Home() {
   const [currentView, setCurrentView] = useState<View>("active");
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const [showDuoModal, setShowDuoModal] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const { user, profile, wallet, loading, signOut, refreshWallet } = useAuth();
   const router = useRouter();
@@ -80,7 +80,7 @@ export default function Home() {
         onViewChange={(v) => setCurrentView(v as View)}
         username={activeProfile.username}
         onWalletClick={() => setShowWalletModal(true)}
-        onDuoClick={() => setShowDuoModal(true)}
+        onNotificationsClick={() => setShowNotifications(true)}
       />
 
       {/* Main Content */}
@@ -126,11 +126,9 @@ export default function Home() {
           onRefresh={refreshWallet}
         />
       )}
-      {showDuoModal && (
-        <DuoChallengeModal
-          wallet={activeWallet}
-          onClose={() => setShowDuoModal(false)}
-          onSuccess={() => { refreshOaths(); setCurrentView("active"); }}
+      {showNotifications && (
+        <NotificationsPanel
+          onClose={() => setShowNotifications(false)}
         />
       )}
 

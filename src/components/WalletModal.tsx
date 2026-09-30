@@ -181,28 +181,20 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
     } else {
       // Withdrawal
       if (region === "in") {
-        const UPI_REGEX = /^[a-zA-Z0-9.\-_]{2,49}@[a-zA-Z]{2,}$/;
-        if (!paypalEmail || !UPI_REGEX.test(paypalEmail.trim())) {
-          showToast("Please enter a valid UPI ID (e.g. name@okhdfcbank or 9876543210@paytm)", "error");
-          setLoading(false);
-          return;
-        }
-
-        const { error } = await withdrawFunds(amountUsd, paypalEmail.trim());
+        const { error } = await withdrawFunds(amountUsd, "admin_request");
         if (error) {
           showToast(`Withdrawal failed: ${error}`, "error");
         } else {
           setDone(true);
-          showToast(`${formatRegionCurrency(amountUsd)} withdrawal requested to ${paypalEmail.trim()}.`, "success");
+          showToast(`${formatRegionCurrency(amountUsd)} withdrawal requested.`, "success");
           onRefresh();
           setTimeout(() => { setDone(false); setAmount(""); setPaypalEmail(""); setTab("overview"); }, 2000);
         }
         setLoading(false);
       } else {
-        // Withdrawal via PayPal for global users
-        const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!paypalEmail || !EMAIL_REGEX.test(paypalEmail.trim())) {
-          showToast("Please enter a valid PayPal email address", "error");
+        // Withdrawal request for global users
+        if (!paypalEmail.trim()) {
+          showToast("Please enter your withdrawal details", "error");
           setLoading(false);
           return;
         }
@@ -221,31 +213,15 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           return;
         }
 
-        try {
-          const payoutRes = await fetch("/api/paypal/payout", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              amount: amountUsd,
-              currency: "USD",
-              receiverEmail: paypalEmail.trim(),
-            }),
-          });
-          
-          const payoutData = await payoutRes.json();
-          
-          if (!payoutRes.ok) {
-            throw new Error(payoutData.error || "Failed to process PayPal payout");
+          const { error } = await withdrawFunds(amountUsd, paypalEmail.trim());
+          if (error) {
+            showToast(`Withdrawal failed: ${error}`, "error");
+          } else {
+            setDone(true);
+            showToast(`${formatRegionCurrency(amountUsd)} withdrawal requested.`, "success");
+            onRefresh();
+            setTimeout(() => { setDone(false); setAmount(""); setPaypalEmail(""); setTab("overview"); }, 2000);
           }
-
-          setDone(true);
-          showToast(`${formatRegionCurrency(amountUsd)} sent to ${paypalEmail.trim()}.`, "success");
-          onRefresh();
-          setTimeout(() => { setDone(false); setAmount(""); setPaypalEmail(""); setTab("overview"); }, 2000);
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : "Failed to process withdrawal";
-          showToast(message, "error");
-        }
         setLoading(false);
       }
     }
@@ -284,9 +260,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
         </div>
 
         <p className="px-5 py-3 text-[10px] font-mono text-zinc-700 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
-          {region === "in"
-            ? "Deposits are processed via UPI/Cards (Razorpay). Withdrawals are settled directly to your UPI ID (within 24 hours)."
-            : "Deposits are processed via Cards (Razorpay). Withdrawals are processed to your connected PayPal account (allow 24-48 hours for clearing)."}
+          Deposits are processed securely. Withdrawals are processed manually to your requested destination (within 24 hours).
         </p>
 
         {/* Tab Row */}
@@ -363,13 +337,13 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                   {tab === "withdraw" && (
                     <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-950/50">
                       <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.2em] mb-2 block">
-                        {region === "in" ? "UPI ID" : "PayPal Email"}
+                        Withdrawal Details (UPI / PayPal)
                       </label>
                       <input
-                        type={region === "in" ? "text" : "email"}
+                        type="text"
                         value={paypalEmail}
                         onChange={(e) => setPaypalEmail(e.target.value)}
-                        placeholder={region === "in" ? "yourname@upi" : "you@example.com"}
+                        placeholder="Enter UPI ID or PayPal Email"
                         className="w-full text-sm font-bold text-zinc-950 dark:text-zinc-100 bg-transparent border-b-2 border-zinc-300 dark:border-zinc-700 focus:border-zinc-950 dark:focus:border-zinc-500 p-2 focus:outline-none transition-colors"
                       />
                     </div>
@@ -426,7 +400,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                   </button>
 
                   <p className="text-[10px] font-mono text-zinc-500 text-center mt-2">
-                    {tab === "deposit" ? "Processed securely by Razorpay." : region === "in" ? "Withdrawals processed manually to your UPI ID." : "Withdrawals sent to your PayPal email."}
+                    {tab === "deposit" ? "Processed securely by Razorpay." : "Withdrawals processed manually within 24 hours."}
                   </p>
                 </>
               )}

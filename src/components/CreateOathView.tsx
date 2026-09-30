@@ -39,14 +39,17 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   const [oathType, setOathType] = useState<OathType>("solo");
   const [consequenceType, setConsequenceType] = useState<ConsequenceType>("fiat");
   const [verificationMethod, setVerificationMethod] = useState<VerificationMethod>("solo_lonely");
+  const [groupMode, setGroupMode] = useState<"weakest_link" | "survival">("survival");
   const [stakeAmount, setStakeAmount] = useState("");
   const [deadline, setDeadline] = useState("");
   const [socialPhone, setSocialPhone] = useState("");
   const [socialMessage, setSocialMessage] = useState("");
   const [nomineeEmail, setNomineeEmail] = useState("");
-  const [userSuggestions, setUserSuggestions] = useState<{ username: string; display_name?: string }[]>([]);
+  const [userSuggestions, setUserSuggestions] = useState<{ id?: string; username: string; display_name?: string }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [antiCharityCause, setAntiCharityCause] = useState("Opposing Political Party");
+  const [opponentUsername, setOpponentUsername] = useState("");
+  const [opponentId, setOpponentId] = useState("");
   const [infoModal, setInfoModal] = useState<{ title: string; desc: string } | null>(null);
 
   const financialConsequences = ["fiat", "anti_charity", "shared_oath", "mutual_destruction"];
@@ -89,6 +92,26 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
 
     return () => clearTimeout(timer);
   }, [nomineeEmail, verificationMethod]);
+
+  useEffect(() => {
+    if (oathType !== "duo") return;
+    if (selectedFromDropdownRef.current) {
+      selectedFromDropdownRef.current = false;
+      return;
+    }
+    const query = opponentUsername.replace("@", "").trim();
+    const timer = setTimeout(async () => {
+      if (query.length < 1) {
+        setUserSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+      const results = await searchUsersByUsername(query);
+      setUserSuggestions(results);
+      setShowSuggestions(results.length > 0);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [opponentUsername, oathType]);
 
   const handleSubmit = async () => {
     if (!oathStatement.trim()) {
@@ -149,8 +172,10 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
       social_ransom_phone: socialPhone || undefined,
       social_ransom_message: socialMessage || undefined,
       anti_charity_cause: consequenceType === "anti_charity" ? antiCharityCause : undefined,
-      min_players: oathType === "squad" ? 5 : 1,
-      max_players: oathType === "squad" ? 8 : 1,
+      min_players: oathType === "squad" ? 4 : (oathType === "duo" ? 2 : 1),
+      max_players: oathType === "squad" ? 8 : (oathType === "duo" ? 2 : 1),
+      group_mode: oathType === "duo" || oathType === "squad" ? groupMode : undefined,
+      opponent_id: oathType === "duo" && opponentId ? opponentId : undefined,
     });
     setSubmitting(false);
     if (error) {
@@ -196,7 +221,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
             <label className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em] mb-3 block">
               Oath Type
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <TypeButton
                 icon={<User className="w-4 h-4" />}
                 label="Solo"
@@ -236,6 +261,18 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                   }
                 }}
               />
+
+              <TypeButton
+                icon={<Globe className="w-4 h-4" />}
+                label="Lobby"
+                sublabel="Global"
+                isActive={oathType === "lobby"}
+                onClick={() => {
+                  setOathType("lobby");
+                  setVerificationMethod("peer");
+                  setConsequenceType("fiat");
+                }}
+              />
             </div>
           </div>
 
@@ -245,7 +282,6 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
               Consequence
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {oathType === "solo" && (
                 <>
                   <TypeButton
                     icon={<DollarSign className="w-4 h-4" />}
@@ -289,68 +325,81 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                     onInfo={() => setInfoModal({ title: "Public Humiliation", desc: "Your failure, excuse, and headshot are permanently broadcasted to the global Wall of Shame feed for everyone to mock." })}
                   />
                 </>
-              )}
+            </div>
+          </div>
 
-              {oathType === "duo" && (
-                <>
+          {(oathType === "duo" || oathType === "squad") && (
+            <div className="mt-4">
+              <label className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em] mb-3 block">
+                Group Mode
+              </label>
+              <div className="grid grid-cols-2 gap-2">
                   <TypeButton
-                    icon={<DollarSign className="w-4 h-4" />}
-                    label="Direct Bounty"
-                    sublabel="Winner takes all"
-                    isActive={oathType === "duo" && consequenceType === "shared_oath"}
-                    onClick={() => setConsequenceType("shared_oath")}
-                    onInfo={() => setInfoModal({ title: "Direct Bounty", desc: "Head-to-head match. If you fail, your entire locked stake is transferred directly to your opponent's wallet." })}
+                    icon={<Zap className="w-4 h-4" />}
+                    label="Weakest Link"
+                    sublabel="All or nothing"
+                    isActive={groupMode === "weakest_link"}
+                    onClick={() => setGroupMode("weakest_link")}
+                    onInfo={() => setInfoModal({ title: "Weakest Link", desc: "If ANY member of the duo/squad fails, the ENTIRE squad fails. You win or lose as a team." })}
                   />
                   <TypeButton
                     icon={<Activity className="w-4 h-4" />}
-                    label="Physical Debt"
-                    sublabel="Servant clause"
-                    isActive={consequenceType === "physical_debt"}
-                    onClick={() => setConsequenceType("physical_debt")}
-                    onInfo={() => setInfoModal({ title: "Physical Debt", desc: "The loser must record themselves doing 100 burpees or buying the winner a meal, verified by the winner." })}
+                    label="Survival"
+                    sublabel="Individual stakes"
+                    isActive={groupMode === "survival"}
+                    onClick={() => setGroupMode("survival")}
+                    onInfo={() => setInfoModal({ title: "Survival Mode", desc: "Members who succeed get their money back. Members who fail lose their money to the platform." })}
                   />
-                  <TypeButton
-                    icon={<Flame className="w-4 h-4" />}
-                    label="M.A.D."
-                    sublabel="Mutual destruction"
-                    isActive={consequenceType === "mutual_destruction"}
-                    onClick={() => setConsequenceType("mutual_destruction")}
-                    onInfo={() => setInfoModal({ title: "Mutual Assured Destruction", desc: "If EITHER of you fail the oath, BOTH of your stakes are completely seized by the house." })}
-                  />
-                </>
-              )}
-
-              {oathType === "squad" && (
-                <>
-                  <TypeButton
-                    icon={<UserX className="w-4 h-4" />}
-                    label="Deadweight Tag"
-                    sublabel="Public squad tag"
-                    isActive={consequenceType === "deadweight_tag"}
-                    onClick={() => setConsequenceType("deadweight_tag")}
-                    onInfo={() => setInfoModal({ title: "The Deadweight Tag", desc: "Whoever breaks the squad's streak gets permanently tagged with 'Duffer' on their public profile, requiring a redemption challenge to remove it." })}
-                  />
-                  <TypeButton
-                    icon={<PieChart className="w-4 h-4" />}
-                    label="Shared Oath"
-                    sublabel="Losers fund winners"
-                    isActive={oathType === "squad" && consequenceType === "shared_oath"}
-                    onClick={() => setConsequenceType("shared_oath")}
-                    onInfo={() => setInfoModal({ title: "Shared Oath", desc: "All losers forfeit their stakes, which are pooled and distributed equally to those who completed the oath." })}
-                  />
-                  <TypeButton
-                    icon={<Lock className="w-4 h-4" />}
-                    label="Squad Lockdown"
-                    sublabel="Collective blackout"
-                    isActive={consequenceType === "squad_lockdown"}
-                    onClick={() => handleMobileExclusive("Squad Lockdown")}
-                    disabled
-                    onInfo={() => setInfoModal({ title: "Squad Lockdown", desc: "Mobile App Only. If ANY member fails, ALL members have their recreational apps locked for 24 hours." })}
-                  />
-                </>
-              )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {oathType === "duo" && (
+            <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-950/50 fade-in shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none mt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Users className="w-3.5 h-3.5 text-zinc-500" />
+                <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-500 uppercase tracking-[0.2em]">
+                  Opponent @username
+                </span>
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={opponentUsername}
+                  onChange={(e) => {
+                    selectedFromDropdownRef.current = false;
+                    setOpponentUsername(e.target.value);
+                  }}
+                  onFocus={() => { if (userSuggestions.length > 0) setShowSuggestions(true); }}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  placeholder="@username"
+                  className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
+                />
+                
+                {showSuggestions && userSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a0f] border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none z-10 max-h-40 overflow-y-auto">
+                    {userSuggestions.map((u) => (
+                      <button
+                        key={u.username}
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 last:border-0 flex items-center justify-between"
+                        onClick={() => {
+                          selectedFromDropdownRef.current = true;
+                          setOpponentUsername("@" + u.username);
+                          setOpponentId(u.id || "");
+                          setShowSuggestions(false);
+                          setUserSuggestions([]);
+                        }}
+                      >
+                        <span className="font-bold text-zinc-950 dark:text-zinc-100 text-sm">@{u.username}</span>
+                        <span className="text-[10px] text-zinc-500 font-mono truncate ml-2">{u.display_name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* SOCIAL RANSOM FIELDS */}
           {(consequenceType === "social_ransom") && (

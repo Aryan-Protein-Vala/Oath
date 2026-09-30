@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import type { Oath, WallEntry, Transaction, Proof, GroupMember, Wallet, OathType, VerificationMethod, ConsequenceType, ProofType } from "@/lib/types";
+import type { Oath, WallEntry, Transaction, Proof, GroupMember, Wallet, OathType, VerificationMethod, ConsequenceType, ProofType, GroupMode } from "@/lib/types";
 import {
   mockProfile,
   mockActiveOaths,
@@ -455,6 +455,8 @@ export async function createOath(data: {
   anti_charity_cause?: string;
   min_players?: number;
   max_players?: number;
+  group_mode?: GroupMode;
+  opponent_id?: string;
 }): Promise<{ oath?: Oath; error: string | null }> {
   const validStake = validateNonNegativeAmount(data.stake_amount);
   if (validStake === null) {
@@ -496,6 +498,8 @@ export async function createOath(data: {
       status: initialStatus,
       min_players: data.min_players ?? 1,
       max_players: data.max_players ?? 1,
+      group_mode: data.group_mode,
+      opponent_id: data.opponent_id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       members: data.oath_type === "squad" ? [
@@ -560,7 +564,8 @@ export async function createOath(data: {
     p_anti_charity_cause: data.anti_charity_cause ?? null,
     p_min_players: data.min_players ?? 1,
     p_max_players: data.max_players ?? 1,
-    p_opponent_id: null,
+    p_group_mode: data.group_mode ?? null,
+    p_opponent_id: data.opponent_id ?? null,
   });
   if (error || !oathId) return { error: error?.message ?? "Oath creation failed" };
 
@@ -1276,23 +1281,23 @@ export async function verifyNominee(token: string, verdict: "success" | "penalty
   notifyDataUpdated();
   return { error: null };
 }
-export async function searchUsersByUsername(query: string): Promise<Array<{ username: string; display_name?: string }>> {
+export async function searchUsersByUsername(query: string): Promise<Array<{ id: string; username: string; display_name?: string }>> {
   if (isMockMode()) {
     const q = query.toLowerCase();
     const demoCandidates = [
-      { username: "ghost_protocol", display_name: "Ghost Protocol" },
-      { username: "void_walker", display_name: "Void Walker" },
-      { username: "iron_oath", display_name: "Iron Oath" },
-      { username: "deadweight", display_name: "Deadweight" },
-      { username: "silent_vow", display_name: "Silent Vow" },
-      { username: "reaper_exe", display_name: "Reaper" },
+      { id: "mock-user-ghost", username: "ghost_protocol", display_name: "Ghost Protocol" },
+      { id: "mock-user-void", username: "void_walker", display_name: "Void Walker" },
+      { id: "mock-user-iron", username: "iron_oath", display_name: "Iron Oath" },
+      { id: "mock-user-deadweight", username: "deadweight", display_name: "Deadweight" },
+      { id: "mock-user-silent", username: "silent_vow", display_name: "Silent Vow" },
+      { id: "mock-user-reaper", username: "reaper_exe", display_name: "Reaper" },
     ];
     return demoCandidates.filter(u => u.username.toLowerCase().startsWith(q));
   }
   const supabase = createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("username, display_name")
+    .select("id, username, display_name")
     .ilike("username", `${query}%`)
     .limit(5);
   return data || [];

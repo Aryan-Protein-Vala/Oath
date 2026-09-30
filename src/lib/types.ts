@@ -2,14 +2,15 @@
 // OATH — Type Definitions
 // ============================================================
 
-export type OathType = "solo" | "duo" | "squad";
+export type OathType = "solo" | "duo" | "squad" | "lobby";
 export type OathStatus = "pending" | "active" | "completed" | "failed" | "disputed" | "cancelled";
 export type VerificationMethod = "nominee" | "peer" | "quorum" | "solo_lonely" | "app_blocking";
 export type ConsequenceType = "fiat" | "social_ransom" | "app_blocking" | "combined" | "anti_charity" | "public_shame" | "shared_oath" | "physical_debt" | "mutual_destruction" | "deadweight_tag" | "squad_lockdown";
 export type ProofStatus = "pending_review" | "verified" | "rejected" | "disputed";
 export type ProofType = "photo" | "video" | "screenshot" | "link" | "text";
-export type TransactionType = "deposit" | "withdrawal" | "escrow_lock" | "escrow_release" | "penalty" | "reward";
+export type TransactionType = "deposit" | "withdrawal" | "escrow_lock" | "escrow_release" | "penalty" | "reward" | "house_cut";
 export type WallType = "shame" | "honor";
+export type GroupMode = "weakest_link" | "survival";
 
 export interface Profile {
   id: string;
@@ -58,6 +59,7 @@ export interface Oath {
   oath_type: OathType;
   verification_method: VerificationMethod;
   consequence_type: ConsequenceType;
+  group_mode?: GroupMode;
   stake_amount: number;
   social_ransom_phone?: string;
   social_ransom_message?: string;
@@ -81,6 +83,7 @@ export interface Oath {
 export interface Nominee {
   id: string;
   oath_id: string;
+  nominee_user_id?: string;
   name?: string;
   email?: string;
   phone?: string;
@@ -89,6 +92,7 @@ export interface Nominee {
   verdict?: "success" | "penalty";
   verdict_note?: string;
   responded_at?: string;
+  created_at: string;
 }
 
 export interface GroupMember {

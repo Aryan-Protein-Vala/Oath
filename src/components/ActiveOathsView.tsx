@@ -6,8 +6,10 @@ import type { Oath } from "@/lib/types";
 import { getTimeRemaining, padZero, formatCurrency as utilsFormatCurrency, formatRelativeTime } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
 import ProofUploadModal from "./ProofUploadModal";
+import ChatRoom from "./ChatRoom";
 import { forfeitOath } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
+import { MessageSquare } from "lucide-react";
 
 interface ActiveOathsViewProps {
   oaths: Oath[];
@@ -21,6 +23,7 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
   );
   const [showProofModal, setShowProofModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showChatModal, setShowChatModal] = useState(false);
   const [showForfeitModal, setShowForfeitModal] = useState(false);
   // On mobile, track whether we're showing the detail panel or list
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
@@ -98,6 +101,7 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
             oath={selectedOath}
             onSubmitProof={() => setShowProofModal(true)}
             onViewDetails={() => setShowDetailsModal(true)}
+            onOpenChat={() => setShowChatModal(true)}
             onForfeit={() => setShowForfeitModal(true)}
           />
 
@@ -113,6 +117,13 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
             <OathDetailsModal
               oath={selectedOath}
               onClose={() => setShowDetailsModal(false)}
+            />
+          )}
+
+          {showChatModal && (
+            <ChatRoom
+              oath={selectedOath}
+              onClose={() => setShowChatModal(false)}
             />
           )}
 
@@ -178,11 +189,13 @@ function OathCountdownCard({
   oath,
   onSubmitProof,
   onViewDetails,
+  onOpenChat,
   onForfeit,
 }: {
   oath: Oath;
   onSubmitProof: () => void;
   onViewDetails: () => void;
+  onOpenChat: () => void;
   onForfeit: () => void;
 }) {
   const { region } = useRegion();
@@ -328,6 +341,13 @@ function OathCountdownCard({
                 >
                   <Upload className="w-3.5 h-3.5" />
                   {hasPendingProof ? "Proof In Review" : isApproved ? "Proof Verified" : "Submit Proof"}
+                </button>
+                <button
+                  onClick={onOpenChat}
+                  className="flex items-center gap-2 px-5 py-2.5 border-2 border-zinc-950 dark:border-zinc-700 text-zinc-900 dark:text-zinc-300 text-sm font-bold tracking-tight hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  Chat
                 </button>
                 <button
                   onClick={onViewDetails}

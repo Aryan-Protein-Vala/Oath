@@ -23,12 +23,12 @@ export default function PrivacyPage() {
           
           <h2>1. Data Collection</h2>
           <p>
-            OATH collects information necessary to facilitate your commitment contracts, including your email address, phone number, and financial transaction metadata. We do not sell your personal data to third parties. We are a habit-building platform, not an advertising network.
+            Oath collects information necessary to facilitate your commitment contracts (Oaths), including your email address, phone number, and financial transaction metadata. We do not sell your personal data to third parties. Oath is a habit-building, productivity, and health platform, not a gambling or betting application. Our sole purpose is to hold you accountable to your personal goals.
           </p>
 
           <h2>2. Financial Data</h2>
           <p>
-            Your payment information is securely processed by our authorized payment gateways (e.g., PayPal, Razorpay). We do not store your full credit card numbers or raw bank account credentials on our servers. Your &ldquo;Wallet&rdquo; balance merely reflects the ledger of your escrow deposits and oath outcomes.
+            Your payment information is securely processed by our authorized payment gateways (including Razorpay and Paytm for our Indian users). We do not store your full credit card numbers or raw bank account credentials on our servers. Your "Wallet" balance merely reflects the ledger of your escrow deposits used for personal accountability. All funds are strictly held in escrow and returned upon successful completion of your self-defined goals, minus standard Oath Platform Fees.
           </p>
           
           <h2>3. Proof Submissions & Media</h2>
@@ -38,7 +38,7 @@ export default function PrivacyPage() {
 
           <h2>4. Public Profiles & The Wall</h2>
           <p>
-            If you select &ldquo;Public Shame&rdquo; as a consequence for your OATH, you explicitly consent to having your failure excuse, original goal, and username published publicly on the OATH platform. Your username, reputation score, and &ldquo;Duffer&rdquo; status are publicly visible on your profile to maintain platform accountability.
+            If you select "Wall of Shame" as a consequence for your Oath, you explicitly consent to having your failure excuse, original goal, and username published publicly on the Oath platform. Your username, reputation score, and "Duffer" status are publicly visible on your profile to maintain platform accountability.
           </p>
 
           <h2>5. Third-Party Integrations</h2>
@@ -48,7 +48,7 @@ export default function PrivacyPage() {
 
           <h2>6. Data Deletion</h2>
           <p>
-            You may request the deletion of your account at any time. Active funds in your wallet will be returned to you. However, records of completed or failed OATHs may be retained in anonymized formats for ledger integrity and legal compliance.
+            You may request the deletion of your account at any time. Active funds in your wallet will be returned to you. However, records of completed or failed Oaths may be retained in anonymized formats for ledger integrity and legal compliance under Indian IT regulations.
           </p>
         </div>
       </div>

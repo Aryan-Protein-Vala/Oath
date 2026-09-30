@@ -245,7 +245,7 @@ function LedgerRow({ tx, index, region }: { tx: Transaction; index: number; regi
         <p className="text-[11px] text-zinc-900 dark:text-zinc-300 font-bold truncate">{tx.description}</p>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-wider font-bold">
-            {tx.type.replace(/_/g, " ")}
+            {tx.type === "house_cut" ? "platform fee" : tx.type.replace(/_/g, " ")}
           </span>
           <span className="text-zinc-400">·</span>
           <span className="text-[9px] font-mono text-zinc-500">
