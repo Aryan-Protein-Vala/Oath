@@ -240,7 +240,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
             <label className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em] mb-3 block">
               Oath Type
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <TypeButton
                 icon={<User className="w-4 h-4" />}
                 label="Solo"
