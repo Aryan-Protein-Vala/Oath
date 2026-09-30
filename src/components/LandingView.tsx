@@ -362,10 +362,10 @@ export default function LandingView() {
               <Swords className="w-16 h-16 text-red-600 dark:text-red-500 mb-8 group-hover:text-white transition-colors" />
               <h3 className="text-4xl font-black tracking-tight mb-4 uppercase text-zinc-950 dark:text-zinc-100 group-hover:text-white transition-colors">Duo Challenge</h3>
               <p className="text-lg text-zinc-800 dark:text-zinc-300 mb-8 font-bold group-hover:text-red-100 transition-colors leading-snug">
-                Head-to-head combat. You and a rival lock equal stakes. Either someone wins the pot (Direct Bounty), or you both fail and lose it all (M.A.D.).
+                Head-to-head commitment. You and a rival lock equal stakes. Either you complete the oath, or you both fail and lose it all (M.A.D.).
               </p>
               <ul className="text-sm font-mono font-bold text-red-700 dark:text-red-400 space-y-3 group-hover:text-red-200 transition-colors border-t-2 border-red-200 dark:border-red-800 pt-6 mt-auto">
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Direct Bounty (Winner takes all)</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Shared Oath Commitment</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Mutual Assured Destruction</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Verification by Opponent</li>
               </ul>

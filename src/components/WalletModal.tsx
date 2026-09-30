@@ -12,12 +12,11 @@ import {
   CheckCircle,
   AlertCircle,
 } from "lucide-react";
-import { depositFunds, withdrawFunds } from "@/lib/data-hooks";
-import { mockTransactions } from "@/lib/mock-data";
-import { formatCurrency, formatCurrencyPrecise, formatRelativeTime, convertToUSD, convertToLocal } from "@/lib/utils";
+import { depositFunds, withdrawFunds, isMockMode } from "@/lib/data-hooks";
+import { formatCurrencyPrecise, formatRelativeTime, convertToUSD } from "@/lib/utils";
 import type { Wallet, Transaction } from "@/lib/types";
 import { showToast } from "./Toast";
-import { useRegion, type Region } from "@/lib/region-context";
+import { useRegion } from "@/lib/region-context";
 
 interface WalletModalProps {
   wallet: Wallet;
@@ -43,7 +42,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
-  const { region } = useRegion();
+  const { region, formatCurrency: formatRegionCurrency } = useRegion();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -57,10 +56,11 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
 
   const amountNum = parseFloat(amount) || 0;
   const amountUsd = convertToUSD(amountNum, region);
-  const canWithdraw = amountNum > 0 && amountUsd <= wallet.balance;
-  const canDeposit = amountNum > 0 && amountNum <= 50000;
+  const isDemo = isMockMode();
+  const canWithdraw = isDemo && amountNum > 0 && amountUsd <= wallet.balance;
+  const canDeposit = isDemo && amountNum > 0 && amountNum <= 50000;
 
-  const activeTransactions = transactions.length > 0 ? transactions : mockTransactions;
+  const activeTransactions = transactions;
 
   const handleAction = async () => {
     if (amountNum <= 0) return;
@@ -76,9 +76,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
     } else {
       setDone(true);
       showToast(
-        tab === "deposit"
-          ? `${region === "in" ? `₹${amountNum}` : `$${amountNum}`} deposited into available balance.`
-          : `${region === "in" ? `₹${amountNum}` : `$${amountNum}`} withdrawn.`,
+        tab === "deposit" ? `${formatRegionCurrency(amountNum)} added to the virtual sandbox balance.` : `${formatRegionCurrency(amountNum)} removed from the virtual sandbox balance.`,
         "success"
       );
       onRefresh();
@@ -94,10 +92,10 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
       aria-labelledby="wallet-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
     >
-      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
+      <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b-2 border-zinc-950 dark:border-zinc-800">
-          <h3 id="wallet-modal-title" className="text-sm font-black text-zinc-950 dark:text-zinc-100 tracking-tight uppercase">ESCROW WALLET</h3>
+          <h3 id="wallet-modal-title" className="text-sm font-black text-zinc-950 dark:text-zinc-100 tracking-tight uppercase">SANDBOX WALLET</h3>
           <button onClick={onClose} aria-label="Close wallet" className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
             <X className="w-4 h-4" />
           </button>
@@ -118,6 +116,8 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
             </p>
           </div>
         </div>
+
+        <p className="px-5 py-3 text-[10px] font-mono text-amber-700 dark:text-amber-400 border-b border-zinc-200 dark:border-zinc-800">All displayed amounts are virtual sandbox units with no cash value. Demo deposits and withdrawals only change this local test balance; no payment is collected.</p>
 
         {/* Tab Row */}
         <div className="flex border-b-2 border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-transparent">
@@ -144,7 +144,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           {tab === "overview" && (
             <div className="space-y-0 max-h-72 overflow-y-auto">
               {activeTransactions.map((tx) => (
-                <TxRow key={tx.id} tx={tx} region={region} />
+                <TxRow key={tx.id} tx={tx} />
               ))}
               {activeTransactions.length === 0 && (
                 <p className="text-center text-zinc-500 text-xs font-mono py-8">
@@ -201,24 +201,24 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                             : "border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-600 hover:text-zinc-900"
                         }`}
                       >
-                        {region === "in" ? `₹${a}` : `$${a}`}
+                        {formatRegionCurrency(a)}
                       </button>
                     ))}
                   </div>
 
                   {tab === "withdraw" && (
                     <button
-                      onClick={() => setAmount(Math.floor(convertToLocal(wallet.balance, region)).toString())}
+                      onClick={() => setAmount(wallet.balance.toString())}
                       className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200 transition-colors"
                     >
-                      Withdraw all ({formatCurrencyPrecise(wallet.balance, region)})
+                      Withdraw all ({formatCurrencyPrecise(wallet.balance)})
                     </button>
                   )}
 
                   {/* Confirm */}
                   <button
                     onClick={handleAction}
-                    disabled={tab === "deposit" ? !canDeposit : !canWithdraw || loading}
+                    disabled={(tab === "deposit" ? !canDeposit : !canWithdraw) || loading}
                     className={`w-full flex items-center justify-center gap-2 py-3 text-sm font-black uppercase tracking-tight transition-all border-2 ${
                       (tab === "deposit" ? !canDeposit : !canWithdraw) || loading
                         ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border-transparent cursor-not-allowed"
@@ -236,13 +236,13 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                     )}
                     {loading
                       ? "Processing..."
-                      : `${tab === "deposit" ? (region === "in" ? "Deposit via Razorpay" : "Deposit via PayPal") : "Withdraw"} ${amountNum > 0 ? (region === "in" ? `₹${amountNum}` : `$${amountNum}`) : ""}`}
+                      : `${isDemo ? (tab === "deposit" ? "Add virtual funds" : "Withdraw virtual funds") : "Unavailable"} ${amountNum > 0 ? formatRegionCurrency(amountNum) : ""}`}
                   </button>
 
                   <p className="text-[10px] font-mono text-zinc-500 text-center">
-                    {tab === "deposit"
-                      ? (region === "in" ? "Simulating secure payment via Razorpay. Funds update instantly." : "Simulating secure payment via PayPal. Funds update instantly.")
-                      : "Withdrawals return to your linked account."}
+                    {isDemo
+                      ? "Demo-only virtual balance; it has no cash value."
+                      : "A payment provider has not been connected. This control cannot move money."}
                   </p>
                 </>
               )}
@@ -254,7 +254,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
   );
 }
 
-function TxRow({ tx, region }: { tx: Transaction; region: Region }) {
+function TxRow({ tx }: { tx: Transaction }) {
   const isCredit = ["deposit", "escrow_release", "reward"].includes(tx.type);
   const isDebit = ["withdrawal", "penalty", "escrow_lock", "house_cut"].includes(tx.type);
 
@@ -270,7 +270,7 @@ function TxRow({ tx, region }: { tx: Transaction; region: Region }) {
         </div>
       </div>
       <span className={`text-sm font-black stake-number ${isCredit ? "text-zinc-900 dark:text-zinc-200" : isDebit ? "text-red-600" : "text-zinc-500"}`}>
-        {isCredit ? "+" : isDebit ? "-" : ""}{formatCurrency(tx.amount, region)}
+        {isCredit ? "+" : isDebit ? "-" : ""}${tx.amount.toFixed(0)}
       </span>
     </div>
   );

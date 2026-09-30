@@ -6,12 +6,9 @@ import {
   DollarSign,
   LogOut,
 } from "lucide-react";
-import { useState } from "react";
-import { formatCurrency as utilsFormatCurrency, formatCurrencyPrecise as utilsFormatCurrencyPrecise, formatRelativeTime, convertToUSD } from "@/lib/utils";
+import { formatCurrency as utilsFormatCurrency, formatCurrencyPrecise as utilsFormatCurrencyPrecise, formatRelativeTime } from "@/lib/utils";
 import type { Profile, Wallet, Transaction } from "@/lib/types";
 import { useRegion, type Region } from "@/lib/region-context";
-import { addFunds, requestWithdrawal } from "@/lib/data-hooks";
-import { showToast } from "./Toast";
 
 interface ProfileViewProps {
   profile: Profile;
@@ -22,133 +19,10 @@ interface ProfileViewProps {
 
 export default function ProfileView({ profile, wallet, transactions, onSignOut }: ProfileViewProps) {
   const { region } = useRegion();
-  const [depositAmount, setDepositAmount] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const handleWithdraw = async () => {
-    setIsProcessing(true);
-    const inputVal = Number(depositAmount);
-    let withdrawUSD = wallet.balance;
-    if (!isNaN(inputVal) && inputVal > 0) {
-      const enteredUSD = region === "in" ? convertToUSD(inputVal, "in") : inputVal;
-      if (enteredUSD <= wallet.balance) {
-        withdrawUSD = enteredUSD;
-      }
-    }
-    const { error } = await requestWithdrawal(withdrawUSD);
-    if (error) {
-      showToast({ title: "Withdrawal Failed", description: error, type: "error" });
-    } else {
-      showToast({
-        title: "Withdrawal Requested",
-        description: `Requested withdrawal of ${utilsFormatCurrencyPrecise(withdrawUSD, region)}. Your funds will be processed manually.`,
-        type: "success"
-      });
-      setDepositAmount("");
-    }
-    setIsProcessing(false);
-  };
-
-  const handleDeposit = async () => {
-    const amount = Number(depositAmount);
-    if (isNaN(amount) || amount <= 0) return;
-    
-    setIsProcessing(true);
-    const amountInUSD = region === "in" ? convertToUSD(amount, "in") : amount;
-    
-    if (region === "in") {
-      try {
-        const res = await fetch("/api/razorpay/create-order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount }),
-        });
-        const order = await res.json();
-        
-        if (order.error) {
-          throw new Error(order.error);
-        }
-
-        const options = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-          amount: order.amount,
-          currency: order.currency,
-          name: "Oath",
-          description: "Wallet Deposit",
-          order_id: order.id,
-          handler: async function (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) {
-            const verifyRes = await fetch("/api/razorpay/verify", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                amount: amount,
-                amount_usd: amountInUSD,
-              }),
-            });
-            const verifyData = await verifyRes.json();
-            if (verifyData.success) {
-              const { error } = await addFunds(amountInUSD, `Razorpay Deposit: ${response.razorpay_payment_id}`);
-              if (error) {
-                showToast({ title: "Deposit Error", description: error, type: "error" });
-              } else {
-                showToast({ title: "Deposit Successful", description: `Added ₹${amount} to your wallet.`, type: "success" });
-                setDepositAmount("");
-              }
-            } else {
-              showToast({ title: "Verification Failed", description: verifyData.error, type: "error" });
-            }
-            setIsProcessing(false);
-          },
-          prefill: {
-            name: profile.username,
-          },
-          theme: {
-            color: "#09090b",
-          },
-          modal: {
-            ondismiss: function() {
-              setIsProcessing(false);
-            }
-          }
-        };
-
-        interface RazorpayInstance {
-          on: (event: string, callback: (resp: { error?: { description?: string } }) => void) => void;
-          open: () => void;
-        }
-        type RazorpayConstructor = new (opts: unknown) => RazorpayInstance;
-        const RazorpayGlobal = (window as unknown as { Razorpay: RazorpayConstructor }).Razorpay;
-        const rzp = new RazorpayGlobal(options);
-        rzp.on("payment.failed", function (response: { error?: { description?: string } }) {
-          showToast({ title: "Payment Failed", description: response.error?.description || "Payment failed", type: "error" });
-          setIsProcessing(false);
-        });
-        rzp.open();
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Deposit failed";
-        showToast({ title: "Deposit Failed", description: message, type: "error" });
-        setIsProcessing(false);
-      }
-    } else {
-      // Manual/PayPal fallback (just manual deposit for MVP as requested)
-      const { error } = await addFunds(amountInUSD, `Manual Deposit (Global)`);
-      if (error) {
-        showToast({ title: "Deposit Error", description: error, type: "error" });
-      } else {
-        showToast({ title: "Deposit Successful", description: `Added $${amount} to your wallet.`, type: "success" });
-        setDepositAmount("");
-      }
-      setIsProcessing(false);
-    }
-  };
-
-  const completionRate =
-    profile.oaths_created > 0
-      ? Math.round((profile.oaths_completed / profile.oaths_created) * 100)
-      : 0;
+  const resolvedOaths = profile.oaths_completed + profile.oaths_failed;
+  const completionRate = resolvedOaths > 0
+    ? Math.round((profile.oaths_completed / resolvedOaths) * 100)
+    : 0;
 
   const repColor =
     profile.reputation_score >= 80
@@ -158,9 +32,9 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
       : "text-red-600 dark:text-red-500";
 
   return (
-    <div className="flex-1 flex overflow-hidden bg-zinc-50 dark:bg-transparent">
-      {/* Left — Profile stats */}
-      <div className="w-72 border-r-2 border-zinc-950 dark:border-zinc-800/60 flex flex-col overflow-y-auto bg-white dark:bg-transparent">
+    <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-hidden bg-zinc-50 dark:bg-transparent">
+      {/* Profile summary scrolls above the ledger on phones. */}
+      <div className="w-full max-h-[46vh] sm:max-h-none sm:w-72 shrink-0 border-b-2 sm:border-b-0 sm:border-r-2 border-zinc-950 dark:border-zinc-800/60 flex flex-col overflow-y-auto bg-white dark:bg-transparent">
         {/* Identity */}
         <div className="p-5 border-b-2 border-zinc-200 dark:border-zinc-800/40">
           <div className="flex items-center gap-3 mb-4">
@@ -205,23 +79,21 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
           <StatCell label="Created" value={profile.oaths_created} />
           <StatCell label="Completed" value={profile.oaths_completed} accent />
           <StatCell label="Failed" value={profile.oaths_failed} danger />
-          <StatCell label="Rate" value={`${completionRate}%`} />
+          <StatCell label="Success" value={`${completionRate}%`} />
         </div>
 
         {/* Money stats */}
         <div className="p-4 border-b-2 border-zinc-200 dark:border-zinc-800/40 space-y-3">
-          <MoneyRow label="Total Staked" value={profile.total_staked} region={region} />
-          <MoneyRow label="Total Won" value={profile.total_won} positive region={region} />
-          <MoneyRow label="Total Lost" value={profile.total_lost} negative region={region} />
+          <MoneyRow label="Virtual Staked" value={profile.total_staked} region={region} />
+          <MoneyRow label="Virtual Won" value={profile.total_won} positive region={region} />
+          <MoneyRow label="Virtual Lost" value={profile.total_lost} negative region={region} />
         </div>
 
-        <div className="p-4 border-b-2 border-zinc-200 dark:border-zinc-800/40 space-y-3">
-          <div className="flex justify-between items-center mb-1">
-            <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest">
-              Wallet
-            </p>
-          </div>
-          
+        {/* Wallet summary */}
+        <div className="p-4 border-b-2 border-zinc-200 dark:border-zinc-800/40 space-y-2">
+          <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mb-2">
+            Sandbox Wallet
+          </p>
           <div className="flex justify-between items-center">
             <span className="text-[11px] font-mono text-zinc-500 font-bold">Available</span>
             <span className="text-sm font-black stake-number text-zinc-950 dark:text-zinc-200">
@@ -229,48 +101,16 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-[11px] font-mono text-zinc-500 font-bold">In Escrow</span>
+            <span className="text-[11px] font-mono text-zinc-500 font-bold">Locked in active oaths</span>
             <span className="text-sm font-black stake-number text-zinc-500">
               {utilsFormatCurrencyPrecise(wallet.escrow_locked, region)}
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-[11px] font-mono text-zinc-500 font-bold">All-time In</span>
+            <span className="text-[11px] font-mono text-zinc-500 font-bold">Virtual In</span>
             <span className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-400 stake-number">
               {utilsFormatCurrencyPrecise(wallet.total_deposited, region)}
             </span>
-          </div>
-
-          <div className="flex flex-col gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-800/40">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono text-zinc-500">
-                  {region === "in" ? "₹" : "$"}
-                </span>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="0.00"
-                  value={depositAmount}
-                  onChange={(e) => setDepositAmount(e.target.value)}
-                  className="w-full h-8 bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs font-mono pl-6 pr-2 focus:outline-none focus:border-zinc-950 dark:focus:border-zinc-400"
-                />
-              </div>
-              <button
-                disabled={isProcessing || !depositAmount || isNaN(Number(depositAmount))}
-                onClick={handleDeposit}
-                className="h-8 px-3 bg-zinc-950 dark:bg-zinc-200 text-zinc-50 dark:text-zinc-900 text-[10px] font-mono font-bold uppercase disabled:opacity-50"
-              >
-                Deposit
-              </button>
-            </div>
-            <button
-                disabled={isProcessing || wallet.balance <= 0}
-                onClick={handleWithdraw}
-                className="h-8 w-full border border-zinc-300 dark:border-zinc-700 text-zinc-950 dark:text-zinc-300 text-[10px] font-mono font-bold uppercase hover:bg-zinc-100 dark:hover:bg-zinc-900 disabled:opacity-50"
-              >
-                Request Withdrawal
-            </button>
           </div>
         </div>
 
@@ -287,13 +127,13 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
       </div>
 
       {/* Right — Transaction History */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-transparent">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white dark:bg-transparent">
         <div className="px-5 py-4 border-b-2 border-zinc-200 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/40">
           <h3 className="text-base font-black tracking-tight text-zinc-950 dark:text-zinc-100 uppercase">
-            TRANSACTION LEDGER
+            SANDBOX ACTIVITY
           </h3>
           <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 mt-0.5 font-bold">
-            Full financial record of your oaths.
+            Virtual balance changes only; no cash is collected or paid out.
           </p>
         </div>
 

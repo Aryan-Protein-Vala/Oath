@@ -5,10 +5,10 @@
 export type OathType = "solo" | "duo" | "squad";
 export type OathStatus = "pending" | "active" | "completed" | "failed" | "disputed" | "cancelled";
 export type VerificationMethod = "nominee" | "peer" | "quorum" | "solo_lonely" | "app_blocking";
-export type ConsequenceType = "fiat" | "social_ransom" | "app_blocking" | "combined" | "anti_charity" | "public_shame" | "bounty_transfer" | "physical_debt" | "mutual_destruction" | "deadweight_tag" | "bounty_split" | "squad_lockdown";
+export type ConsequenceType = "fiat" | "social_ransom" | "app_blocking" | "combined" | "anti_charity" | "public_shame" | "shared_oath" | "physical_debt" | "mutual_destruction" | "deadweight_tag" | "squad_lockdown";
 export type ProofStatus = "pending_review" | "verified" | "rejected" | "disputed";
 export type ProofType = "photo" | "video" | "screenshot" | "link" | "text";
-export type TransactionType = "deposit" | "withdrawal" | "escrow_lock" | "escrow_release" | "penalty" | "reward" | "house_cut";
+export type TransactionType = "deposit" | "withdrawal" | "escrow_lock" | "escrow_release" | "penalty" | "reward";
 export type WallType = "shame" | "honor";
 
 export interface Profile {
@@ -34,6 +34,8 @@ export interface Wallet {
   escrow_locked: number;
   total_deposited: number;
   total_withdrawn: number;
+  total_won?: number;
+  total_lost?: number;
 }
 
 export interface Transaction {
@@ -56,7 +58,6 @@ export interface Oath {
   verification_method: VerificationMethod;
   consequence_type: ConsequenceType;
   stake_amount: number;
-  house_cut_percent: number;
   social_ransom_phone?: string;
   social_ransom_message?: string;
   nominee_email?: string;
@@ -99,8 +100,9 @@ export interface GroupMember {
   proof_submitted: boolean;
   votes_received: number;
   votes_needed: number;
-  is_winner: boolean;
+  is_active_participant: boolean;
   voted_by?: string[];
+  votes_rejected?: number;
 }
 
 export interface Proof {
@@ -143,7 +145,6 @@ export interface WallEntry {
 export interface ToastMessage {
   id: string;
   message: string;
-  title?: string;
   type: "error" | "success" | "info";
   duration?: number;
 }

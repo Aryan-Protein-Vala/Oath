@@ -47,7 +47,7 @@ export default function LobbiesView({ squads, wallet, onJoined, onCreateLobby }:
                 SQUAD POOLS
               </h2>
               <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 tracking-wide mt-0.5 font-bold">
-                Winner takes all. Losers fund the victor.
+                Shared accountability. If you fail, you forfeit your stake.
               </p>
             </div>
             <div className="flex items-center gap-2">

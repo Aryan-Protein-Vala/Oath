@@ -23,7 +23,7 @@ import {
   X
 } from "lucide-react";
 import type { OathType, VerificationMethod, ConsequenceType } from "@/lib/types";
-import { convertToUSD, convertToLocal } from "@/lib/utils";
+import { convertToUSD } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
 import { showToast } from "./Toast";
 
@@ -44,40 +44,36 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   const [socialPhone, setSocialPhone] = useState("");
   const [socialMessage, setSocialMessage] = useState("");
   const [nomineeEmail, setNomineeEmail] = useState("");
-  const [antiCharityCause, setAntiCharityCause] = useState("Opposing Political Party");
   const [infoModal, setInfoModal] = useState<{ title: string; desc: string } | null>(null);
 
-  const financialConsequences = ["fiat", "anti_charity", "bounty_transfer", "mutual_destruction", "bounty_split"];
-  const isFinancial = financialConsequences.includes(consequenceType);
-
   const stakeNum = parseFloat(stakeAmount) || 0;
-  // walletBalance is stored in USD; convert to local for comparison
-  const walletInLocal = convertToLocal(walletBalance, region);
   const stakeUsd = convertToUSD(stakeNum, region);
-  const isOverBudget = isFinancial && stakeNum > walletInLocal;
+  const isOverBudget = stakeUsd > walletBalance;
+  const requiresStake = consequenceType === "fiat" || oathType === "duo" || oathType === "squad";
 
   // Handle mobile-exclusive features
   const handleMobileExclusive = (feature: string) => {
-    showToast(`${feature} — Available only on mobile app.`, "error", 5000);
+    showToast(`${feature} is not available in this web build yet.`, "info", 5000);
   };
 
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (!oathStatement.trim()) {
-      showToast("You need to swear to something.", "error");
+    if (!oathStatement.trim() || oathStatement.trim().length > 500) {
+      showToast("Write an oath between 1 and 500 characters.", "error");
       return;
     }
-    
-    if (isFinancial) {
-      if (stakeNum <= 0) {
-        showToast("No stake, no oath. Put something on the line.", "error");
-        return;
-      }
-      if (isOverBudget) {
-        showToast("Insufficient funds. Deposit more or lower the stake.", "error");
-        return;
-      }
+    if (requiresStake && stakeNum <= 0) {
+      showToast("Add a positive stake for a financial or group oath.", "error");
+      return;
+    }
+    if (stakeNum < 0) {
+      showToast("Stake cannot be negative.", "error");
+      return;
+    }
+    if (stakeNum > 0 && isOverBudget) {
+      showToast("Insufficient funds. Deposit more or lower the stake.", "error");
+      return;
     }
     if (!deadline) {
       showToast("Set a deadline. An oath without a deadline is a wish.", "error");
@@ -88,7 +84,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
     if (!deadline.includes("T")) {
       deadlineDate.setHours(23, 59, 59, 999);
     }
-    if (deadlineDate.getTime() <= new Date().getTime()) {
+    if (!Number.isFinite(deadlineDate.getTime()) || deadlineDate.getTime() <= Date.now()) {
       showToast("Deadline must be in the future.", "error");
       return;
     }
@@ -101,30 +97,32 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
       return;
     }
 
-    const statementWithCause =
-      consequenceType === "anti_charity"
-        ? `${oathStatement.trim()} [Anti-Charity: ${antiCharityCause}]`
-        : oathStatement.trim();
-
     setSubmitting(true);
-    const { error } = await createOath({
-      oath_statement: statementWithCause,
-      deadline: deadlineDate.toISOString(),
-      oath_type: oathType,
-      verification_method: verificationMethod,
-      consequence_type: consequenceType,
-      stake_amount: isFinancial ? stakeUsd : 0,
-      nominee_email: nomineeEmail || undefined,
-      social_ransom_phone: socialPhone || undefined,
-      social_ransom_message: socialMessage || undefined,
-      min_players: oathType === "squad" ? 5 : 1,
-      max_players: oathType === "squad" ? 8 : 1,
-    });
-    setSubmitting(false);
+    let error: string | null = null;
+    try {
+      const result = await createOath({
+        oath_statement: oathStatement.trim(),
+        deadline: deadlineDate.toISOString(),
+        oath_type: oathType,
+        verification_method: verificationMethod,
+        consequence_type: consequenceType,
+        stake_amount: stakeUsd,
+        nominee_email: nomineeEmail || undefined,
+        social_ransom_phone: socialPhone || undefined,
+        social_ransom_message: socialMessage || undefined,
+        min_players: oathType === "squad" ? 4 : 1,
+        max_players: oathType === "squad" ? 8 : 1,
+      });
+      error = result.error;
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : "Could not create the oath. Please try again.";
+    } finally {
+      setSubmitting(false);
+    }
     if (error) {
       showToast(error, "error");
     } else {
-      showToast("Oath created. Funds locked in escrow. No turning back.", "success");
+      showToast(stakeUsd > 0 ? "Oath created. Stake is locked in the sandbox ledger." : "Oath created. No monetary stake was added.", "success");
       onOathCreated?.();
     }
   };
@@ -138,7 +136,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
             Create an Oath
           </h2>
           <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 tracking-wide border-2 border-zinc-300 dark:border-zinc-800 p-2 inline-block bg-white dark:bg-zinc-900">
-            WARNING: ONCE CREATED, FUNDS ARE LOCKED. NO UNDO.
+            SANDBOX BETA: STAKES ARE VIRTUAL; NO REAL PAYMENTS ARE ENABLED.
           </p>
         </div>
 
@@ -151,6 +149,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
             </label>
             <textarea
               value={oathStatement}
+              maxLength={500}
               onChange={(e) => setOathStatement(e.target.value)}
               placeholder="Run 5km every morning for 30 days..."
               className="w-full text-xl font-black text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 bg-transparent border-0 p-0 resize-none focus:ring-0 leading-relaxed"
@@ -183,23 +182,19 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 label="Duo"
                 sublabel="Head to Head"
                 isActive={oathType === "duo"}
-                onClick={() => {
-                  setOathType("duo");
-                  setVerificationMethod("peer");
-                  if (consequenceType !== "fiat" && consequenceType !== "bounty_transfer" && consequenceType !== "physical_debt" && consequenceType !== "mutual_destruction") {
-                    setConsequenceType("bounty_transfer");
-                  }
-                }}
+                onClick={() => showToast("Use the Challenge button to create an invited duo oath.", "info")}
+                disabled
+                onInfo={() => setInfoModal({ title: "Duo challenges", desc: "Use the Challenge button to create an invite. The backend locks both stakes when the invite is accepted." })}
               />
               <TypeButton
                 icon={<Users className="w-4 h-4" />}
                 label="Squad"
-                sublabel="5-8 Players"
+                sublabel="4-8 Players"
                 isActive={oathType === "squad"}
                 onClick={() => {
                   setOathType("squad");
                   setVerificationMethod("quorum");
-                  if (consequenceType !== "fiat" && consequenceType !== "deadweight_tag" && consequenceType !== "bounty_split" && consequenceType !== "squad_lockdown") {
+                  if (consequenceType !== "deadweight_tag" && consequenceType !== "shared_oath" && consequenceType !== "squad_lockdown") {
                     setConsequenceType("deadweight_tag");
                   }
                 }}
@@ -217,19 +212,20 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 <>
                   <TypeButton
                     icon={<DollarSign className="w-4 h-4" />}
-                    label="Fiat"
-                    sublabel="Lose money"
+                    label="Sandbox stake"
+                    sublabel="Virtual ledger"
                     isActive={consequenceType === "fiat"}
                     onClick={() => setConsequenceType("fiat")}
-                    onInfo={() => setInfoModal({ title: "Fiat Consequence", desc: "If you fail, the house takes a 10% cut of your locked stake, and the remaining 90% is burned forever. Hard financial loss." })}
+                    onInfo={() => setInfoModal({ title: "Sandbox stake", desc: "A failed oath forfeits the virtual stake from the demo ledger. This build does not process payments or cash withdrawals." })}
                   />
                   <TypeButton
                     icon={<MessageSquare className="w-4 h-4" />}
                     label="Social Ransom"
-                    sublabel="Confession SMS"
+                    sublabel="Not connected yet"
                     isActive={consequenceType === "social_ransom"}
-                    onClick={() => setConsequenceType("social_ransom")}
-                    onInfo={() => setInfoModal({ title: "Social Ransom", desc: "You write an embarrassing confession and provide a friend/boss's phone number. If you fail, we automatically text it to them." })}
+                    onClick={() => showToast("SMS delivery is not configured yet; this consequence is unavailable.", "info")}
+                    disabled
+                    onInfo={() => setInfoModal({ title: "Social Ransom", desc: "Automated messaging is not configured, so OATH will not collect or send a recipient phone number in this build." })}
                   />
                   <TypeButton
                     icon={<Lock className="w-3.5 h-3.5" />}
@@ -243,10 +239,11 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                   <TypeButton
                     icon={<Flame className="w-4 h-4" />}
                     label="Anti-Charity"
-                    sublabel="Hate donation"
+                    sublabel="Not connected yet"
                     isActive={consequenceType === "anti_charity"}
-                    onClick={() => setConsequenceType("anti_charity")}
-                    onInfo={() => setInfoModal({ title: "Anti-Charity Donation", desc: "You pick a cause you absolutely despise. Failing forfeits your stake directly to that entity to cause maximum ideological pain." })}
+                    onClick={() => showToast("Donation routing is not configured yet; this consequence is unavailable.", "info")}
+                    disabled
+                    onInfo={() => setInfoModal({ title: "Donation routing", desc: "OATH does not currently route forfeited stakes to charities. This option is unavailable until that integration exists." })}
                   />
                   <TypeButton
                     icon={<AlertCircle className="w-4 h-4" />}
@@ -254,7 +251,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                     sublabel="Wall of Shame"
                     isActive={consequenceType === "public_shame"}
                     onClick={() => setConsequenceType("public_shame")}
-                    onInfo={() => setInfoModal({ title: "Public Humiliation", desc: "Your failure, excuse, and headshot are permanently broadcasted to the global Wall of Shame feed for everyone to mock." })}
+                    onInfo={() => setInfoModal({ title: "Public Shame", desc: "If you fail, the oath statement and failure note are published to the public Wall of Shame. No proof photo is published." })}
                   />
                 </>
               )}
@@ -263,27 +260,29 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 <>
                   <TypeButton
                     icon={<DollarSign className="w-4 h-4" />}
-                    label="Direct Bounty"
-                    sublabel="Winner takes all"
-                    isActive={consequenceType === "bounty_transfer"}
-                    onClick={() => setConsequenceType("bounty_transfer")}
-                    onInfo={() => setInfoModal({ title: "Direct Bounty", desc: "Head-to-head match. If you fail, your entire locked stake is transferred directly to your opponent's wallet." })}
+                    label="Virtual Bounty"
+                    sublabel="Sandbox payout"
+                    isActive={consequenceType === "shared_oath"}
+                    onClick={() => setConsequenceType("shared_oath")}
+                    onInfo={() => setInfoModal({ title: "Virtual bounty", desc: "Head-to-head sandbox match. Each user's commitment is independent. No cash moves between participants." })}
                   />
                   <TypeButton
                     icon={<Activity className="w-4 h-4" />}
                     label="Physical Debt"
-                    sublabel="Servant clause"
+                    sublabel="Not available yet"
                     isActive={consequenceType === "physical_debt"}
-                    onClick={() => setConsequenceType("physical_debt")}
-                    onInfo={() => setInfoModal({ title: "Physical Debt", desc: "The loser must record themselves doing 100 burpees or buying the winner a meal, verified by the winner." })}
+                    onClick={() => showToast("Physical-debt verification is not available in this build.", "info")}
+                    disabled
+                    onInfo={() => setInfoModal({ title: "Physical debt", desc: "Recording and verifying physical consequences is not connected in this prototype." })}
                   />
                   <TypeButton
                     icon={<Flame className="w-4 h-4" />}
                     label="M.A.D."
-                    sublabel="Mutual destruction"
+                    sublabel="Not available yet"
                     isActive={consequenceType === "mutual_destruction"}
-                    onClick={() => setConsequenceType("mutual_destruction")}
-                    onInfo={() => setInfoModal({ title: "Mutual Assured Destruction", desc: "If EITHER of you fail the oath, BOTH of your stakes are completely seized by the house." })}
+                    onClick={() => showToast("Mutual-destruction settlement is not available in this build.", "info")}
+                    disabled
+                    onInfo={() => setInfoModal({ title: "Mutual consequence", desc: "This prototype does not support joint loss settlement. Only the virtual bounty is available for duo challenges." })}
                   />
                 </>
               )}
@@ -292,19 +291,20 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 <>
                   <TypeButton
                     icon={<UserX className="w-4 h-4" />}
-                    label="Deadweight Tag"
-                    sublabel="Public squad tag"
+                    label="Member status"
+                    sublabel="Squad-only result"
                     isActive={consequenceType === "deadweight_tag"}
                     onClick={() => setConsequenceType("deadweight_tag")}
-                    onInfo={() => setInfoModal({ title: "The Deadweight Tag", desc: "Whoever breaks the squad's streak gets permanently tagged with 'Deadweight' on their public profile." })}
+                    onInfo={() => setInfoModal({ title: "Squad status", desc: "Quorum votes mark each member complete or failed. This build does not publish a permanent profile label or redistribute stakes." })}
                   />
                   <TypeButton
                     icon={<PieChart className="w-4 h-4" />}
                     label="Bounty Split"
-                    sublabel="Losers fund winners"
-                    isActive={consequenceType === "bounty_split"}
-                    onClick={() => setConsequenceType("bounty_split")}
-                    onInfo={() => setInfoModal({ title: "The Bounty Split", desc: "All losers forfeit their stakes, which are pooled and distributed equally to those who completed the oath." })}
+                    sublabel="Not available yet"
+                    isActive={consequenceType === "shared_oath"}
+                    onClick={() => showToast("Bounty redistribution is not configured yet.", "info")}
+                    disabled
+                    onInfo={() => setInfoModal({ title: "Bounty split", desc: "This build does not redistribute failed members’ stakes to winners." })}
                   />
                   <TypeButton
                     icon={<Lock className="w-4 h-4" />}
@@ -346,89 +346,56 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
             </div>
           )}
 
-          {consequenceType === "anti_charity" && (
-            <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950/50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none space-y-3 fade-in">
-              <div className="flex items-center gap-2 mb-1">
-                <Flame className="w-4 h-4 text-red-600" />
-                <span className="text-[11px] font-mono font-bold text-zinc-950 dark:text-zinc-400 uppercase tracking-[0.2em]">
-                  Despised Anti-Charity Cause
-                </span>
+          {/* STAKE & DEADLINE ROW */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* STAKE AMOUNT */}
+            <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950/50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
+              <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.2em] mb-2 block">
+                Virtual stake
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-black text-zinc-500">{region === "in" ? "₹" : "$"}</span>
+                <input
+                  type="number"
+                  value={stakeAmount}
+                  onChange={(e) => setStakeAmount(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className="w-full text-3xl font-black text-zinc-950 dark:text-zinc-100 bg-transparent border-0 p-0 stake-number focus:outline-none"
+                  style={{ outline: "none", border: "none" }}
+                />
               </div>
-              <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                Choose a cause or ideology you despise. If you forfeit or fail, 100% of your net stake is forfeited to:
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {["Opposing Political Party", "Scientology Foundation", "Anti-Renewable Coal PAC", "Tobacco Research Institute"].map((cause) => (
+              <div className="flex items-center justify-between mt-2">
+                <span
+                  className={`text-[10px] font-mono font-bold ${
+                    isOverBudget ? "text-red-500" : "text-zinc-600 dark:text-zinc-400"
+                  }`}
+                >
+                  Balance: {formatRegionCurrency(walletBalance)}
+                </span>
+                {stakeNum > 0 && (
+                  <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
+                    House: {formatRegionCurrency(stakeNum * 0.1)}
+                  </span>
+                )}
+              </div>
+              {/* Quick stake buttons */}
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                {[25, 50, 100, 250, 500].map((amount) => (
                   <button
-                    key={cause}
-                    type="button"
-                    onClick={() => setAntiCharityCause(cause)}
-                    className={`p-2.5 text-xs font-mono font-bold border-2 text-left transition-colors ${
-                      antiCharityCause === cause
-                        ? "border-red-600 bg-red-950/20 text-red-600 dark:text-red-400"
-                        : "border-zinc-300 dark:border-zinc-800 text-zinc-700 dark:text-zinc-400 hover:border-zinc-500"
+                    key={amount}
+                    onClick={() => setStakeAmount(amount.toString())}
+                    className={`px-3 py-1.5 text-[10px] font-mono font-bold border-2 transition-colors ${
+                      stakeNum === amount
+                        ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-500 dark:text-zinc-200 dark:bg-zinc-800"
+                        : "border-zinc-300 text-zinc-700 hover:text-zinc-950 hover:border-zinc-500 dark:border-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
                     }`}
                   >
-                    {cause}
+                    {formatRegionCurrency(amount)}
                   </button>
                 ))}
               </div>
             </div>
-          )}
-
-          {/* STAKE & DEADLINE ROW */}
-          <div className={`grid grid-cols-1 gap-4 ${isFinancial ? "sm:grid-cols-2" : ""}`}>
-            {/* STAKE AMOUNT */}
-            {isFinancial && (
-              <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950/50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
-                <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.2em] mb-2 block">
-                  Or I lose
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-black text-zinc-500">{region === "in" ? "₹" : "$"}</span>
-                  <input
-                    type="number"
-                    value={stakeAmount}
-                    onChange={(e) => setStakeAmount(e.target.value)}
-                    placeholder="0"
-                    min="1"
-                    className="w-full text-3xl font-black text-zinc-950 dark:text-zinc-100 bg-transparent border-0 p-0 stake-number focus:outline-none"
-                    style={{ outline: "none", border: "none" }}
-                  />
-                </div>
-                <div className="flex items-center justify-between mt-2">
-                  <span
-                    className={`text-[10px] font-mono font-bold ${
-                      isOverBudget ? "text-red-500" : "text-zinc-600 dark:text-zinc-400"
-                    }`}
-                  >
-                    Balance: {formatRegionCurrency(walletBalance)}
-                  </span>
-                  {stakeNum > 0 && (
-                    <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
-                      House: {formatRegionCurrency(stakeUsd * 0.1)}
-                    </span>
-                  )}
-                </div>
-                {/* Quick stake buttons */}
-                <div className="flex flex-wrap items-center gap-2 mt-3">
-                  {(region === "in" ? [500, 1000, 2500, 5000, 10000] : [25, 50, 100, 250, 500]).map((amount) => (
-                    <button
-                      key={amount}
-                      type="button"
-                      onClick={() => setStakeAmount(amount.toString())}
-                      className={`px-3 py-1.5 text-[10px] font-mono font-bold border-2 transition-colors ${
-                        stakeNum === amount
-                          ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-500 dark:text-zinc-200 dark:bg-zinc-800"
-                          : "border-zinc-300 text-zinc-700 hover:text-zinc-950 hover:border-zinc-500 dark:border-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-                      }`}
-                    >
-                      {region === "in" ? `₹${amount}` : `$${amount}`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* DEADLINE */}
             <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950/50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
@@ -484,9 +451,11 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
               <TypeButton
                 icon={<Shield className="w-4 h-4" />}
                 label="Nominee"
-                sublabel="Third party"
+                sublabel="Not available yet"
                 isActive={verificationMethod === "nominee"}
-                onClick={() => setVerificationMethod("nominee")}
+                onClick={() => showToast("Nominee invite delivery is not configured yet.", "info")}
+                disabled
+                onInfo={() => setInfoModal({ title: "Nominee verification", desc: "A secure token flow exists server-side, but delivery is not configured. Use another verification method for now." })}
               />
               <TypeButton
                 icon={<Users className="w-4 h-4" />}
@@ -507,7 +476,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
               <TypeButton
                 icon={<Camera className="w-4 h-4" />}
                 label="Solo"
-                sublabel="Photo proof"
+                sublabel="Self report"
                 isActive={verificationMethod === "solo_lonely"}
                 onClick={() => setVerificationMethod("solo_lonely")}
               />
@@ -524,14 +493,14 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 </span>
               </div>
               <input
-                type="text"
+                type="email"
                 value={nomineeEmail}
                 onChange={(e) => setNomineeEmail(e.target.value)}
                 placeholder="nominee@email.com or +1234567890"
                 className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
               />
               <p className="text-[10px] font-bold text-zinc-500 mt-2.5 font-mono">
-                They&apos;ll receive a unique link to verify or enforce penalty.
+                Nominee delivery is unavailable until an email provider is configured.
               </p>
             </div>
           )}
@@ -569,7 +538,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
           {/* SUMMARY & SUBMIT */}
           <div className="border-t-2 border-zinc-200 dark:border-zinc-800 pt-5">
             {/* Preview sentence */}
-            {oathStatement && stakeNum > 0 && (
+            {oathStatement && (stakeNum > 0 || !requiresStake) && (
               <div className="mb-4 p-4 border-2 border-zinc-950 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950/80 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
                 <p className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-widest mb-2">
                   Your Oath
@@ -589,11 +558,10 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                       </span>
                     </>
                   )}
-                  {" "}or I lose{" "}
-                  <span className={`font-black ${isOverBudget ? "text-red-500" : "text-zinc-950 dark:text-zinc-50"}`}>
-                    {formatRegionCurrency(stakeUsd)}
-                  </span>
-                  .&rdquo;
+                  {stakeNum > 0 ? (
+                    <>{" "}or I lose{" "}<span className={`font-black ${isOverBudget ? "text-red-500" : "text-zinc-950 dark:text-zinc-50"}`}>{formatRegionCurrency(stakeNum)}</span>.</>
+                  ) : <> with no monetary stake.</>}
+                  &rdquo;
                 </p>
               </div>
             )}
@@ -601,23 +569,23 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
             <div className="flex items-center gap-3">
               <button
                 onClick={handleSubmit}
-                disabled={!oathStatement || (isFinancial && (stakeNum <= 0 || isOverBudget)) || submitting}
+                disabled={!oathStatement.trim() || (requiresStake && stakeNum <= 0) || (stakeNum > 0 && isOverBudget) || submitting}
                 className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-black tracking-tight uppercase transition-all ${
-                  !oathStatement || (isFinancial && (stakeNum <= 0 || isOverBudget)) || submitting
+                  !oathStatement.trim() || (requiresStake && stakeNum <= 0) || (stakeNum > 0 && isOverBudget) || submitting
                     ? "bg-zinc-300 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-600 cursor-not-allowed"
                     : "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
                 }`}
               >
                 <Zap className="w-4 h-4" />
-                {submitting ? "Locking Escrow..." : isFinancial ? `Lock ${formatRegionCurrency(stakeNum)} & Create Oath` : "Create Oath"}
+                {submitting ? "Creating..." : stakeNum > 0 ? `Lock ${formatRegionCurrency(stakeNum)} & Create Oath` : "Create Oath"}
               </button>
             </div>
 
-            {isFinancial && isOverBudget && (
+            {isOverBudget && (
               <div className="flex items-center gap-2 mt-3 text-red-500 font-bold">
                 <AlertCircle className="w-3.5 h-3.5" />
                 <span className="text-[11px] font-mono">
-                  Stake exceeds wallet balance. Deposit more funds.
+                  Stake exceeds available sandbox balance. Real deposits are not available.
                 </span>
               </div>
             )}
@@ -681,12 +649,12 @@ function TypeButton({
       <button
         type="button"
         onClick={onClick}
-        aria-disabled={disabled}
-        className="absolute inset-0 w-full h-full cursor-pointer"
+        disabled={disabled}
+        className="absolute inset-0 w-full h-full"
       />
-      
+
       {onInfo && (
-        <button 
+        <button
           onClick={(e) => {
             e.stopPropagation();
             onInfo();

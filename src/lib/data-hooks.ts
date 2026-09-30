@@ -14,13 +14,11 @@ import {
   mockWallOfHonor,
   mockTransactions,
 } from "./mock-data";
-import { useAuth, ADMIN_MOCK_USER, getInitialMockWallet } from "./auth-context";
+import { useAuth, ADMIN_MOCK_USER, getInitialMockWallet, isDemoSession } from "./auth-context";
 
 export function isMockMode(): boolean {
-  return (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-  );
+  if (typeof window === "undefined") return false;
+  return isDemoSession();
 }
 
 function notifyDataUpdated() {
@@ -121,26 +119,24 @@ export function useOaths() {
       return;
     }
     try {
+      const { data: memberships } = await supabase.from("group_members").select("oath_id").eq("user_id", user.id);
+      const membershipFilter = (memberships ?? []).map((member) => member.oath_id).filter(Boolean);
+      const filters = [`creator_id.eq.${user.id}`, `opponent_id.eq.${user.id}`];
+      if (membershipFilter.length) filters.push(`id.in.(${membershipFilter.join(",")})`);
       const { data, error } = await supabase
         .from("oaths")
-        .select(`
-          *,
-          creator:profiles!oaths_creator_id_fkey(*),
-          opponent:profiles!oaths_opponent_id_fkey(*),
-          members:group_members(*, user:profiles(*)),
-          proofs(*)
-        `)
-        .or(`creator_id.eq.${user.id},opponent_id.eq.${user.id}`)
+        .select(`*, creator:profiles!oaths_creator_id_fkey(*), opponent:profiles!oaths_opponent_id_fkey(*), members:group_members(*, user:profiles(*)), proofs(*)`)
+        .or(filters.join(","))
         .in("status", ["pending", "active", "disputed"])
         .order("created_at", { ascending: false });
 
       if (error || !data) {
-        setOaths(getMockOaths());
+        setOaths([]);
       } else {
         setOaths(data as Oath[]);
       }
     } catch {
-      setOaths(getMockOaths());
+      setOaths([]);
     } finally {
       setLoading(false);
     }
@@ -168,6 +164,7 @@ export function useOaths() {
 
 // ---- useSquadLobbies — fetch open squad pools ----
 export function useSquadLobbies() {
+  const { user } = useAuth();
   const [lobbies, setLobbies] = useState<Oath[]>(() => isMockMode() ? getMockSquads() : []);
   const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
@@ -175,6 +172,11 @@ export function useSquadLobbies() {
   const loadData = useCallback(async () => {
     if (isMockMode()) {
       setLobbies(getMockSquads());
+      setLoading(false);
+      return;
+    }
+    if (!user) {
+      setLobbies([]);
       setLoading(false);
       return;
     }
@@ -191,16 +193,36 @@ export function useSquadLobbies() {
         .order("created_at", { ascending: false });
 
       if (error || !data) {
-        setLobbies(getMockSquads());
+        setLobbies([]);
       } else {
-        setLobbies(data as Oath[]);
+        const oathRows = data as Oath[];
+        const oathIds = oathRows.map((oath) => oath.id);
+        const [{ data: proofs }, { data: votes }] = oathIds.length ? await Promise.all([
+          supabase.from("proofs").select("id,oath_id,submitted_by").in("oath_id", oathIds),
+          supabase.from("votes").select("proof_id,oath_id,voter_id,vote").in("oath_id", oathIds),
+        ]) : [{ data: [] }, { data: [] }];
+        const proofRows = proofs ?? [];
+        const voteRows = votes ?? [];
+        setLobbies(oathRows.map((oath) => ({
+          ...oath,
+          members: oath.members?.map((member) => {
+            const proof = proofRows.find((row) => row.oath_id === oath.id && row.submitted_by === member.user_id);
+            const memberVotes = proof ? voteRows.filter((row) => row.proof_id === proof.id) : [];
+            return {
+              ...member,
+              proof_submitted: Boolean(proof) || member.proof_submitted,
+              votes_received: memberVotes.filter((row) => row.vote).length,
+              voted_by: memberVotes.map((row) => row.voter_id),
+            };
+          }),
+        })));
       }
     } catch {
-      setLobbies(getMockSquads());
+      setLobbies([]);
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [supabase, user]);
 
   useEffect(() => {
     let isMounted = true;
@@ -224,6 +246,7 @@ export function useSquadLobbies() {
 
 // ---- useWall — fetch wall entries ----
 export function useWall(type: "shame" | "honor") {
+  const { user } = useAuth();
   const [entries, setEntries] = useState<WallEntry[]>(() => isMockMode() ? getMockWall(type) : []);
   const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
@@ -231,6 +254,11 @@ export function useWall(type: "shame" | "honor") {
   const loadData = useCallback(async () => {
     if (isMockMode()) {
       setEntries(getMockWall(type));
+      setLoading(false);
+      return;
+    }
+    if (!user) {
+      setEntries([]);
       setLoading(false);
       return;
     }
@@ -242,17 +270,17 @@ export function useWall(type: "shame" | "honor") {
         .order("created_at", { ascending: false })
         .limit(50);
 
-      if (error || !data || data.length === 0) {
-        setEntries(getMockWall(type));
+      if (error || !data) {
+        setEntries([]);
       } else {
         setEntries(data as WallEntry[]);
       }
     } catch {
-      setEntries(getMockWall(type));
+      setEntries([]);
     } finally {
       setLoading(false);
     }
-  }, [supabase, type]);
+  }, [supabase, type, user]);
 
   useEffect(() => {
     let isMounted = true;
@@ -300,13 +328,13 @@ export function useTransactions() {
         .order("created_at", { ascending: false })
         .limit(30);
 
-      if (error || !data || data.length === 0) {
-        setTransactions(getMockTransactions());
+      if (error || !data) {
+        setTransactions([]);
       } else {
         setTransactions(data as Transaction[]);
       }
     } catch {
-      setTransactions(getMockTransactions());
+      setTransactions([]);
     } finally {
       setLoading(false);
     }
@@ -357,7 +385,12 @@ export function useProofs(oathId: string) {
       if (error || !data) {
         setProofs([]);
       } else {
-        setProofs(data as Proof[]);
+        const withSignedUrls = await Promise.all((data as Proof[]).map(async (proof) => {
+          if (!proof.proof_url || /^https?:|^blob:|^data:/i.test(proof.proof_url)) return proof;
+          const { data: signed, error: signedError } = await supabase.storage.from("oath-proofs").createSignedUrl(proof.proof_url, 60 * 60);
+          return { ...proof, proof_url: signedError ? undefined : signed?.signedUrl };
+        }));
+        setProofs(withSignedUrls);
       }
     } catch {
       setProofs([]);
@@ -390,104 +423,20 @@ export function useProofs(oathId: string) {
 // MUTATIONS
 // ============================================================
 
-function validatePositiveAmount(amount: unknown): number | null {
-  const n = typeof amount === "number" ? amount : parseFloat(String(amount));
-  if (!Number.isFinite(n) || isNaN(n) || n <= 0) return null;
+function parseAmount(amount: unknown): number | null {
+  if (typeof amount === "string" && !/^\d+(?:\.\d{1,2})?$/.test(amount.trim())) return null;
+  const n = typeof amount === "number" ? amount : Number(amount);
+  if (!Number.isFinite(n) || n < 0 || Math.abs(n * 100 - Math.round(n * 100)) > 1e-7) return null;
   return Math.round(n * 100) / 100;
 }
 
-// ---- addFunds — manual deposit or gateway success ----
-export async function addFunds(amount: number, description: string = "Deposit"): Promise<{ error: string | null }> {
-  const validAmount = validatePositiveAmount(amount);
-  if (!validAmount) return { error: "Invalid amount" };
-
-  if (isMockMode()) {
-    const currentWallet = getInitialMockWallet();
-    const updatedWallet = { ...currentWallet, balance: currentWallet.balance + validAmount, total_deposited: currentWallet.total_deposited + validAmount };
-    setMockWallet(updatedWallet);
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      wallet_id: currentWallet.id,
-      type: "deposit",
-      amount: validAmount,
-      description,
-      created_at: new Date().toISOString(),
-    };
-    setMockTransactions([newTx, ...getMockTransactions()]);
-    return { error: null };
-  }
-
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const { data: wallet } = await supabase.from("wallets").select("id, balance, total_deposited").eq("user_id", user.id).single();
-  if (!wallet) return { error: "Wallet not found" };
-
-  const { error: updateError } = await supabase
-    .from("wallets")
-    .update({ balance: wallet.balance + validAmount, total_deposited: wallet.total_deposited + validAmount })
-    .eq("id", wallet.id);
-  
-  if (updateError) return { error: updateError.message };
-
-  await supabase.from("transactions").insert({
-    wallet_id: wallet.id,
-    type: "deposit",
-    amount: validAmount,
-    description,
-  });
-
-  notifyDataUpdated();
-  return { error: null };
+function validatePositiveAmount(amount: unknown): number | null {
+  const n = parseAmount(amount);
+  return n !== null && n > 0 ? n : null;
 }
 
-// ---- requestWithdrawal — manual withdrawal ----
-export async function requestWithdrawal(amount: number): Promise<{ error: string | null }> {
-  const validAmount = validatePositiveAmount(amount);
-  if (!validAmount) return { error: "Invalid amount" };
-
-  if (isMockMode()) {
-    const currentWallet = getInitialMockWallet();
-    if (currentWallet.balance < validAmount) return { error: "Insufficient balance" };
-    const updatedWallet = { ...currentWallet, balance: currentWallet.balance - validAmount, total_withdrawn: (currentWallet.total_withdrawn || 0) + validAmount };
-    setMockWallet(updatedWallet);
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      wallet_id: currentWallet.id,
-      type: "withdrawal",
-      amount: validAmount,
-      description: "Withdrawal Requested",
-      created_at: new Date().toISOString(),
-    };
-    setMockTransactions([newTx, ...getMockTransactions()]);
-    return { error: null };
-  }
-
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const { data: wallet } = await supabase.from("wallets").select("id, balance, total_withdrawn").eq("user_id", user.id).single();
-  if (!wallet) return { error: "Wallet not found" };
-  if (wallet.balance < validAmount) return { error: "Insufficient balance" };
-
-  const { error: updateError } = await supabase
-    .from("wallets")
-    .update({ balance: wallet.balance - validAmount, total_withdrawn: (wallet.total_withdrawn || 0) + validAmount })
-    .eq("id", wallet.id);
-  
-  if (updateError) return { error: updateError.message };
-
-  await supabase.from("transactions").insert({
-    wallet_id: wallet.id,
-    type: "withdrawal",
-    amount: validAmount,
-    description: "Withdrawal Requested",
-  });
-
-  notifyDataUpdated();
-  return { error: null };
+function validateNonNegativeAmount(amount: unknown): number | null {
+  return parseAmount(amount);
 }
 
 // ---- createOath — create oath + lock escrow ----
@@ -504,21 +453,19 @@ export async function createOath(data: {
   min_players?: number;
   max_players?: number;
 }): Promise<{ oath?: Oath; error: string | null }> {
-  const isFinancial = data.consequence_type === "fiat" || data.consequence_type === "bounty_split" || data.consequence_type === "bounty_transfer";
-  const n = typeof data.stake_amount === "number" ? data.stake_amount : parseFloat(String(data.stake_amount));
-  let validStake = 0;
-  
-  if (isFinancial) {
-    const v = validatePositiveAmount(n);
-    if (v === null) {
-      return { error: "Stake amount must be a positive number for financial consequences." };
-    }
-    validStake = v;
-  } else {
-    validStake = 0;
+  const validStake = validateNonNegativeAmount(data.stake_amount);
+  if (validStake === null) {
+    return { error: "Stake amount must be a non-negative number." };
   }
-  if (new Date(data.deadline).getTime() <= Date.now()) {
-    return { error: "Deadline must be in the future." };
+  if (!data.oath_statement.trim() || data.oath_statement.trim().length > 500) {
+    return { error: "Oath statement must be 1–500 characters." };
+  }
+  const deadlineMs = new Date(data.deadline).getTime();
+  if (!Number.isFinite(deadlineMs) || deadlineMs <= Date.now()) {
+    return { error: "Deadline must be a valid future date." };
+  }
+  if ((data.oath_type === "duo" || data.oath_type === "squad" || data.consequence_type === "fiat") && validStake <= 0) {
+    return { error: "This oath requires a positive stake." };
   }
 
   if (isMockMode()) {
@@ -528,18 +475,18 @@ export async function createOath(data: {
     }
 
     const initialStatus = data.oath_type === "squad" ? "pending" : "active";
+    const demoOathId = `oath-${Date.now()}`;
 
     const newOath: Oath = {
-      id: `oath-${Date.now()}`,
+      id: demoOathId,
       creator_id: ADMIN_MOCK_USER.id,
-      creator: { ...mockProfile, username: "AryanTheAdmin" },
+      creator: { ...mockProfile, username: "DemoUser" },
       oath_statement: data.oath_statement,
       deadline: data.deadline,
       oath_type: data.oath_type,
       verification_method: data.verification_method,
       consequence_type: data.consequence_type,
       stake_amount: validStake,
-      house_cut_percent: 10,
       social_ransom_phone: data.social_ransom_phone,
       social_ransom_message: data.social_ransom_message,
       nominee_email: data.nominee_email,
@@ -551,15 +498,15 @@ export async function createOath(data: {
       members: data.oath_type === "squad" ? [
         {
           id: `gm-${Date.now()}`,
-          oath_id: `oath-${Date.now()}`,
+          oath_id: demoOathId,
           user_id: ADMIN_MOCK_USER.id,
-          user: { ...mockProfile, username: "AryanTheAdmin" },
+          user: { ...mockProfile, username: "DemoUser" },
           stake_amount: validStake,
           status: "joined",
           proof_submitted: false,
           votes_received: 0,
           votes_needed: 3,
-          is_winner: false,
+          is_active_participant: false,
         }
       ] : undefined,
     };
@@ -593,125 +540,46 @@ export async function createOath(data: {
     return { oath: newOath, error: null };
   }
 
-  // Real Supabase
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  const initialStatus = data.oath_type === "squad" ? "pending" : "active";
-
-  const { data: oath, error: oathError } = await supabase
-    .from("oaths")
-    .insert({ ...data, stake_amount: validStake, creator_id: user.id, status: initialStatus })
-    .select()
-    .single();
-
-  if (oathError) return { error: oathError.message };
-
-  // If squad oath, enroll creator in group_members
-  if (data.oath_type === "squad" && oath) {
-    await supabase.from("group_members").insert({
-      oath_id: oath.id,
-      user_id: user.id,
-      stake_amount: validStake,
-      status: "joined",
-      votes_needed: Math.ceil((data.max_players || 8) / 2),
-    });
-  }
-
-  // If nominee email provided, register in nominees table
-  if (data.nominee_email && oath) {
-    await supabase.from("nominees").insert({
-      oath_id: oath.id,
-      email: data.nominee_email,
-    });
-  }
-
-  const { data: wallet } = await supabase
-    .from("wallets")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
-
-  if (!wallet || wallet.balance < validStake) {
-    await supabase.from("oaths").delete().eq("id", oath.id);
-    return { error: "Insufficient funds" };
-  }
-
-  await supabase
-    .from("wallets")
-    .update({
-      balance: wallet.balance - validStake,
-      escrow_locked: wallet.escrow_locked + validStake,
-    })
-    .eq("user_id", user.id);
-
-  await supabase.from("transactions").insert({
-    wallet_id: wallet.id,
-    oath_id: oath.id,
-    type: "escrow_lock",
-    amount: validStake,
-    description: `Locked for: ${data.oath_statement}`,
+  const { data: oathId, error } = await supabase.rpc("create_oath_with_stake", {
+    p_oath_statement: data.oath_statement,
+    p_deadline: data.deadline,
+    p_oath_type: data.oath_type,
+    p_verification_method: data.verification_method,
+    p_consequence_type: data.consequence_type,
+    p_stake_amount: validStake,
+    p_social_ransom_phone: data.social_ransom_phone ?? null,
+    p_social_ransom_message: data.social_ransom_message ?? null,
+    p_nominee_email: data.nominee_email ?? null,
+    p_min_players: data.min_players ?? 1,
+    p_max_players: data.max_players ?? 1,
+    p_opponent_id: null,
   });
+  if (error || !oathId) return { error: error?.message ?? "Oath creation failed" };
 
+  const { data: oath, error: readError } = await supabase
+    .from("oaths")
+    .select("*, creator:profiles!oaths_creator_id_fkey(*), members:group_members(*, user:profiles(*))")
+    .eq("id", oathId)
+    .single();
+  if (readError || !oath) return { error: readError?.message ?? "Oath was created but could not be loaded. Refresh to view it." };
   notifyDataUpdated();
-  return { oath, error: null };
+  return { oath: oath as Oath, error: null };
 }
 
 // ---- depositFunds ----
 export async function depositFunds(amount: number) {
   const validAmount = validatePositiveAmount(amount);
   if (validAmount === null) return { error: "Deposit amount must be a positive number." };
-
-  if (isMockMode()) {
-    const currentWallet = getInitialMockWallet();
-    const updatedWallet: Wallet = {
-      ...currentWallet,
-      balance: currentWallet.balance + validAmount,
-      total_deposited: currentWallet.total_deposited + validAmount,
-    };
-    setMockWallet(updatedWallet);
-
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      wallet_id: currentWallet.id,
-      type: "deposit",
-      amount: validAmount,
-      description: "Wallet deposit",
-      created_at: new Date().toISOString(),
-    };
-    setMockTransactions([newTx, ...getMockTransactions()]);
-    return { error: null };
-  }
-
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const { data: wallet } = await supabase
-    .from("wallets")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
-
-  if (!wallet) return { error: "Wallet not found" };
-
-  await supabase
-    .from("wallets")
-    .update({
-      balance: wallet.balance + validAmount,
-      total_deposited: wallet.total_deposited + validAmount,
-    })
-    .eq("user_id", user.id);
-
-  await supabase.from("transactions").insert({
-    wallet_id: wallet.id,
-    type: "deposit",
-    amount: validAmount,
-    description: "Wallet deposit",
-  });
-
-  notifyDataUpdated();
+  if (!isMockMode()) return { error: "Real deposits are disabled until a verified payment provider is connected." };
+  const currentWallet = getInitialMockWallet();
+  const updatedWallet: Wallet = { ...currentWallet, balance: currentWallet.balance + validAmount, total_deposited: currentWallet.total_deposited + validAmount };
+  setMockWallet(updatedWallet);
+  const tx: Transaction = { id: `tx-${Date.now()}`, wallet_id: currentWallet.id, type: "deposit", amount: validAmount, description: "Demo-only virtual deposit", created_at: new Date().toISOString() };
+  setMockTransactions([tx, ...getMockTransactions()]);
   return { error: null };
 }
 
@@ -719,58 +587,13 @@ export async function depositFunds(amount: number) {
 export async function withdrawFunds(amount: number) {
   const validAmount = validatePositiveAmount(amount);
   if (validAmount === null) return { error: "Withdrawal amount must be a positive number." };
-
-  if (isMockMode()) {
-    const currentWallet = getInitialMockWallet();
-    if (currentWallet.balance < validAmount) return { error: "Insufficient funds" };
-
-    const updatedWallet: Wallet = {
-      ...currentWallet,
-      balance: currentWallet.balance - validAmount,
-      total_withdrawn: currentWallet.total_withdrawn + validAmount,
-    };
-    setMockWallet(updatedWallet);
-
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      wallet_id: currentWallet.id,
-      type: "withdrawal",
-      amount: validAmount,
-      description: "Wallet withdrawal",
-      created_at: new Date().toISOString(),
-    };
-    setMockTransactions([newTx, ...getMockTransactions()]);
-    return { error: null };
-  }
-
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const { data: wallet } = await supabase
-    .from("wallets")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
-
-  if (!wallet || wallet.balance < validAmount) return { error: "Insufficient funds" };
-
-  await supabase
-    .from("wallets")
-    .update({
-      balance: wallet.balance - validAmount,
-      total_withdrawn: wallet.total_withdrawn + validAmount,
-    })
-    .eq("user_id", user.id);
-
-  await supabase.from("transactions").insert({
-    wallet_id: wallet.id,
-    type: "withdrawal",
-    amount: validAmount,
-    description: "Wallet withdrawal",
-  });
-
-  notifyDataUpdated();
+  if (!isMockMode()) return { error: "Real withdrawals are disabled until a verified payment provider is connected." };
+  const currentWallet = getInitialMockWallet();
+  if (currentWallet.balance < validAmount) return { error: "Insufficient funds" };
+  const updatedWallet: Wallet = { ...currentWallet, balance: currentWallet.balance - validAmount, total_withdrawn: currentWallet.total_withdrawn + validAmount };
+  setMockWallet(updatedWallet);
+  const tx: Transaction = { id: `tx-${Date.now()}`, wallet_id: currentWallet.id, type: "withdrawal", amount: validAmount, description: "Demo-only virtual withdrawal", created_at: new Date().toISOString() };
+  setMockTransactions([tx, ...getMockTransactions()]);
   return { error: null };
 }
 
@@ -787,7 +610,7 @@ export async function submitProof(data: {
       id: `proof-${Date.now()}`,
       oath_id: data.oath_id,
       submitted_by: ADMIN_MOCK_USER.id,
-      submitter: { ...mockProfile, username: "AryanTheAdmin" },
+      submitter: { ...mockProfile, username: "DemoUser" },
       proof_type: data.proof_type,
       proof_url: data.proof_url,
       proof_text: data.proof_text,
@@ -825,15 +648,15 @@ export async function submitProof(data: {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
-
-  const { data: proof, error } = await supabase
-    .from("proofs")
-    .insert({ ...data, submitted_by: user.id, status: "pending_review" })
-    .select()
-    .single();
-
+  const { data: proofId, error } = await supabase.rpc("submit_oath_proof", {
+    p_oath_id: data.oath_id,
+    p_proof_type: data.proof_type,
+    p_proof_url: data.proof_url ?? null,
+    p_proof_text: data.proof_text ?? null,
+  });
+  if (error || !proofId) return { error: error?.message ?? "Proof submission failed" };
   notifyDataUpdated();
-  return { proof, error: error?.message ?? null };
+  return { proof: { ...data, id: proofId, submitted_by: user.id, status: "pending_review", created_at: new Date().toISOString() } as Proof, error: null };
 }
 
 // ---- joinSquad ----
@@ -854,23 +677,20 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
       id: `gm-${Date.now()}`,
       oath_id: oathId,
       user_id: ADMIN_MOCK_USER.id,
-      user: { ...mockProfile, username: "AryanTheAdmin" },
+      user: { ...mockProfile, username: "DemoUser" },
       stake_amount: stakeAmount,
       status: "joined",
       proof_submitted: false,
       votes_received: 0,
       votes_needed: 3,
-      is_winner: false,
+      is_active_participant: false,
     };
 
     const updatedSquads = squads.map((s) => {
       if (s.id === oathId) {
-        const nextMembers = [...(s.members ?? []), newMember];
-        const nextStatus = nextMembers.length >= (s.min_players ?? 3) && s.status === "pending" ? ("active" as const) : s.status;
         return {
           ...s,
-          status: nextStatus,
-          members: nextMembers,
+          members: [...(s.members ?? []), newMember],
         };
       }
       return s;
@@ -902,57 +722,8 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
-
-  const { data: wallet } = await supabase
-    .from("wallets")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
-
-  if (!wallet || wallet.balance < stakeAmount) return { error: "Insufficient funds" };
-
-  const { error: memberError } = await supabase
-    .from("group_members")
-    .insert({ oath_id: oathId, user_id: user.id, stake_amount: stakeAmount, status: "joined" });
-
-  if (memberError) return { error: memberError.message };
-
-  await supabase
-    .from("wallets")
-    .update({
-      balance: wallet.balance - stakeAmount,
-      escrow_locked: wallet.escrow_locked + stakeAmount,
-    })
-    .eq("user_id", user.id);
-
-  await supabase.from("transactions").insert({
-    wallet_id: wallet.id,
-    oath_id: oathId,
-    type: "escrow_lock",
-    amount: stakeAmount,
-    description: "Joined squad pool",
-  });
-
-  // Check if squad has reached min_players to activate
-  try {
-    const { count: memberCount } = await supabase
-      .from("group_members")
-      .select("*", { count: "exact", head: true })
-      .eq("oath_id", oathId);
-
-    const { data: squadOath } = await supabase
-      .from("oaths")
-      .select("min_players, status")
-      .eq("id", oathId)
-      .single();
-
-    if (squadOath && squadOath.status === "pending" && memberCount && memberCount >= (squadOath.min_players || 3)) {
-      await supabase.from("oaths").update({ status: "active" }).eq("id", oathId);
-    }
-  } catch (err) {
-    console.warn("Squad auto-activation check note:", err);
-  }
-
+  const { error } = await supabase.rpc("join_squad", { p_oath_id: oathId, p_stake_amount: stakeAmount });
+  if (error) return { error: error.message };
   notifyDataUpdated();
   return { error: null };
 }
@@ -984,12 +755,16 @@ export async function castVote(targetId: string, oathId: string, vote: boolean) 
       if (s.id === oathId) {
         const updatedMembers = s.members?.map((m) => {
           if (m.id === targetId || m.user_id === targetId) {
-            const votesReceived = vote ? m.votes_received + 1 : Math.max(0, m.votes_received - 1);
-            const isCompleted = votesReceived >= m.votes_needed;
+            const votesReceived = m.votes_received + (vote ? 1 : 0);
+            const votesRejected = (m.votes_rejected ?? 0) + (vote ? 0 : 1);
+            const isCompleted = votesReceived >= Math.max(1, m.votes_needed);
+            const isFailed = votesRejected >= Math.max(1, m.votes_needed);
             return {
               ...m,
               votes_received: votesReceived,
-              status: isCompleted ? ("completed" as const) : m.status,
+              votes_rejected: votesRejected,
+              status: isCompleted ? ("completed" as const) : isFailed ? ("failed" as const) : m.status,
+              is_active_participant: isCompleted,
               voted_by: [...(m.voted_by || []), currentUserId],
             };
           }
@@ -1006,115 +781,69 @@ export async function castVote(targetId: string, oathId: string, vote: boolean) 
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
-
-  // Resolve targetId to proof_id
-  let proofId = targetId;
-  const { data: proof } = await supabase
-    .from("proofs")
-    .select("id, submitted_by")
-    .eq("oath_id", oathId)
-    .or(`id.eq.${targetId},submitted_by.eq.${targetId}`)
-    .maybeSingle();
-
-  if (proof) {
-    if (proof.submitted_by === user.id) {
-      return { error: "You cannot vote on your own proof." };
-    }
-    proofId = proof.id;
-  } else {
-    // If targetId is a group_member record, find the user_id
-    const { data: member } = await supabase
-      .from("group_members")
-      .select("user_id, proof_submitted")
-      .eq("id", targetId)
-      .maybeSingle();
-
-    if (member) {
-      if (member.user_id === user.id) {
-        return { error: "You cannot vote on your own proof." };
-      }
-      const { data: memberProof } = await supabase
-        .from("proofs")
-        .select("id")
-        .eq("oath_id", oathId)
-        .eq("submitted_by", member.user_id)
-        .maybeSingle();
-
-      if (memberProof) {
-        proofId = memberProof.id;
-      } else {
-        return { error: "Member has not uploaded verifiable proof yet." };
-      }
-    } else {
-      return { error: "No verifiable proof found to cast vote on." };
-    }
-  }
-
-  const { error } = await supabase
-    .from("votes")
-    .upsert({ proof_id: proofId, oath_id: oathId, voter_id: user.id, vote }, { onConflict: "proof_id,voter_id" });
-
+  const { data: member, error: memberError } = await supabase.from("group_members").select("id").eq("oath_id", oathId).or(`id.eq.${targetId},user_id.eq.${targetId}`).maybeSingle();
+  if (memberError || !member) return { error: memberError?.message ?? "Member not found" };
+  const { error } = await supabase.rpc("cast_squad_vote", { p_oath_id: oathId, p_member_id: member.id, p_approve: vote });
   if (error) return { error: error.message };
+  notifyDataUpdated();
+  return { error: null };
+}
 
-  if (vote) {
-    const { count } = await supabase
-      .from("votes")
-      .select("*", { count: "exact", head: true })
-      .eq("proof_id", proofId)
-      .eq("vote", true);
-
-    if (count !== null) {
-      const { data: proofRecord } = await supabase
-        .from("proofs")
-        .select("submitted_by")
-        .eq("id", proofId)
-        .single();
-
-      if (proofRecord) {
-        await supabase
-          .from("group_members")
-          .update({
-            votes_received: count,
-            status: count >= 3 ? "completed" : "joined",
-          })
-          .eq("oath_id", oathId)
-          .eq("user_id", proofRecord.submitted_by);
-      }
-    }
+// ---- failSquadMember — settle a member with no proof after the deadline ----
+export async function failSquadMember(oathId: string) {
+  if (isMockMode()) {
+    const squads = getMockSquads();
+    const squad = squads.find((candidate) => candidate.id === oathId);
+    if (!squad) return { error: "Squad not found." };
+    if (new Date(squad.deadline).getTime() > Date.now()) return { error: "Squad deadline has not passed." };
+    const member = squad.members?.find((candidate) => candidate.user_id === ADMIN_MOCK_USER.id);
+    if (!member || member.status !== "joined") return { error: "No unresolved squad membership found." };
+    if (member.proof_submitted) return { error: "Submitted proof must be resolved by quorum." };
+    const wallet = getInitialMockWallet();
+    if (wallet.escrow_locked < member.stake_amount) return { error: "Member escrow is inconsistent." };
+    setMockWallet({ ...wallet, escrow_locked: wallet.escrow_locked - member.stake_amount, total_lost: (wallet.total_lost ?? 0) + member.stake_amount });
+    setMockSquads(squads.map((candidate) => candidate.id === oathId ? {
+      ...candidate,
+      members: candidate.members?.map((item) => item.id === member.id ? { ...item, status: "failed" as const } : item),
+    } : candidate));
+    const transaction: Transaction = {
+      id: `tx-${Date.now()}`,
+      wallet_id: wallet.id,
+      oath_id: oathId,
+      type: "penalty",
+      amount: member.stake_amount,
+      description: "Squad deadline passed without proof",
+      created_at: new Date().toISOString(),
+    };
+    setMockTransactions([transaction, ...getMockTransactions()]);
+    return { error: null };
   }
 
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+  const { error } = await supabase.rpc("fail_squad_member", { p_oath_id: oathId });
+  if (error) return { error: error.message };
   notifyDataUpdated();
   return { error: null };
 }
 
 // ---- uploadProofFile ----
 export async function uploadProofFile(file: File, oathId: string): Promise<string | null> {
+  if (file.size <= 0 || file.size > 10 * 1024 * 1024) return null;
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm"]);
+  if (!allowedTypes.has(file.type)) return null;
   if (isMockMode()) {
-    // Return object URL for instant preview
-    try {
-      return URL.createObjectURL(file);
-    } catch {
-      return "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=600";
-    }
+    try { return URL.createObjectURL(file); } catch { return null; }
   }
-
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return URL.createObjectURL(file);
-
-  const ext = file.name.split(".").pop();
-  const path = `proofs/${oathId}/${user.id}-${Date.now()}.${ext}`;
-
-  try {
-    const { error } = await supabase.storage.from("oath-proofs").upload(path, file);
-    if (error) {
-      return URL.createObjectURL(file);
-    }
-    const { data } = supabase.storage.from("oath-proofs").getPublicUrl(path);
-    return data.publicUrl;
-  } catch {
-    return URL.createObjectURL(file);
-  }
+  if (!user) return null;
+  const extensionByType: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "video/mp4": "mp4", "video/webm": "webm" };
+  const path = `${oathId}/${user.id}/${crypto.randomUUID()}.${extensionByType[file.type]}`;
+  const { error } = await supabase.storage.from("oath-proofs").upload(path, file, { contentType: file.type, upsert: false });
+  if (error) return null;
+  return path;
 }
 
 // ---- createDuoChallenge ----
@@ -1128,20 +857,19 @@ export async function createDuoChallenge(data: {
   if (isMockMode()) {
     const currentWallet = getInitialMockWallet();
     if (currentWallet.balance < data.stake_amount) {
-      return { error: "Insufficient funds for duo wager." };
+      return { error: "Insufficient virtual balance for this challenge." };
     }
 
     const newOath: Oath = {
       id: `duo-${Date.now()}`,
       creator_id: ADMIN_MOCK_USER.id,
-      creator: { ...mockProfile, username: "AryanTheAdmin" },
+      creator: { ...mockProfile, username: "DemoUser" },
       oath_statement: data.oath_statement,
       deadline: data.deadline,
       oath_type: "duo",
       verification_method: "peer",
-      consequence_type: "bounty_transfer",
+      consequence_type: "shared_oath",
       stake_amount: data.stake_amount,
-      house_cut_percent: 10,
       status: "pending",
       min_players: 2,
       max_players: 2,
@@ -1177,63 +905,48 @@ export async function createDuoChallenge(data: {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
-
-  const { data: wallet } = await supabase
-    .from("wallets")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
-
-  if (!wallet || wallet.balance < data.stake_amount) {
-    return { error: "Insufficient funds to wager on this challenge." };
-  }
-
   let opponentId: string | null = null;
   if (data.opponent_username) {
-    const { data: opponent } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("username", data.opponent_username)
-      .single();
-    opponentId = opponent?.id ?? null;
+    const { data: opponent, error: lookupError } = await supabase.from("profiles").select("id").eq("username", data.opponent_username).single();
+    if (lookupError || !opponent) return { error: "No user found for that username" };
+    opponentId = opponent.id;
   }
+  const { data: oathId, error } = await supabase.rpc("create_oath_with_stake", {
+    p_oath_statement: data.oath_statement,
+    p_deadline: data.deadline,
+    p_oath_type: "duo",
+    p_verification_method: "peer",
+    p_consequence_type: "shared_oath",
+    p_stake_amount: data.stake_amount,
+    p_opponent_id: opponentId,
+  });
+  if (error || !oathId) return { error: error?.message ?? "Challenge creation failed" };
+  const { data: oath, error: readError } = await supabase.from("oaths").select("*").eq("id", oathId).single();
+  notifyDataUpdated();
+  if (oath && !readError) return { oath: oath as Oath, error: null };
 
-  const { data: oath, error } = await supabase
-    .from("oaths")
-    .insert({
+  // The create RPC already committed the invitation and locked the stake. Keep the shareable
+  // id even if the follow-up read is temporarily blocked or the network drops.
+  const createdAt = new Date().toISOString();
+  return {
+    oath: {
+      id: oathId,
       creator_id: user.id,
-      opponent_id: opponentId,
       oath_statement: data.oath_statement,
       deadline: data.deadline,
       oath_type: "duo",
       verification_method: "peer",
-      consequence_type: "bounty_transfer",
+      consequence_type: "shared_oath",
       stake_amount: data.stake_amount,
       status: "pending",
-    })
-    .select()
-    .single();
-
-  if (error) return { error: error.message };
-
-  await supabase
-    .from("wallets")
-    .update({
-      balance: wallet.balance - data.stake_amount,
-      escrow_locked: wallet.escrow_locked + data.stake_amount,
-    })
-    .eq("user_id", user.id);
-
-  await supabase.from("transactions").insert({
-    wallet_id: wallet.id,
-    oath_id: oath.id,
-    type: "escrow_lock",
-    amount: data.stake_amount,
-    description: `Wager locked for Duo: ${data.oath_statement}`,
-  });
-
-  notifyDataUpdated();
-  return { oath, error: null };
+      min_players: 2,
+      max_players: 2,
+      opponent_id: opponentId ?? undefined,
+      created_at: createdAt,
+      updated_at: createdAt,
+    },
+    error: null,
+  };
 }
 
 // ---- acceptDuoChallenge ----
@@ -1254,7 +967,7 @@ export async function acceptDuoChallenge(oathId: string) {
           ...o,
           status: "active" as const,
           opponent_id: ADMIN_MOCK_USER.id,
-          opponent: { ...mockProfile, username: "AryanTheAdmin" },
+          opponent: { ...mockProfile, username: "DemoUser" },
         };
       }
       return o;
@@ -1285,48 +998,31 @@ export async function acceptDuoChallenge(oathId: string) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
-
-  const { data: targetOath } = await supabase
-    .from("oaths")
-    .select("*")
-    .eq("id", oathId)
-    .single();
-
-  if (!targetOath) return { error: "Challenge not found" };
-
-  const { data: opponentWallet } = await supabase
-    .from("wallets")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
-
-  if (!opponentWallet || opponentWallet.balance < targetOath.stake_amount) {
-    return { error: "Insufficient funds to accept this challenge." };
-  }
-
-  const { error } = await supabase
-    .from("oaths")
-    .update({ status: "active", opponent_id: user.id })
-    .eq("id", oathId);
-
+  const { error } = await supabase.rpc("accept_duo_challenge", { p_oath_id: oathId });
   if (error) return { error: error.message };
+  notifyDataUpdated();
+  return { error: null };
+}
 
-  await supabase
-    .from("wallets")
-    .update({
-      balance: opponentWallet.balance - targetOath.stake_amount,
-      escrow_locked: opponentWallet.escrow_locked + targetOath.stake_amount,
-    })
-    .eq("user_id", user.id);
-
-  await supabase.from("transactions").insert({
-    wallet_id: opponentWallet.id,
-    oath_id: oathId,
-    type: "escrow_lock",
-    amount: targetOath.stake_amount,
-    description: `Accepted Duo Challenge: ${targetOath.oath_statement}`,
-  });
-
+// ---- cancelDuoChallenge — refund a pending invitation's creator stake ----
+export async function cancelDuoChallenge(oathId: string) {
+  if (isMockMode()) {
+    const oaths = getMockOaths();
+    const oath = oaths.find((item) => item.id === oathId);
+    if (!oath || oath.oath_type !== "duo" || oath.status !== "pending") return { error: "Challenge is no longer pending." };
+    if (oath.creator_id !== ADMIN_MOCK_USER.id) return { error: "Only the challenge creator can cancel it." };
+    const wallet = getInitialMockWallet();
+    if (wallet.escrow_locked < oath.stake_amount) return { error: "Creator escrow is inconsistent." };
+    setMockWallet({ ...wallet, balance: wallet.balance + oath.stake_amount, escrow_locked: wallet.escrow_locked - oath.stake_amount });
+    setMockOaths(oaths.map((item) => item.id === oathId ? { ...item, status: "cancelled" as const } : item));
+    setMockTransactions([{ id: `tx-${Date.now()}`, wallet_id: wallet.id, oath_id: oathId, type: "escrow_release", amount: oath.stake_amount, description: "Cancelled duo invite; stake returned", created_at: new Date().toISOString() }, ...getMockTransactions()]);
+    return { error: null };
+  }
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+  const { error } = await supabase.rpc("cancel_duo_challenge", { p_oath_id: oathId });
+  if (error) return { error: error.message };
   notifyDataUpdated();
   return { error: null };
 }
@@ -1367,86 +1063,29 @@ export async function forfeitOath(oathId: string, excuse?: string) {
     };
     setMockTransactions([newTx, ...getMockTransactions()]);
 
-    // Add to Wall of Shame
-    const shameEntry: WallEntry = {
-      id: `ws-${Date.now()}`,
-      oath_id: oathId,
-      user_id: ADMIN_MOCK_USER.id,
-      wall_type: "shame",
-      oath_statement: oath.oath_statement,
-      stake_amount: oath.stake_amount,
-      excuse: excuse || "I gave up under pressure.",
-      username: "AryanTheAdmin",
-      created_at: new Date().toISOString(),
-    };
-    setMockWall("shame", [shameEntry, ...getMockWall("shame")]);
+    if (oath.consequence_type === "public_shame") {
+      const shameEntry: WallEntry = {
+        id: `ws-${Date.now()}`,
+        oath_id: oathId,
+        user_id: ADMIN_MOCK_USER.id,
+        wall_type: "shame",
+        oath_statement: oath.oath_statement,
+        stake_amount: oath.stake_amount,
+        excuse: excuse || "I gave up under pressure.",
+        username: "DemoUser",
+        created_at: new Date().toISOString(),
+      };
+      setMockWall("shame", [shameEntry, ...getMockWall("shame")]);
+    }
 
     return { error: null };
   }
 
   const supabase = createClient();
-  const { data: oath } = await supabase
-    .from("oaths")
-    .select("*")
-    .eq("id", oathId)
-    .single();
-
-  if (!oath) return { error: "Oath not found." };
-  if (oath.status !== "active") return { error: "Oath is not active or already settled." };
-
-  const { error } = await supabase
-    .from("oaths")
-    .update({ status: "failed", failed_at: new Date().toISOString(), failure_excuse: excuse })
-    .eq("id", oathId);
-
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+  const { error } = await supabase.rpc("forfeit_oath", { p_oath_id: oathId, p_note: excuse ?? null });
   if (error) return { error: error.message };
-
-  // Fallback wallet update for Supabase mode
-  try {
-    const { data: wallet } = await supabase
-      .from("wallets")
-      .select("*")
-      .eq("user_id", oath.creator_id)
-      .single();
-
-    if (wallet) {
-      await supabase
-        .from("wallets")
-        .update({
-          escrow_locked: Math.max(0, wallet.escrow_locked - oath.stake_amount),
-        })
-        .eq("id", wallet.id);
-
-      await supabase.from("transactions").insert({
-        wallet_id: wallet.id,
-        oath_id: oath.id,
-        type: "penalty",
-        amount: oath.stake_amount,
-        description: `Forfeited oath: ${oath.oath_statement}`,
-      });
-
-      // Update total_lost in profile
-      if (oath.stake_amount > 0) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("total_lost")
-          .eq("id", oath.creator_id)
-          .single();
-          
-        if (profile) {
-          await supabase
-            .from("profiles")
-            .update({
-              total_lost: (profile.total_lost || 0) + oath.stake_amount
-            })
-            .eq("id", oath.creator_id);
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("Wallet forfeit fallback note:", err);
-  }
-
   notifyDataUpdated();
   return { error: null };
 }
@@ -1462,11 +1101,11 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
     const currentWallet = getInitialMockWallet();
     const isDuo = oath.oath_type === "duo";
     const pot = isDuo ? oath.stake_amount * 2 : oath.stake_amount;
-    const houseCut = isDuo ? pot * ((oath.house_cut_percent ?? 10) / 100) : 0;
-    const winnerPayout = isDuo ? pot - houseCut : oath.stake_amount;
+    const platformFee = isDuo ? pot * (10 / 100) : 0;
+    const winnerPayout = isDuo ? pot - platformFee : oath.stake_amount;
 
     if (verdict === "success") {
-      // Release escrow back to balance and credit winnings
+      // Release escrow back to balance and credit success amount
       const updatedWallet: Wallet = {
         ...currentWallet,
         balance: currentWallet.balance + winnerPayout,
@@ -1486,23 +1125,25 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
         type: "escrow_release",
         amount: winnerPayout,
         description: isDuo
-          ? `Won Duo Challenge ($${winnerPayout.toFixed(2)} after $${houseCut.toFixed(2)} fee): ${oath.oath_statement}`
+          ? `Completed Duo Challenge ($${winnerPayout.toFixed(2)} after $${platformFee.toFixed(2)} fee): ${oath.oath_statement}`
           : `Completed: ${oath.oath_statement}`,
         created_at: new Date().toISOString(),
       };
       setMockTransactions([newTx, ...getMockTransactions()]);
 
-      const honorEntry: WallEntry = {
-        id: `wh-${Date.now()}`,
-        oath_id: oathId,
-        user_id: ADMIN_MOCK_USER.id,
-        wall_type: "honor",
-        oath_statement: oath.oath_statement,
-        stake_amount: oath.stake_amount,
-        username: "AryanTheAdmin",
-        created_at: new Date().toISOString(),
-      };
-      setMockWall("honor", [honorEntry, ...getMockWall("honor")]);
+      if (oath.consequence_type === "public_shame") {
+        const honorEntry: WallEntry = {
+          id: `wh-${Date.now()}`,
+          oath_id: oathId,
+          user_id: ADMIN_MOCK_USER.id,
+          wall_type: "honor",
+          oath_statement: oath.oath_statement,
+          stake_amount: oath.stake_amount,
+          username: "DemoUser",
+          created_at: new Date().toISOString(),
+        };
+        setMockWall("honor", [honorEntry, ...getMockWall("honor")]);
+      }
     } else {
       // Forfeited stake
       const updatedWallet: Wallet = {
@@ -1529,146 +1170,34 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
       };
       setMockTransactions([newTx, ...getMockTransactions()]);
 
-      const shameEntry: WallEntry = {
-        id: `ws-${Date.now()}`,
-        oath_id: oathId,
-        user_id: ADMIN_MOCK_USER.id,
-        wall_type: "shame",
-        oath_statement: oath.oath_statement,
-        stake_amount: oath.stake_amount,
-        excuse: note || (isDuo ? "Lost duo wager challenge." : "Failed to submit sufficient proof before the deadline."),
-        username: "AryanTheAdmin",
-        created_at: new Date().toISOString(),
-      };
-      setMockWall("shame", [shameEntry, ...getMockWall("shame")]);
+      if (oath.consequence_type === "public_shame") {
+        const shameEntry: WallEntry = {
+          id: `ws-${Date.now()}`,
+          oath_id: oathId,
+          user_id: ADMIN_MOCK_USER.id,
+          wall_type: "shame",
+          oath_statement: oath.oath_statement,
+          stake_amount: oath.stake_amount,
+          excuse: note || (isDuo ? "Lost duo challenge." : "Failed to complete before the deadline."),
+          username: "DemoUser",
+          created_at: new Date().toISOString(),
+        };
+        setMockWall("shame", [shameEntry, ...getMockWall("shame")]);
+      }
     }
 
     return { error: null };
   }
 
   const supabase = createClient();
-  const { data: oath } = await supabase
-    .from("oaths")
-    .select("*")
-    .eq("id", oathId)
-    .single();
-
-  if (!oath) return { error: "Oath not found." };
-  if (oath.status !== "active") return { error: "Oath is not active or already settled." };
-
-  const updatePayload =
-    verdict === "success"
-      ? { status: "completed", completed_at: new Date().toISOString() }
-      : { status: "failed", failed_at: new Date().toISOString(), failure_excuse: note };
-
-  const { error } = await supabase.from("oaths").update(updatePayload).eq("id", oathId);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+  const { error } = await supabase.rpc("settle_oath", {
+    p_oath_id: oathId,
+    p_success: verdict === "success",
+    p_note: note ?? null,
+  });
   if (error) return { error: error.message };
-
-  // Fallback wallet settlement in case DB trigger is not active
-  try {
-    const isDuo = oath.oath_type === "duo";
-    const pot = isDuo ? oath.stake_amount * 2 : oath.stake_amount;
-    const houseCut = isDuo ? pot * ((oath.house_cut_percent ?? 10) / 100) : 0;
-    const winnerPayout = isDuo ? pot - houseCut : oath.stake_amount;
-
-    if (verdict === "success") {
-      const { data: creatorWallet } = await supabase.from("wallets").select("*").eq("user_id", oath.creator_id).single();
-      if (creatorWallet) {
-        await supabase.from("wallets").update({
-          balance: creatorWallet.balance + winnerPayout,
-          escrow_locked: Math.max(0, creatorWallet.escrow_locked - oath.stake_amount),
-        }).eq("id", creatorWallet.id);
-
-        await supabase.from("transactions").insert({
-          wallet_id: creatorWallet.id,
-          oath_id: oath.id,
-          type: "escrow_release",
-          amount: winnerPayout,
-          description: isDuo ? `Won Duo Challenge: ${oath.oath_statement}` : `Completed: ${oath.oath_statement}`,
-        });
-
-        // Update total_won in profile
-        if (winnerPayout > 0) {
-          const { data: profile } = await supabase.from("profiles").select("total_won").eq("id", oath.creator_id).single();
-          if (profile) {
-            await supabase.from("profiles").update({
-              total_won: (profile.total_won || 0) + winnerPayout
-            }).eq("id", oath.creator_id);
-          }
-        }
-      }
-
-      if (isDuo && oath.opponent_id) {
-        const { data: opponentWallet } = await supabase.from("wallets").select("*").eq("user_id", oath.opponent_id).single();
-        if (opponentWallet) {
-          await supabase.from("wallets").update({
-            escrow_locked: Math.max(0, opponentWallet.escrow_locked - oath.stake_amount),
-          }).eq("id", opponentWallet.id);
-        }
-      }
-    } else {
-      const { data: creatorWallet } = await supabase.from("wallets").select("*").eq("user_id", oath.creator_id).single();
-      if (creatorWallet) {
-        await supabase.from("wallets").update({
-          escrow_locked: Math.max(0, creatorWallet.escrow_locked - oath.stake_amount),
-        }).eq("id", creatorWallet.id);
-
-        await supabase.from("transactions").insert({
-          wallet_id: creatorWallet.id,
-          oath_id: oath.id,
-          type: "penalty",
-          amount: oath.stake_amount,
-          description: `Failed: ${oath.oath_statement}`,
-        });
-
-        // Update total_lost in profile
-        if (oath.stake_amount > 0) {
-          const { data: profile } = await supabase.from("profiles").select("total_lost").eq("id", oath.creator_id).single();
-          if (profile) {
-            await supabase.from("profiles").update({
-              total_lost: (profile.total_lost || 0) + oath.stake_amount
-            }).eq("id", oath.creator_id);
-          }
-        }
-      }
-
-      if (isDuo && oath.opponent_id) {
-        const { data: opponentWallet } = await supabase.from("wallets").select("*").eq("user_id", oath.opponent_id).single();
-        if (opponentWallet) {
-          if (oath.consequence_type === "mutual_destruction") {
-            // In Mutual Assured Destruction, both players lose 100% of their stakes!
-            await supabase.from("wallets").update({
-              escrow_locked: Math.max(0, opponentWallet.escrow_locked - oath.stake_amount),
-            }).eq("id", opponentWallet.id);
-
-            await supabase.from("transactions").insert({
-              wallet_id: opponentWallet.id,
-              oath_id: oath.id,
-              type: "penalty",
-              amount: oath.stake_amount,
-              description: `M.A.D. Forfeiture Penalty: ${oath.oath_statement}`,
-            });
-          } else {
-            await supabase.from("wallets").update({
-              balance: opponentWallet.balance + winnerPayout,
-              escrow_locked: Math.max(0, opponentWallet.escrow_locked - oath.stake_amount),
-            }).eq("id", opponentWallet.id);
-
-            await supabase.from("transactions").insert({
-              wallet_id: opponentWallet.id,
-              oath_id: oath.id,
-              type: "reward",
-              amount: winnerPayout,
-              description: `Won Duo Challenge Bounty: ${oath.oath_statement}`,
-            });
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("Client-side wallet settlement fallback notice:", err);
-  }
-
   notifyDataUpdated();
   return { error: null };
 }
@@ -1676,30 +1205,17 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
 // ---- verifyNominee ----
 export async function verifyNominee(token: string, verdict: "success" | "penalty", note?: string) {
   if (isMockMode()) {
-    const oaths = getMockOaths();
-    const oath = oaths.find((o) => o.id === token || o.nominee_email === token) || oaths.find((o) => o.verification_method === "nominee") || oaths[0];
-    if (oath) {
-      await settleOath(oath.id, verdict, note);
-    }
-    return { error: null };
+    const oath = getMockOaths().find((candidate) => candidate.id === token);
+    if (!oath) return { error: "Invalid or expired verification link" };
+    return settleOath(oath.id, verdict, note);
   }
-
   const supabase = createClient();
-  const { data: nominee, error: nomError } = await supabase
-    .from("nominees")
-    .select("*, oath:oaths(*)")
-    .eq("verification_token", token)
-    .single();
-
-  if (nomError || !nominee) return { error: "Invalid or expired token" };
-  if (nominee.verified) return { error: "This link has already been used" };
-
-  await supabase
-    .from("nominees")
-    .update({ verified: true, verdict, verdict_note: note, responded_at: new Date().toISOString() })
-    .eq("verification_token", token);
-
-  await settleOath(nominee.oath_id, verdict, note);
+  const { error } = await supabase.rpc("verify_nominee", {
+    p_token: token,
+    p_success: verdict === "success",
+    p_note: note ?? null,
+  });
+  if (error) return { error: error.message };
   notifyDataUpdated();
   return { error: null };
 }

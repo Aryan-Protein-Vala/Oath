@@ -263,7 +263,6 @@ function OathCountdownCard({
           {utilsFormatCurrency(oath.stake_amount, region)}
         </p>
         <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-500 mt-1">
-          {oath.house_cut_percent}% house cut on failure
         </p>
       </div>
 
@@ -414,7 +413,6 @@ function OathDetailsModal({ oath, onClose }: { oath: Oath; onClose: () => void }
             </div>
             <div>
               <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">House Cut</span>
-              <span className="text-sm font-mono font-black text-zinc-900 dark:text-zinc-200">{oath.house_cut_percent}% ({utilsFormatCurrency(oath.stake_amount * 0.1, region)})</span>
             </div>
           </div>
 
