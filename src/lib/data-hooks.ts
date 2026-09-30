@@ -865,9 +865,12 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
 
     const updatedSquads = squads.map((s) => {
       if (s.id === oathId) {
+        const nextMembers = [...(s.members ?? []), newMember];
+        const nextStatus = nextMembers.length >= (s.min_players ?? 3) && s.status === "pending" ? ("active" as const) : s.status;
         return {
           ...s,
-          members: [...(s.members ?? []), newMember],
+          status: nextStatus,
+          members: nextMembers,
         };
       }
       return s;
@@ -929,6 +932,26 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
     amount: stakeAmount,
     description: "Joined squad pool",
   });
+
+  // Check if squad has reached min_players to activate
+  try {
+    const { count: memberCount } = await supabase
+      .from("group_members")
+      .select("*", { count: "exact", head: true })
+      .eq("oath_id", oathId);
+
+    const { data: squadOath } = await supabase
+      .from("oaths")
+      .select("min_players, status")
+      .eq("id", oathId)
+      .single();
+
+    if (squadOath && squadOath.status === "pending" && memberCount && memberCount >= (squadOath.min_players || 3)) {
+      await supabase.from("oaths").update({ status: "active" }).eq("id", oathId);
+    }
+  } catch (err) {
+    console.warn("Squad auto-activation check note:", err);
+  }
 
   notifyDataUpdated();
   return { error: null };
@@ -1654,7 +1677,7 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
 export async function verifyNominee(token: string, verdict: "success" | "penalty", note?: string) {
   if (isMockMode()) {
     const oaths = getMockOaths();
-    const oath = oaths.find((o) => o.id === token || o.nominee_email) || oaths[0];
+    const oath = oaths.find((o) => o.id === token || o.nominee_email === token) || oaths.find((o) => o.verification_method === "nominee") || oaths[0];
     if (oath) {
       await settleOath(oath.id, verdict, note);
     }

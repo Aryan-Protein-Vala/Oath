@@ -26,7 +26,7 @@ function VerifyContent() {
     const fetchOath = async () => {
       setLoading(true);
       const mockOaths = getMockOaths();
-      const local = mockOaths.find((o) => o.id === token);
+      const local = mockOaths.find((o) => o.id === token || o.nominee_email === token) || mockOaths.find((o) => o.verification_method === "nominee");
       if (local) {
         setOath(local);
         setLoading(false);

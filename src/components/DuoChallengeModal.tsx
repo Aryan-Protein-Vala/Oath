@@ -191,10 +191,10 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
                 <p className="text-[9px] font-mono text-zinc-600 dark:text-zinc-400 uppercase tracking-widest mb-1.5 font-bold">Preview</p>
                 <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed font-mono">
                   Both players stake{" "}
-                  <span className="font-bold text-zinc-950 dark:text-zinc-100">{formatCurrency(stakeNum)}</span>.
+                  <span className="font-bold text-zinc-950 dark:text-zinc-100">{formatCurrency(stakeUsd, region)}</span>.
                   Winner gets{" "}
                   <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                    {formatCurrency(stakeNum * 2 * 0.9)}
+                    {formatCurrency(stakeUsd * 2 * 0.9, region)}
                   </span>{" "}
                   (10% house cut).
                 </p>

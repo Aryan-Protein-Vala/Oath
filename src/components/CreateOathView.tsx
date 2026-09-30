@@ -23,7 +23,7 @@ import {
   X
 } from "lucide-react";
 import type { OathType, VerificationMethod, ConsequenceType } from "@/lib/types";
-import { convertToUSD } from "@/lib/utils";
+import { convertToUSD, convertToLocal } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
 import { showToast } from "./Toast";
 
@@ -47,13 +47,13 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   const [antiCharityCause, setAntiCharityCause] = useState("Opposing Political Party");
   const [infoModal, setInfoModal] = useState<{ title: string; desc: string } | null>(null);
 
-  const stakeNum = parseFloat(stakeAmount) || 0;
   const financialConsequences = ["fiat", "anti_charity", "bounty_transfer", "mutual_destruction", "bounty_split"];
   const isFinancial = financialConsequences.includes(consequenceType);
+
+  const stakeNum = parseFloat(stakeAmount) || 0;
   // walletBalance is stored in USD; convert to local for comparison
-  const INR_TO_USD = 0.012;
-  const walletInLocal = region === "in" ? walletBalance / INR_TO_USD : walletBalance;
-  const stakeUsd = region === "in" ? stakeNum * INR_TO_USD : stakeNum;
+  const walletInLocal = convertToLocal(walletBalance, region);
+  const stakeUsd = convertToUSD(stakeNum, region);
   const isOverBudget = isFinancial && stakeNum > walletInLocal;
 
   // Handle mobile-exclusive features
@@ -402,7 +402,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                       isOverBudget ? "text-red-500" : "text-zinc-600 dark:text-zinc-400"
                     }`}
                   >
-                    Balance: {formatRegionCurrency(walletInLocal)}
+                    Balance: {formatRegionCurrency(walletBalance)}
                   </span>
                   {stakeNum > 0 && (
                     <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
