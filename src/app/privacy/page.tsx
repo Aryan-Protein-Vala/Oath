@@ -28,7 +28,7 @@ export default function PrivacyPage() {
 
           <h2>2. Financial Data</h2>
           <p>
-            Your payment information is securely processed by our authorized payment gateways (e.g., PayPal, Razorpay). We do not store your full credit card numbers or raw bank account credentials on our servers. Your "Wallet" balance merely reflects the ledger of your escrow deposits and oath outcomes.
+            Your payment information is securely processed by our authorized payment gateways (e.g., PayPal, Razorpay). We do not store your full credit card numbers or raw bank account credentials on our servers. Your &ldquo;Wallet&rdquo; balance merely reflects the ledger of your escrow deposits and oath outcomes.
           </p>
           
           <h2>3. Proof Submissions & Media</h2>
@@ -38,12 +38,12 @@ export default function PrivacyPage() {
 
           <h2>4. Public Profiles & The Wall</h2>
           <p>
-            If you select "Public Shame" as a consequence for your OATH, you explicitly consent to having your failure excuse, original goal, and username published publicly on the OATH platform. Your username, reputation score, and "Duffer" status are publicly visible on your profile to maintain platform accountability.
+            If you select &ldquo;Public Shame&rdquo; as a consequence for your OATH, you explicitly consent to having your failure excuse, original goal, and username published publicly on the OATH platform. Your username, reputation score, and &ldquo;Duffer&rdquo; status are publicly visible on your profile to maintain platform accountability.
           </p>
 
           <h2>5. Third-Party Integrations</h2>
           <p>
-            For features such as "Anti-Charity" donations, we may share minimal necessary transaction data with associated charities or automated webhooks to execute the promised donation on your behalf upon failure.
+            For features such as &ldquo;Anti-Charity&rdquo; donations, we may share minimal necessary transaction data with associated charities or automated webhooks to execute the promised donation on your behalf upon failure.
           </p>
 
           <h2>6. Data Deletion</h2>

@@ -561,6 +561,8 @@ CREATE TRIGGER on_oath_settled
 
 BEGIN;
 
+ALTER TYPE public.consequence_type ADD VALUE IF NOT EXISTS 'shared_oath';
+
 ALTER TABLE public.wallets
   ADD COLUMN IF NOT EXISTS total_won NUMERIC(12,2) NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS total_lost NUMERIC(12,2) NOT NULL DEFAULT 0;
@@ -573,11 +575,6 @@ CREATE TABLE IF NOT EXISTS public.oath_private_details (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-INSERT INTO public.oath_private_details (oath_id, social_ransom_phone, social_ransom_message, nominee_email)
-SELECT id, social_ransom_phone, social_ransom_message, nominee_email
-FROM public.oaths
-WHERE social_ransom_phone IS NOT NULL OR social_ransom_message IS NOT NULL OR nominee_email IS NOT NULL
-ON CONFLICT (oath_id) DO NOTHING;
 
 ALTER TABLE public.oaths
   DROP COLUMN IF EXISTS social_ransom_phone,
@@ -614,8 +611,10 @@ DROP POLICY IF EXISTS "Squad members can vote" ON public.votes;
 DROP POLICY IF EXISTS "Users can update own votes" ON public.votes;
 DROP POLICY IF EXISTS "Users can insert wall entries" ON public.wall_entries;
 
+DROP POLICY IF EXISTS "Wallet owner can read wallet" ON public.wallets;
 CREATE POLICY "Wallet owner can read wallet" ON public.wallets
   FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Transaction owner can read ledger" ON public.transactions;
 CREATE POLICY "Transaction owner can read ledger" ON public.transactions
   FOR SELECT TO authenticated USING (
     EXISTS (SELECT 1 FROM public.wallets w WHERE w.id = wallet_id AND w.user_id = auth.uid())
@@ -629,6 +628,7 @@ $$;
 REVOKE ALL ON FUNCTION public.is_oath_member(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.is_oath_member(UUID) TO authenticated;
 
+DROP POLICY IF EXISTS "Participants and open squads can read safe oath rows" ON public.oaths;
 CREATE POLICY "Participants and open squads can read safe oath rows" ON public.oaths
   FOR SELECT TO authenticated USING (
     creator_id = auth.uid()
@@ -640,17 +640,22 @@ DROP POLICY IF EXISTS "Pending duo invitations are readable" ON public.oaths;
 CREATE POLICY "Pending duo invitations are readable" ON public.oaths
   FOR SELECT TO anon, authenticated USING (oath_type = 'duo' AND status = 'pending');
 
+DROP POLICY IF EXISTS "Profiles are public identity only" ON public.profiles;
 CREATE POLICY "Profiles are public identity only" ON public.profiles
   FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "Group participants can read members" ON public.group_members;
 CREATE POLICY "Group participants can read members" ON public.group_members
   FOR SELECT TO authenticated USING (
     public.is_oath_member(group_members.oath_id)
     OR EXISTS (SELECT 1 FROM public.oaths o WHERE o.id=group_members.oath_id AND o.oath_type='squad' AND o.status IN ('pending','active'))
   );
+DROP POLICY IF EXISTS "Oath participants can read proofs" ON public.proofs;
 CREATE POLICY "Oath participants can read proofs" ON public.proofs
   FOR SELECT TO authenticated USING (submitted_by = auth.uid() OR public.is_oath_member(proofs.oath_id));
+DROP POLICY IF EXISTS "Squad members can read votes" ON public.votes;
 CREATE POLICY "Squad members can read votes" ON public.votes
   FOR SELECT TO authenticated USING (voter_id = auth.uid() OR public.is_oath_member(votes.oath_id));
+DROP POLICY IF EXISTS "Public wall entries are readable" ON public.wall_entries;
 CREATE POLICY "Public wall entries are readable" ON public.wall_entries
   FOR SELECT TO anon, authenticated USING (true);
 

@@ -23,17 +23,17 @@ export default function TermsPage() {
           
           <h2>1. Not a Gambling Platform</h2>
           <p>
-            OATH ("The Platform") is strictly a productivity and habit-building application utilizing the behavioral economics concept of "Commitment Contracts". The Platform does not constitute gambling, betting, wagering, or a game of chance. All stakes placed on the Platform are tied entirely to verifiable, skill-based, or effort-based personal health, productivity, and lifestyle goals. You are staking money on your own ability to complete a task, not on random outcomes or external events.
+            OATH (&ldquo;The Platform&rdquo;) is strictly a productivity and habit-building application utilizing the behavioral economics concept of &ldquo;Commitment Contracts&rdquo;. The Platform does not constitute gambling, betting, wagering, or a game of chance. All stakes placed on the Platform are tied entirely to verifiable, skill-based, or effort-based personal health, productivity, and lifestyle goals. You are staking money on your own ability to complete a task, not on random outcomes or external events.
           </p>
 
           <h2>2. India-Safe & Legality</h2>
           <p>
-            In accordance with Indian law, including but not limited to the Public Gambling Act of 1867, OATH operates legally as a platform of skill and personal effort. The outcomes of OATHs are determined entirely by the user's direct actions. We explicitly prohibit the use of our platform for games of chance or sports betting. 
+            In accordance with Indian law, including but not limited to the Public Gambling Act of 1867, OATH operates legally as a platform of skill and personal effort. The outcomes of OATHs are determined entirely by the user&apos;s direct actions. We explicitly prohibit the use of our platform for games of chance or sports betting. 
           </p>
           
           <h2>3. Commitment Contracts & Stakes</h2>
           <p>
-            When you create an OATH, you agree to place a financial stake in escrow. This stake serves as a commitment device. If you successfully provide verified proof of your completed goal (as verified by your designated peers or nominees), your stake is returned to you. If you fail to complete your goal, you voluntarily forfeit your stake. A portion of forfeited stakes is retained by the Platform ("Oath Platform Fee"), and the remainder may be distributed to your accountability partners ("Shared Oath") or an Anti-Charity of your choice, depending on the contract terms you selected.
+            When you create an OATH, you agree to place a financial stake in escrow. This stake serves as a commitment device. If you successfully provide verified proof of your completed goal (as verified by your designated peers or nominees), your stake is returned to you. If you fail to complete your goal, you voluntarily forfeit your stake. A portion of forfeited stakes is retained by the Platform (&ldquo;Oath Platform Fee&rdquo;), and the remainder may be distributed to your accountability partners (&ldquo;Shared Oath&rdquo;) or an Anti-Charity of your choice, depending on the contract terms you selected.
           </p>
 
           <h2>4. Money Safety & Escrow</h2>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createOath, searchUsersByUsername } from "@/lib/data-hooks";
 import {
   Zap,
@@ -44,7 +44,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   const [socialPhone, setSocialPhone] = useState("");
   const [socialMessage, setSocialMessage] = useState("");
   const [nomineeEmail, setNomineeEmail] = useState("");
-  const [userSuggestions, setUserSuggestions] = useState<{username: string, display_name: string}[]>([]);
+  const [userSuggestions, setUserSuggestions] = useState<{ username: string; display_name?: string }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [antiCharityCause, setAntiCharityCause] = useState("Opposing Political Party");
   const [infoModal, setInfoModal] = useState<{ title: string; desc: string } | null>(null);
@@ -64,21 +64,27 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   };
 
   const [submitting, setSubmitting] = useState(false);
+  const selectedFromDropdownRef = useRef(false);
 
   useEffect(() => {
     if (verificationMethod !== "nominee") return;
-    
-    const query = nomineeEmail.replace("@", "").trim();
-    if (query.length < 1) {
-      setUserSuggestions([]);
-      setShowSuggestions(false);
+    if (selectedFromDropdownRef.current) {
+      selectedFromDropdownRef.current = false;
       return;
     }
+    
+    const query = nomineeEmail.replace("@", "").trim();
+    const isEmailFormat = nomineeEmail.includes("@") && nomineeEmail.indexOf("@") > 0 && nomineeEmail.includes(".");
 
     const timer = setTimeout(async () => {
+      if (query.length < 1 || isEmailFormat) {
+        setUserSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
       const results = await searchUsersByUsername(query);
       setUserSuggestions(results);
-      setShowSuggestions(true);
+      setShowSuggestions(results.length > 0);
     }, 300); // 300ms debounce to prevent spamming DB
 
     return () => clearTimeout(timer);
@@ -114,12 +120,19 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
       return;
     }
     if (verificationMethod === "nominee" && !nomineeEmail.trim()) {
-      showToast("Please provide the nominee referee email.", "error");
+      showToast("Please provide the nominee @username or referee email.", "error");
       return;
     }
-    if (consequenceType === "social_ransom" && (!socialPhone.trim() || !socialMessage.trim())) {
-      showToast("Social ransom requires both a recipient phone number and a ransom message.", "error");
-      return;
+    if (consequenceType === "social_ransom") {
+      const cleanPhone = socialPhone.replace(/\D/g, "");
+      if (cleanPhone.length < 10) {
+        showToast("Please enter a valid phone number with country/area code.", "error");
+        return;
+      }
+      if (!socialMessage.trim() || socialMessage.trim().length < 5) {
+        showToast("Social ransom requires a message of at least 5 characters.", "error");
+        return;
+      }
     }
 
     const statementWithCause = oathStatement.trim();
@@ -392,6 +405,15 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                   </button>
                 ))}
               </div>
+              <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                <input
+                  type="text"
+                  placeholder="Or enter custom despised cause / organization..."
+                  value={antiCharityCause}
+                  onChange={(e) => setAntiCharityCause(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none focus:border-red-600 transition-colors"
+                />
+              </div>
             </div>
           )}
 
@@ -539,17 +561,20 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
               <div className="flex items-center gap-2 mb-3">
                 <Shield className="w-3.5 h-3.5 text-zinc-500" />
                 <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-500 uppercase tracking-[0.2em]">
-                  Nominee @username
+                  Nominee @username or Referee Email
                 </span>
               </div>
               <div className="relative">
                 <input
                   type="text"
                   value={nomineeEmail}
-                  onChange={(e) => setNomineeEmail(e.target.value.startsWith("@") || e.target.value === "" ? e.target.value : "@" + e.target.value)}
+                  onChange={(e) => {
+                    selectedFromDropdownRef.current = false;
+                    setNomineeEmail(e.target.value);
+                  }}
                   onFocus={() => { if (userSuggestions.length > 0) setShowSuggestions(true); }}
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                  placeholder="@username"
+                  placeholder="@username or referee@email.com"
                   className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
                 />
                 
@@ -561,8 +586,10 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                         type="button"
                         className="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 last:border-0 flex items-center justify-between"
                         onClick={() => {
+                          selectedFromDropdownRef.current = true;
                           setNomineeEmail("@" + u.username);
                           setShowSuggestions(false);
+                          setUserSuggestions([]);
                         }}
                       >
                         <span className="font-bold text-zinc-950 dark:text-zinc-100 text-sm">@{u.username}</span>

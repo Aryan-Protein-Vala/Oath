@@ -159,7 +159,7 @@ test("public-shame zero-stake oath creates a public failure entry without touchi
 test("duo acceptance locks both stakes atomically and settlement is verifier-only", async () => {
   const profileBefore = await db.query("SELECT id,oaths_completed,oaths_failed,total_won,total_lost FROM profiles WHERE id = ANY($1::uuid[])", [[ids.alice, ids.bob]]);
   const oathId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
-    'Train 4 times weekly', now()+interval '3 days', 'duo','peer','bounty_transfer',100)`)).rows[0].create_oath_with_stake;
+    'Train 4 times weekly', now()+interval '3 days', 'duo','peer','shared_oath',100)`)).rows[0].create_oath_with_stake;
   await assert.rejects(asUser(ids.alice, "SELECT public.accept_duo_challenge($1)", [oathId]), /not addressed/i);
   await asUser(ids.bob, "SELECT public.accept_duo_challenge($1)", [oathId]);
   await assert.rejects(asUser(ids.cara, "SELECT public.settle_oath($1,true,NULL)", [oathId]), /assigned verifier/i);
@@ -186,7 +186,7 @@ test("duo acceptance locks both stakes atomically and settlement is verifier-onl
 test("creator can cancel a pending duo invite and recover escrow exactly once", async () => {
   const before = (await db.query("SELECT balance,escrow_locked FROM wallets WHERE user_id=$1", [ids.alice])).rows[0];
   const oathId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
-    'Do a study session', now()+interval '3 days', 'duo','peer','bounty_transfer',50)`)).rows[0].create_oath_with_stake;
+    'Do a study session', now()+interval '3 days', 'duo','peer','shared_oath',50)`)).rows[0].create_oath_with_stake;
   await asUser(ids.alice, "SELECT public.cancel_duo_challenge($1)", [oathId]);
   await assert.rejects(asUser(ids.alice, "SELECT public.cancel_duo_challenge($1)", [oathId]), /pending duo/i);
   await assert.rejects(asUser(ids.bob, "SELECT public.accept_duo_challenge($1)", [oathId]), /unavailable/i);

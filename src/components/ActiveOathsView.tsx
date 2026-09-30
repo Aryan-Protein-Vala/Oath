@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronRight, User, Users, Upload, Eye, XCircle, Shield, AlertTriangle, X } from "lucide-react";
+import { ChevronRight, User, Users, Upload, Eye, XCircle, Shield, AlertTriangle, X, Copy } from "lucide-react";
 import type { Oath } from "@/lib/types";
 import { getTimeRemaining, padZero, formatCurrency as utilsFormatCurrency, formatRelativeTime } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
@@ -256,14 +256,27 @@ function OathCountdownCard({
         )}
       </div>
 
-      {/* Stake */}
+      {/* Stake or Non-financial Consequence */}
       <div className="text-center mb-6">
-        <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-[0.2em] font-bold mb-1">At stake</p>
-        <p className="text-4xl sm:text-5xl font-black text-zinc-950 dark:text-zinc-50 stake-number tracking-tight">
-          {utilsFormatCurrency(oath.stake_amount, region)}
-        </p>
-        <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-500 mt-1">
-        </p>
+        {oath.stake_amount > 0 ? (
+          <>
+            <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-[0.2em] font-bold mb-1">At stake</p>
+            <p className="text-4xl sm:text-5xl font-black text-zinc-950 dark:text-zinc-50 stake-number tracking-tight">
+              {utilsFormatCurrency(oath.stake_amount, region)}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-[0.2em] font-bold mb-1">Consequence</p>
+            <p className="text-2xl sm:text-3xl font-black text-red-600 dark:text-red-500 tracking-tight uppercase">
+              {oath.consequence_type === "social_ransom"
+                ? "Social Ransom"
+                : oath.consequence_type === "public_shame"
+                ? "Wall of Shame"
+                : "Social Stigma"}
+            </p>
+          </>
+        )}
       </div>
 
       {/* Progress bar */}
@@ -288,7 +301,9 @@ function OathCountdownCard({
       {(() => {
         const isExpired = timeState.isExpired;
         const isActionable = oath.status === "active" && !isExpired;
-        const hasSubmittedProof = (oath.proofs && oath.proofs.length > 0) || oath.status === "pending";
+        const hasPendingProof = oath.proofs?.some(p => p.status === "pending_review") || oath.status === "pending";
+        const isApproved = oath.proofs?.some(p => p.status === "verified");
+        const isLockedOut = hasPendingProof || isApproved;
 
         return (
           <div className="flex items-center gap-2.5">
@@ -304,15 +319,15 @@ function OathCountdownCard({
               <>
                 <button
                   onClick={onSubmitProof}
-                  disabled={!isActionable || hasSubmittedProof}
+                  disabled={!isActionable || isLockedOut}
                   className={`flex items-center gap-2 px-5 py-2.5 text-sm font-black tracking-tight uppercase transition-colors border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none ${
-                    isActionable && !hasSubmittedProof
+                    isActionable && !isLockedOut
                       ? "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-zinc-950 dark:border-transparent"
                       : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border-zinc-300 dark:border-zinc-800 cursor-not-allowed shadow-none"
                   }`}
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  {hasSubmittedProof ? "Proof In Review" : "Submit Proof"}
+                  {hasPendingProof ? "Proof In Review" : isApproved ? "Proof Verified" : "Submit Proof"}
                 </button>
                 <button
                   onClick={onViewDetails}
@@ -413,6 +428,9 @@ function OathDetailsModal({ oath, onClose }: { oath: Oath; onClose: () => void }
             </div>
             <div>
               <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Oath Fee</span>
+              <span className="text-sm font-mono font-black text-zinc-900 dark:text-zinc-200">
+                {oath.stake_amount > 0 ? `${utilsFormatCurrency(oath.stake_amount * 0.05, region)} (5%)` : "No Fee"}
+              </span>
             </div>
           </div>
 
@@ -424,8 +442,23 @@ function OathDetailsModal({ oath, onClose }: { oath: Oath; onClose: () => void }
           )}
 
           {oath.nominee_email && (
-            <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono">
-              <span className="font-bold text-zinc-700 dark:text-zinc-300">Nominee Referee:</span> {oath.nominee_email}
+            <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono flex items-center justify-between gap-2">
+              <div>
+                <span className="font-bold text-zinc-700 dark:text-zinc-300">Nominee Referee:</span> {oath.nominee_email}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    const url = `${window.location.origin}/verify?token=${oath.id}`;
+                    navigator.clipboard.writeText(url);
+                    showToast("Referee verification link copied!", "success");
+                  }
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors shrink-0"
+              >
+                <Copy className="w-3 h-3" /> Copy Link
+              </button>
             </div>
           )}
 

@@ -4,7 +4,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import type { Oath, WallEntry, Transaction, Proof, GroupMember, Wallet, OathType, VerificationMethod, ConsequenceType, ProofType } from "@/lib/types";
 import {
   mockProfile,
@@ -17,7 +17,7 @@ import {
 import { useAuth, ADMIN_MOCK_USER, getInitialMockWallet, isDemoSession } from "./auth-context";
 
 export function isMockMode(): boolean {
-  return false; // Removed sandbox per user request
+  return isDemoSession() || !isSupabaseConfigured();
 }
 
 function notifyDataUpdated() {
@@ -579,6 +579,27 @@ export async function depositFunds(amount: number) {
   const validAmount = validatePositiveAmount(amount);
   if (validAmount === null) return { error: "Deposit amount must be a positive number." };
   
+  if (isMockMode()) {
+    const currentWallet = getInitialMockWallet();
+    const updatedWallet: Wallet = {
+      ...currentWallet,
+      balance: currentWallet.balance + validAmount,
+      total_deposited: (currentWallet.total_deposited ?? 0) + validAmount,
+    };
+    setMockWallet(updatedWallet);
+    const newTx: Transaction = {
+      id: `tx-${Date.now()}`,
+      wallet_id: currentWallet.id,
+      type: "deposit",
+      amount: validAmount,
+      description: "Deposit to wallet",
+      created_at: new Date().toISOString(),
+    };
+    setMockTransactions([newTx, ...getMockTransactions()]);
+    notifyDataUpdated();
+    return { error: null };
+  }
+
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
@@ -594,6 +615,30 @@ export async function depositFunds(amount: number) {
 export async function withdrawFunds(amount: number, destination: string = "Unknown") {
   const validAmount = validatePositiveAmount(amount);
   if (validAmount === null) return { error: "Withdrawal amount must be a positive number." };
+
+  if (isMockMode()) {
+    const currentWallet = getInitialMockWallet();
+    if (currentWallet.balance < validAmount) {
+      return { error: "Insufficient funds in wallet." };
+    }
+    const updatedWallet: Wallet = {
+      ...currentWallet,
+      balance: currentWallet.balance - validAmount,
+      total_withdrawn: (currentWallet.total_withdrawn ?? 0) + validAmount,
+    };
+    setMockWallet(updatedWallet);
+    const newTx: Transaction = {
+      id: `tx-${Date.now()}`,
+      wallet_id: currentWallet.id,
+      type: "withdrawal",
+      amount: validAmount,
+      description: `Withdrawal to ${destination}`,
+      created_at: new Date().toISOString(),
+    };
+    setMockTransactions([newTx, ...getMockTransactions()]);
+    notifyDataUpdated();
+    return { error: null };
+  }
 
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -1231,8 +1276,19 @@ export async function verifyNominee(token: string, verdict: "success" | "penalty
   notifyDataUpdated();
   return { error: null };
 }
-export async function searchUsersByUsername(query: string): Promise<any[]> {
-  if (isMockMode()) return [];
+export async function searchUsersByUsername(query: string): Promise<Array<{ username: string; display_name?: string }>> {
+  if (isMockMode()) {
+    const q = query.toLowerCase();
+    const demoCandidates = [
+      { username: "ghost_protocol", display_name: "Ghost Protocol" },
+      { username: "void_walker", display_name: "Void Walker" },
+      { username: "iron_oath", display_name: "Iron Oath" },
+      { username: "deadweight", display_name: "Deadweight" },
+      { username: "silent_vow", display_name: "Silent Vow" },
+      { username: "reaper_exe", display_name: "Reaper" },
+    ];
+    return demoCandidates.filter(u => u.username.toLowerCase().startsWith(q));
+  }
   const supabase = createClient();
   const { data } = await supabase
     .from("profiles")

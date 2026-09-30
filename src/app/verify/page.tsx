@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Shield, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Loader2 } from "lucide-react";
+import { Shield, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Loader2, ExternalLink } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { getMockOaths, verifyNominee } from "@/lib/data-hooks";
 import { isDemoSession } from "@/lib/auth-context";
@@ -220,6 +220,39 @@ function VerifyContent() {
             </span>
           </div>
         </div>
+
+        {/* Submitted Proof / Evidence */}
+        {oath.proofs && oath.proofs.length > 0 && (
+          <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 mb-6 bg-zinc-50 dark:bg-zinc-900/60">
+            <p className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-[0.2em] mb-2">
+              Submitted Proof Evidence
+            </p>
+            {oath.proofs.map((proof, idx) => (
+              <div key={proof.id || idx} className="space-y-1.5 text-xs font-mono">
+                <span className="text-[9px] uppercase font-bold text-zinc-500 tracking-wider">
+                  Type: {proof.proof_type} · Status: {proof.status}
+                </span>
+                {proof.proof_text && (
+                  <p className="p-3 border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200 italic leading-relaxed">
+                    &ldquo;{proof.proof_text}&rdquo;
+                  </p>
+                )}
+                {proof.proof_url && (
+                  <div className="pt-1">
+                    <a
+                      href={proof.proof_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-600 dark:text-sky-400 underline hover:opacity-80"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> View Uploaded Evidence &rarr;
+                    </a>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Verdict Selection */}
         <div className="space-y-3 mb-6">

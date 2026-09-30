@@ -32,9 +32,9 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
       : "text-red-600 dark:text-red-500";
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-hidden bg-zinc-50 dark:bg-transparent">
-      {/* Profile summary scrolls above the ledger on phones. */}
-      <div className="w-full max-h-[46vh] sm:max-h-none sm:w-72 shrink-0 border-b-2 sm:border-b-0 sm:border-r-2 border-zinc-950 dark:border-zinc-800/60 flex flex-col overflow-y-auto bg-white dark:bg-transparent">
+    <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-y-auto sm:overflow-hidden bg-zinc-50 dark:bg-transparent">
+      {/* Profile summary */}
+      <div className="w-full sm:w-72 shrink-0 border-b-2 sm:border-b-0 sm:border-r-2 border-zinc-950 dark:border-zinc-800/60 flex flex-col sm:overflow-y-auto bg-white dark:bg-transparent">
         {/* Identity */}
         <div className="p-5 border-b-2 border-zinc-200 dark:border-zinc-800/40">
           <div className="flex items-center gap-3 mb-4">

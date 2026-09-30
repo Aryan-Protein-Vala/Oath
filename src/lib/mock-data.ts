@@ -145,6 +145,35 @@ export const mockActiveOaths: Oath[] = [
     created_at: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: new Date().toISOString(),
   },
+  {
+    id: "o-003",
+    creator_id: "u-002",
+    creator: mockUsers[0],
+    nominee_email: "@" + mockProfile.username,
+    oath_statement: "Write 10,000 words on distributed systems",
+    deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+    oath_type: "solo",
+    verification_method: "nominee",
+    consequence_type: "fiat",
+    stake_amount: 100.0,
+    status: "active",
+    min_players: 1,
+    max_players: 1,
+    created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date().toISOString(),
+    proofs: [
+      {
+        id: "p-001",
+        oath_id: "o-003",
+        submitted_by: "u-002",
+        proof_type: "link",
+        proof_url: "https://github.com/example/distributed-draft",
+        proof_text: "Finished drafts for Chapters 4 & 5. Submitted pull request #14.",
+        status: "pending_review",
+        created_at: new Date().toISOString(),
+      },
+    ],
+  },
 ];
 
 // ---- Squad Pool Lobbies ----

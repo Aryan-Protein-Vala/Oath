@@ -23,7 +23,7 @@ export default function DisclaimerPage() {
           
           <h2>1. Not a Game of Chance or Gambling</h2>
           <p>
-            OATH is a behavioral health and productivity application. We explicitly state that OATH is <strong>NOT</strong> a gambling application, betting platform, or casino. No element of our platform involves wagering on external events, games of chance, or random outcomes. All financial stakes placed on OATH are "Commitment Contracts" tied entirely to the user's personal ability to complete self-assigned, positive lifestyle goals (e.g., fitness, studying, habit building).
+            OATH is a behavioral health and productivity application. We explicitly state that OATH is <strong>NOT</strong> a gambling application, betting platform, or casino. No element of our platform involves wagering on external events, games of chance, or random outcomes. All financial stakes placed on OATH are &ldquo;Commitment Contracts&rdquo; tied entirely to the user&apos;s personal ability to complete self-assigned, positive lifestyle goals (e.g., fitness, studying, habit building).
           </p>
 
           <h2>2. India Legality & Safety</h2>

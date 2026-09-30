@@ -13,10 +13,10 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { depositFunds, withdrawFunds, isMockMode } from "@/lib/data-hooks";
-import { formatCurrencyPrecise, formatRelativeTime, convertToUSD, convertToLocal } from "@/lib/utils";
+import { formatCurrency, formatCurrencyPrecise, formatRelativeTime, convertToUSD, convertToLocal } from "@/lib/utils";
 import type { Wallet, Transaction } from "@/lib/types";
 import { showToast } from "./Toast";
-import { useRegion } from "@/lib/region-context";
+import { useRegion, type Region } from "@/lib/region-context";
 
 interface WalletModalProps {
   wallet: Wallet;
@@ -78,6 +78,20 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
     setLoading(true);
 
     if (tab === "deposit") {
+      if (isMockMode()) {
+        const { error } = await depositFunds(amountUsd);
+        if (error) {
+          showToast(error, "error");
+        } else {
+          setDone(true);
+          showToast(`${formatRegionCurrency(amountUsd)} added to your wallet (demo mode).`, "success");
+          onRefresh();
+          setTimeout(() => { setDone(false); setAmount(""); setTab("overview"); }, 1500);
+        }
+        setLoading(false);
+        return;
+      }
+
       try {
         // 1. Create order on our backend
         const res = await fetch("/api/razorpay/create-order", {
@@ -90,26 +104,53 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
         if (order.error) throw new Error(order.error);
 
         // 2. Initialize Razorpay Checkout
+        interface RazorpaySuccessResponse {
+          razorpay_order_id?: string;
+          razorpay_payment_id?: string;
+          razorpay_signature?: string;
+        }
+
         const options = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_live_Raz8j6g79SNIVA", // Fallback to key provided by user
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_live_Raz8j6g79SNIVA",
           amount: order.amount,
           currency: order.currency,
           name: "OATH",
           description: "Wallet Deposit",
           order_id: order.id,
-          handler: async function (response: any) {
-            // Payment success! Verify and deposit
+          handler: async function (response: RazorpaySuccessResponse) {
             setLoading(true);
-            const { error } = await depositFunds(amountUsd);
-            if (error) {
-              showToast(error, "error");
-            } else {
-              setDone(true);
-              showToast(`${formatRegionCurrency(amountUsd)} added to your wallet.`, "success");
-              onRefresh();
-              setTimeout(() => { setDone(false); setAmount(""); setTab("overview"); }, 1500);
+            try {
+              // 3. Verify signature on backend
+              const verifyRes = await fetch("/api/razorpay/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id || order.id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              });
+              const verifyData = await verifyRes.json();
+              if (!verifyRes.ok || !verifyData.success) {
+                throw new Error(verifyData.error || "Payment verification failed");
+              }
+
+              // 4. Deposit verified funds
+              const { error } = await depositFunds(amountUsd);
+              if (error) {
+                showToast(error, "error");
+              } else {
+                setDone(true);
+                showToast(`${formatRegionCurrency(amountUsd)} added to your wallet.`, "success");
+                onRefresh();
+                setTimeout(() => { setDone(false); setAmount(""); setTab("overview"); }, 1500);
+              }
+            } catch (err: unknown) {
+              const message = err instanceof Error ? err.message : "Verification failed";
+              showToast(message, "error");
+            } finally {
+              setLoading(false);
             }
-            setLoading(false);
           },
           prefill: {
             name: "OATH User",
@@ -120,79 +161,95 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           },
         };
 
-        const rzp = new (window as any).Razorpay(options);
-        rzp.on("payment.failed", function (response: any) {
-          showToast(response.error.description || "Payment failed", "error");
+        interface RazorpayInstance {
+          on: (event: string, callback: (resp: { error?: { description?: string } }) => void) => void;
+          open: () => void;
+        }
+        type RazorpayConstructor = new (opts: unknown) => RazorpayInstance;
+        const RazorpayGlobal = (window as unknown as { Razorpay: RazorpayConstructor }).Razorpay;
+        const rzp = new RazorpayGlobal(options);
+        rzp.on("payment.failed", function (response: { error?: { description?: string } }) {
+          showToast(response.error?.description || "Payment failed", "error");
           setLoading(false);
         });
         rzp.open();
-      } catch (err: any) {
-        showToast(err.message || "Failed to initiate payment", "error");
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Failed to initiate payment";
+        showToast(message, "error");
         setLoading(false);
       }
     } else {
       // Withdrawal
       if (region === "in") {
-        if (!paypalEmail || paypalEmail.length < 3) {
-          showToast("Please enter a valid UPI ID", "error");
+        const UPI_REGEX = /^[a-zA-Z0-9.\-_]{2,49}@[a-zA-Z]{2,}$/;
+        if (!paypalEmail || !UPI_REGEX.test(paypalEmail.trim())) {
+          showToast("Please enter a valid UPI ID (e.g. name@okhdfcbank or 9876543210@paytm)", "error");
           setLoading(false);
           return;
         }
 
-        // Manual UPI Withdrawal Request
-        const { error } = await withdrawFunds(amountUsd, paypalEmail); // paypalEmail state used for UPI ID here
+        const { error } = await withdrawFunds(amountUsd, paypalEmail.trim());
         if (error) {
           showToast(`Withdrawal failed: ${error}`, "error");
         } else {
           setDone(true);
-          showToast(`${formatRegionCurrency(amountUsd)} withdrawal requested to ${paypalEmail}.`, "success");
+          showToast(`${formatRegionCurrency(amountUsd)} withdrawal requested to ${paypalEmail.trim()}.`, "success");
           onRefresh();
           setTimeout(() => { setDone(false); setAmount(""); setPaypalEmail(""); setTab("overview"); }, 2000);
         }
         setLoading(false);
       } else {
         // Withdrawal via PayPal for global users
-        if (!paypalEmail || !paypalEmail.includes("@")) {
+        const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!paypalEmail || !EMAIL_REGEX.test(paypalEmail.trim())) {
           showToast("Please enter a valid PayPal email address", "error");
           setLoading(false);
           return;
         }
 
-      try {
-        // 1. Initiate PayPal Payout
-        const payoutRes = await fetch("/api/paypal/payout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            amount: amountUsd, // Process via USD
-            currency: "USD",
-            receiverEmail: paypalEmail,
-          }),
-        });
-        
-        const payoutData = await payoutRes.json();
-        
-        if (!payoutRes.ok) {
-          throw new Error(payoutData.error || "Failed to process PayPal payout");
+        if (isMockMode()) {
+          const { error } = await withdrawFunds(amountUsd, `PayPal (${paypalEmail.trim()})`);
+          if (error) {
+            showToast(`Withdrawal failed: ${error}`, "error");
+          } else {
+            setDone(true);
+            showToast(`${formatRegionCurrency(amountUsd)} sent to ${paypalEmail.trim()} (demo mode).`, "success");
+            onRefresh();
+            setTimeout(() => { setDone(false); setAmount(""); setPaypalEmail(""); setTab("overview"); }, 2000);
+          }
+          setLoading(false);
+          return;
         }
 
-        // 2. Deduct from DB Wallet
-        const { error } = await withdrawFunds(amountUsd, paypalEmail);
-        if (error) {
-          showToast(`Payout sent but DB sync failed: ${error}`, "error");
-        } else {
+        try {
+          const payoutRes = await fetch("/api/paypal/payout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              amount: amountUsd,
+              currency: "USD",
+              receiverEmail: paypalEmail.trim(),
+            }),
+          });
+          
+          const payoutData = await payoutRes.json();
+          
+          if (!payoutRes.ok) {
+            throw new Error(payoutData.error || "Failed to process PayPal payout");
+          }
+
           setDone(true);
-          showToast(`${formatRegionCurrency(amountUsd)} sent to ${paypalEmail}.`, "success");
+          showToast(`${formatRegionCurrency(amountUsd)} sent to ${paypalEmail.trim()}.`, "success");
           onRefresh();
           setTimeout(() => { setDone(false); setAmount(""); setPaypalEmail(""); setTab("overview"); }, 2000);
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : "Failed to process withdrawal";
+          showToast(message, "error");
         }
-      } catch (err: any) {
-        showToast(err.message || "Failed to process withdrawal", "error");
+        setLoading(false);
       }
-      setLoading(false);
     }
-  }
-};
+  };
 
   return (
     <div
@@ -201,7 +258,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
       aria-labelledby="wallet-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
     >
-      <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
+      <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 fade-in shadow-[12px_12px_0px_0px_rgba(9,9,11,1)] dark:shadow-none">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b-2 border-zinc-950 dark:border-zinc-800">
           <h3 id="wallet-modal-title" className="text-sm font-black text-zinc-950 dark:text-zinc-100 tracking-tight uppercase">OATH WALLET</h3>
@@ -226,7 +283,11 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           </div>
         </div>
 
-        <p className="px-5 py-3 text-[10px] font-mono text-zinc-700 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">Deposits are securely processed via Razorpay. Withdrawals are processed to your connected PayPal account (allow 24-48 hours for clearing).</p>
+        <p className="px-5 py-3 text-[10px] font-mono text-zinc-700 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
+          {region === "in"
+            ? "Deposits are processed via UPI/Cards (Razorpay). Withdrawals are settled directly to your UPI ID (within 24 hours)."
+            : "Deposits are processed via Cards (Razorpay). Withdrawals are processed to your connected PayPal account (allow 24-48 hours for clearing)."}
+        </p>
 
         {/* Tab Row */}
         <div className="flex border-b-2 border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-transparent">
@@ -253,7 +314,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           {tab === "overview" && (
             <div className="space-y-0 max-h-72 overflow-y-auto">
               {activeTransactions.map((tx) => (
-                <TxRow key={tx.id} tx={tx} />
+                <TxRow key={tx.id} tx={tx} region={region} />
               ))}
               {activeTransactions.length === 0 && (
                 <p className="text-center text-zinc-500 text-xs font-mono py-8">
@@ -377,7 +438,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
   );
 }
 
-function TxRow({ tx }: { tx: Transaction }) {
+function TxRow({ tx, region }: { tx: Transaction; region: Region }) {
   const isCredit = ["deposit", "escrow_release", "reward"].includes(tx.type);
   const isDebit = ["withdrawal", "penalty", "escrow_lock", "house_cut"].includes(tx.type);
 
@@ -393,7 +454,7 @@ function TxRow({ tx }: { tx: Transaction }) {
         </div>
       </div>
       <span className={`text-sm font-black stake-number ${isCredit ? "text-zinc-900 dark:text-zinc-200" : isDebit ? "text-red-600" : "text-zinc-500"}`}>
-        {isCredit ? "+" : isDebit ? "-" : ""}${tx.amount.toFixed(0)}
+        {isCredit ? "+" : isDebit ? "-" : ""}{formatCurrency(tx.amount, region)}
       </span>
     </div>
   );

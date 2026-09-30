@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, Zap, AlertCircle, Loader2, ArrowLeft, Shield } from "lucide-react";
+import { Eye, EyeOff, Zap, AlertCircle, Loader2, ArrowLeft, Shield, CheckCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -25,22 +25,36 @@ function AuthForm() {
   const [username, setUsername] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, enterDemo } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get("redirect") || "/";
+
+  const handleInstantDemo = () => {
+    setError(null);
+    setInfoMessage(null);
+    const result = enterDemo();
+    if (result.error) {
+      setError(result.error);
+    } else {
+      router.push(redirectUrl);
+    }
+  };
 
   const handleDemoFill = () => {
     setMode("signin");
     setEmail(process.env.NEXT_PUBLIC_ADMIN_EMAIL || "aryansharma24112003@gmail.com");
     setPassword(process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "Aryan@24");
     setError(null);
+    setInfoMessage(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setInfoMessage(null);
     setLoading(true);
 
     if (mode === "signup" && username.trim().length < 3) {
@@ -48,21 +62,36 @@ function AuthForm() {
       setLoading(false);
       return;
     }
-    if (password.length < 8) {
+    if (mode === "signup" && password.length < 8) {
       setError("Password must be at least 8 characters.");
       setLoading(false);
       return;
     }
 
-    const { error: err } =
-      mode === "signin"
-        ? await signIn(email, password)
-        : await signUp(email, password, username.toLowerCase().replace(/\s+/g, "_"));
-
-    if (err) {
-      setError(err);
+    if (mode === "signin") {
+      const { error: err } = await signIn(email, password);
+      if (err) {
+        setError(err);
+      } else {
+        router.push(redirectUrl);
+      }
     } else {
-      router.push(redirectUrl);
+      const { error: err, confirmationRequired } = await signUp(
+        email,
+        password,
+        username.toLowerCase().replace(/\s+/g, "_")
+      );
+
+      if (err) {
+        setError(err);
+      } else if (confirmationRequired) {
+        setInfoMessage(
+          "Account created! We sent a confirmation link to your email. Please verify your email before logging in."
+        );
+        setMode("signin");
+      } else {
+        router.push(redirectUrl);
+      }
     }
     setLoading(false);
   };
@@ -79,15 +108,26 @@ function AuthForm() {
             href="/"
             className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors uppercase tracking-wider"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Home
+            <ArrowLeft className="w-3.5 h-3.5" /> Back
           </Link>
-          <button
-            type="button"
-            onClick={handleDemoFill}
-            className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-mono font-bold uppercase tracking-wider text-red-600 dark:text-red-400 border border-red-600/40 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-          >
-            <Shield className="w-2.5 h-2.5" /> Auto-fill Demo
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleInstantDemo}
+              className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-mono font-bold uppercase tracking-wider text-red-600 dark:text-red-400 border border-red-600/40 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+              title="Enter instant offline sandbox demo mode"
+            >
+              <Shield className="w-2.5 h-2.5" /> Demo Mode
+            </button>
+            <button
+              type="button"
+              onClick={handleDemoFill}
+              className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-mono font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              title="Auto-fill sample admin credentials"
+            >
+              Fill Credentials
+            </button>
+          </div>
         </div>
 
         {/* Brand */}
@@ -101,7 +141,7 @@ function AuthForm() {
         {/* Toggle */}
         <div className="flex border-4 border-zinc-950 dark:border-zinc-800 mb-8 bg-zinc-100 dark:bg-[#09090b] p-1 shadow-[inset_4px_4px_0px_0px_rgba(0,0,0,0.05)] dark:shadow-none">
           <button
-            onClick={() => { setMode("signin"); setError(null); }}
+            onClick={() => { setMode("signin"); setError(null); setInfoMessage(null); }}
             className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all ${
               mode === "signin" 
                 ? "bg-zinc-950 text-white dark:bg-zinc-800/60 dark:text-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] dark:shadow-none" 
@@ -111,7 +151,7 @@ function AuthForm() {
             Sign In
           </button>
           <button
-            onClick={() => { setMode("signup"); setError(null); }}
+            onClick={() => { setMode("signup"); setError(null); setInfoMessage(null); }}
             className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all ${
               mode === "signup" 
                 ? "bg-zinc-950 text-white dark:bg-zinc-800/60 dark:text-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] dark:shadow-none" 
@@ -121,6 +161,14 @@ function AuthForm() {
             Create Account
           </button>
         </div>
+
+        {/* Informational Message */}
+        {infoMessage && (
+          <div className="mb-6 p-3 bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-600 text-emerald-800 dark:text-emerald-300 text-xs font-mono font-bold flex items-start gap-2">
+            <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+            <span>{infoMessage}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           {/* Username (signup only) */}
@@ -205,8 +253,15 @@ function AuthForm() {
           </button>
         </form>
 
-        <p className="text-center text-[10px] font-mono font-bold text-zinc-500 dark:text-zinc-700 mt-8 leading-relaxed">
-          By continuing you agree that you are bound by your oaths.
+        <p className="text-center text-[10px] font-mono font-bold text-zinc-500 dark:text-zinc-600 mt-8 leading-relaxed">
+          By continuing you agree to our{" "}
+          <Link href="/terms" className="underline hover:text-zinc-900 dark:hover:text-zinc-300">
+            Terms of Service
+          </Link>
+          {" "}and{" "}
+          <Link href="/privacy" className="underline hover:text-zinc-900 dark:hover:text-zinc-300">
+            Privacy Policy
+          </Link>.
           <br />
           Consequences are real. Excuses are not.
         </p>

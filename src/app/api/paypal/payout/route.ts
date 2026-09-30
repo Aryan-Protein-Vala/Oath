@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const getPayPalUrl = () => {
   return process.env.PAYPAL_MODE === "live"
@@ -34,6 +35,19 @@ async function getAccessToken() {
 
 export async function POST(request: Request) {
   try {
+    const supabase = await createServerSupabaseClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (!user || authError) {
+      return NextResponse.json(
+        { error: "Unauthorized. Please sign in to withdraw funds." },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { amount, currency = "USD", receiverEmail } = body;
 
@@ -42,50 +56,72 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A valid positive amount is required" }, { status: 400 });
     }
 
-    if (!receiverEmail) {
-      return NextResponse.json({ error: "PayPal receiver email is required" }, { status: 400 });
+    if (!receiverEmail || !receiverEmail.includes("@")) {
+      return NextResponse.json({ error: "A valid PayPal receiver email is required" }, { status: 400 });
     }
 
-    const accessToken = await getAccessToken();
-
-    // PayPal Payouts request body
-    const payoutBody = {
-      sender_batch_header: {
-        sender_batch_id: `Payouts_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-        email_subject: "You have a payout from OATH!",
-        email_message: "Here are your withdrawn funds from OATH. Stay true.",
-      },
-      items: [
-        {
-          recipient_type: "EMAIL",
-          amount: {
-            value: numericAmount.toFixed(2), // PayPal requires exactly 2 decimal places usually
-            currency: currency,
-          },
-          note: "Withdrawal from OATH",
-          sender_item_id: `item_${Date.now()}`,
-          receiver: receiverEmail,
-        },
-      ],
-    };
-
-    const payoutResponse = await fetch(`${getPayPalUrl()}/v1/payments/payouts`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payoutBody),
+    // 1. Deduct from user's wallet via atomic SECURITY DEFINER RPC
+    const destination = `PayPal (${receiverEmail})`;
+    const { error: withdrawError } = await supabase.rpc("withdraw_funds", {
+      p_amount: numericAmount,
+      p_destination: destination,
     });
 
-    const data = await payoutResponse.json();
-
-    if (!payoutResponse.ok) {
-      console.error("PayPal Payout Error:", data);
-      throw new Error(data.message || data.name || "Failed to process PayPal payout");
+    if (withdrawError) {
+      return NextResponse.json(
+        { error: withdrawError.message || "Insufficient funds" },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({ success: true, batch_id: data.batch_header.payout_batch_id });
+    // 2. Execute PayPal Payout
+    let data;
+    try {
+      const accessToken = await getAccessToken();
+
+      const payoutBody = {
+        sender_batch_header: {
+          sender_batch_id: `Payouts_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          email_subject: "You have a payout from OATH!",
+          email_message: "Here are your withdrawn funds from OATH. Stay true.",
+        },
+        items: [
+          {
+            recipient_type: "EMAIL",
+            amount: {
+              value: numericAmount.toFixed(2),
+              currency: currency,
+            },
+            note: "Withdrawal from OATH",
+            sender_item_id: `item_${Date.now()}`,
+            receiver: receiverEmail,
+          },
+        ],
+      };
+
+      const payoutResponse = await fetch(`${getPayPalUrl()}/v1/payments/payouts`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payoutBody),
+      });
+
+      data = await payoutResponse.json();
+
+      if (!payoutResponse.ok) {
+        console.error("PayPal Payout API Error:", data);
+        throw new Error(data.message || data.name || "Failed to process PayPal payout");
+      }
+    } catch (payoutError) {
+      // Revert wallet deduction if PayPal payout fails
+      console.error("PayPal transfer failed, reverting wallet deduction:", payoutError);
+      await supabase.rpc("add_funds", { p_amount: numericAmount });
+      throw payoutError;
+    }
+
+    return NextResponse.json({ success: true, batch_id: data?.batch_header?.payout_batch_id });
   } catch (error: unknown) {
     console.error("PayPal payout failed:", error);
     const message = error instanceof Error ? error.message : "Internal Server Error";

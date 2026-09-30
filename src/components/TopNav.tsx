@@ -96,10 +96,11 @@ export default function TopNav({
           {/* Duo Challenge Button */}
           <button
             onClick={onDuoClick}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all text-[10px] font-mono font-bold uppercase tracking-wide shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all text-[10px] font-mono font-bold uppercase tracking-wide shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none"
+            title="Duo Challenge"
           >
             <Swords className="w-3.5 h-3.5" />
-            Challenge
+            <span className="hidden sm:inline">Challenge</span>
           </button>
 
           {/* Wallet Balance */}

@@ -222,6 +222,7 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
                 <div>
                   <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Estimated Virtual Payout</span>
                   <span className="text-lg font-mono font-black text-red-600 dark:text-red-500">
+                    {formatCurrency(oath.stake_amount * 2 * 0.9, region)}
                   </span>
                 </div>
               </div>

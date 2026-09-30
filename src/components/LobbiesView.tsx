@@ -44,7 +44,7 @@ export default function LobbiesView({ squads, wallet, onJoined, onCreateLobby }:
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-black tracking-tight text-zinc-950 dark:text-zinc-100">
-                SQUAD POOLS
+                ACCOUNTABILITY SQUADS
               </h2>
               <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 tracking-wide mt-0.5 font-bold">
                 Shared accountability. If you fail, you forfeit your stake.
@@ -220,12 +220,12 @@ function SquadCard({
           )}
         </div>
 
-        {/* Right — Pool total & status */}
+        {/* Right — Escrow total & status */}
         <div className="flex flex-col items-end shrink-0">
           <span className="text-lg font-black stake-number text-zinc-950 dark:text-zinc-200 tracking-tight">
             {utilsFormatCurrency(poolTotal, region)}
           </span>
-          <span className="text-[9px] font-mono font-bold text-zinc-500 mt-0.5">POOL</span>
+          <span className="text-[9px] font-mono font-bold text-zinc-500 mt-0.5">ESCROW</span>
           <span
             className={`text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 border mt-2 ${
               squad.status === "pending"
@@ -273,7 +273,7 @@ function SquadDetail({
     if (error) {
       showToast(error, "error");
     } else {
-      showToast("Joined squad pool. Stake locked in escrow.", "success");
+      showToast("Joined accountability squad. Stake locked in escrow.", "success");
       onJoined?.();
     }
   };
@@ -315,7 +315,7 @@ function SquadDetail({
       <div className="grid grid-cols-3 border-b-2 border-zinc-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-950/30">
         <div className="px-4 py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center">
           <p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{utilsFormatCurrency(poolTotal, region)}</p>
-          <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Total Pool</p>
+          <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Total Escrow</p>
         </div>
         <div className="px-4 py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center">
           <p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{utilsFormatCurrency(squad.stake_amount, region)}</p>
@@ -369,7 +369,7 @@ function SquadDetail({
             className="w-full flex items-center justify-center gap-2 py-3.5 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 text-sm font-black tracking-tight uppercase hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {loading ? "Locking Funds..." : `Join Pool — Lock ${utilsFormatCurrency(squad.stake_amount, region)}`}
+            {loading ? "Locking Funds..." : `Join Squad — Lock ${utilsFormatCurrency(squad.stake_amount, region)}`}
           </button>
         </div>
       )}
@@ -393,8 +393,8 @@ function SquadDetail({
 
             <div className="p-4 bg-zinc-100 dark:bg-zinc-950 border-2 border-zinc-300 dark:border-zinc-800 mb-4 text-xs font-mono">
               <p className="font-bold text-zinc-900 dark:text-zinc-100 mb-2">Proof Verification Record:</p>
-              <div className="p-3 border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-xs leading-relaxed">
-                📸 Verified Activity: Workout & task completed within target timeframe. Geofence timestamp matches server registry.
+              <div className="p-3 border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-xs leading-relaxed font-mono">
+                📸 Verified Activity for &ldquo;{squad.oath_statement}&rdquo;: Submitted by @{inspectingMember.user?.username || "squad_member"}. Evidence logged in immutable squad registry.
               </div>
               <div className="flex items-center justify-between mt-3 text-[11px] text-zinc-500 font-bold">
                 <span>Quorum: {inspectingMember.votes_received} / {inspectingMember.votes_needed} votes</span>
