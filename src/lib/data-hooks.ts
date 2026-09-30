@@ -17,8 +17,7 @@ import {
 import { useAuth, ADMIN_MOCK_USER, getInitialMockWallet, isDemoSession } from "./auth-context";
 
 export function isMockMode(): boolean {
-  if (typeof window === "undefined") return false;
-  return isDemoSession();
+  return false; // Removed sandbox per user request
 }
 
 function notifyDataUpdated() {
@@ -102,7 +101,7 @@ export function setMockWallet(wallet: Wallet) {
 
 // ---- useOaths — fetch user's active oaths ----
 export function useOaths() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [oaths, setOaths] = useState<Oath[]>(() => isMockMode() ? getMockOaths() : []);
   const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
@@ -121,7 +120,10 @@ export function useOaths() {
     try {
       const { data: memberships } = await supabase.from("group_members").select("oath_id").eq("user_id", user.id);
       const membershipFilter = (memberships ?? []).map((member) => member.oath_id).filter(Boolean);
-      const filters = [`creator_id.eq.${user.id}`, `opponent_id.eq.${user.id}`];
+      const filters = [`creator_id.eq.${user.id}`, `opponent_id.eq.${user.id}`, `nominee_email.eq.${user.email}`];
+      if (profile?.username) {
+        filters.push(`nominee_email.eq.@${profile.username}`);
+      }
       if (membershipFilter.length) filters.push(`id.in.(${membershipFilter.join(",")})`);
       const { data, error } = await supabase
         .from("oaths")
@@ -140,7 +142,7 @@ export function useOaths() {
     } finally {
       setLoading(false);
     }
-  }, [user, supabase]);
+  }, [user, profile, supabase]);
 
   useEffect(() => {
     let isMounted = true;
@@ -574,12 +576,15 @@ export async function createOath(data: {
 export async function depositFunds(amount: number) {
   const validAmount = validatePositiveAmount(amount);
   if (validAmount === null) return { error: "Deposit amount must be a positive number." };
-  if (!isMockMode()) return { error: "Real deposits are disabled until a verified payment provider is connected." };
-  const currentWallet = getInitialMockWallet();
-  const updatedWallet: Wallet = { ...currentWallet, balance: currentWallet.balance + validAmount, total_deposited: currentWallet.total_deposited + validAmount };
-  setMockWallet(updatedWallet);
-  const tx: Transaction = { id: `tx-${Date.now()}`, wallet_id: currentWallet.id, type: "deposit", amount: validAmount, description: "Demo-only virtual deposit", created_at: new Date().toISOString() };
-  setMockTransactions([tx, ...getMockTransactions()]);
+  
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { error } = await supabase.rpc("add_funds", { p_amount: validAmount });
+  if (error) return { error: error.message };
+  
+  notifyDataUpdated();
   return { error: null };
 }
 
@@ -587,13 +592,15 @@ export async function depositFunds(amount: number) {
 export async function withdrawFunds(amount: number) {
   const validAmount = validatePositiveAmount(amount);
   if (validAmount === null) return { error: "Withdrawal amount must be a positive number." };
-  if (!isMockMode()) return { error: "Real withdrawals are disabled until a verified payment provider is connected." };
-  const currentWallet = getInitialMockWallet();
-  if (currentWallet.balance < validAmount) return { error: "Insufficient funds" };
-  const updatedWallet: Wallet = { ...currentWallet, balance: currentWallet.balance - validAmount, total_withdrawn: currentWallet.total_withdrawn + validAmount };
-  setMockWallet(updatedWallet);
-  const tx: Transaction = { id: `tx-${Date.now()}`, wallet_id: currentWallet.id, type: "withdrawal", amount: validAmount, description: "Demo-only virtual withdrawal", created_at: new Date().toISOString() };
-  setMockTransactions([tx, ...getMockTransactions()]);
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { error } = await supabase.rpc("withdraw_funds", { p_amount: validAmount });
+  if (error) return { error: error.message };
+  
+  notifyDataUpdated();
   return { error: null };
 }
 

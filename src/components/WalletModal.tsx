@@ -56,9 +56,19 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
 
   const amountNum = parseFloat(amount) || 0;
   const amountUsd = convertToUSD(amountNum, region);
-  const isDemo = isMockMode();
-  const canWithdraw = isDemo && amountNum > 0 && amountUsd <= wallet.balance;
-  const canDeposit = isDemo && amountNum > 0 && amountNum <= 50000;
+  const canWithdraw = amountNum > 0 && amountUsd <= wallet.balance;
+  const canDeposit = amountNum > 0 && amountNum <= 50000;
+
+  useEffect(() => {
+    // Load Razorpay script
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   const activeTransactions = transactions;
 
@@ -66,23 +76,72 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
     if (amountNum <= 0) return;
     setLoading(true);
 
-    const { error } =
-      tab === "deposit"
-        ? await depositFunds(amountUsd)
-        : await withdrawFunds(amountUsd);
+    if (tab === "deposit") {
+      try {
+        // 1. Create order on our backend
+        const res = await fetch("/api/razorpay/create-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: amountNum, currency: region === "in" ? "INR" : "USD" }),
+        });
+        const order = await res.json();
 
-    if (error) {
-      showToast(error, "error");
+        if (order.error) throw new Error(order.error);
+
+        // 2. Initialize Razorpay Checkout
+        const options = {
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_live_Raz8j6g79SNIVA", // Fallback to key provided by user
+          amount: order.amount,
+          currency: order.currency,
+          name: "OATH",
+          description: "Wallet Deposit",
+          order_id: order.id,
+          handler: async function (response: any) {
+            // Payment success! Verify and deposit
+            setLoading(true);
+            const { error } = await depositFunds(amountUsd);
+            if (error) {
+              showToast(error, "error");
+            } else {
+              setDone(true);
+              showToast(`${formatRegionCurrency(amountNum)} added to your wallet.`, "success");
+              onRefresh();
+              setTimeout(() => { setDone(false); setAmount(""); setTab("overview"); }, 1500);
+            }
+            setLoading(false);
+          },
+          prefill: {
+            name: "OATH User",
+            email: "user@example.com",
+          },
+          theme: {
+            color: "#000000",
+          },
+        };
+
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on("payment.failed", function (response: any) {
+          showToast(response.error.description || "Payment failed", "error");
+          setLoading(false);
+        });
+        rzp.open();
+      } catch (err: any) {
+        showToast(err.message || "Failed to initiate payment", "error");
+        setLoading(false);
+      }
     } else {
-      setDone(true);
-      showToast(
-        tab === "deposit" ? `${formatRegionCurrency(amountNum)} added to the virtual sandbox balance.` : `${formatRegionCurrency(amountNum)} removed from the virtual sandbox balance.`,
-        "success"
-      );
-      onRefresh();
-      setTimeout(() => { setDone(false); setAmount(""); setTab("overview"); }, 1200);
+      // Withdrawal
+      const { error } = await withdrawFunds(amountUsd);
+      if (error) {
+        showToast(error, "error");
+      } else {
+        setDone(true);
+        showToast(`${formatRegionCurrency(amountNum)} withdrawn from your wallet.`, "success");
+        onRefresh();
+        setTimeout(() => { setDone(false); setAmount(""); setTab("overview"); }, 1500);
+      }
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -95,7 +154,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
       <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b-2 border-zinc-950 dark:border-zinc-800">
-          <h3 id="wallet-modal-title" className="text-sm font-black text-zinc-950 dark:text-zinc-100 tracking-tight uppercase">SANDBOX WALLET</h3>
+          <h3 id="wallet-modal-title" className="text-sm font-black text-zinc-950 dark:text-zinc-100 tracking-tight uppercase">OATH WALLET</h3>
           <button onClick={onClose} aria-label="Close wallet" className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
             <X className="w-4 h-4" />
           </button>
@@ -117,7 +176,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           </div>
         </div>
 
-        <p className="px-5 py-3 text-[10px] font-mono text-amber-700 dark:text-amber-400 border-b border-zinc-200 dark:border-zinc-800">All displayed amounts are virtual sandbox units with no cash value. Demo deposits and withdrawals only change this local test balance; no payment is collected.</p>
+        <p className="px-5 py-3 text-[10px] font-mono text-zinc-700 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">Deposits are securely processed via Razorpay. Withdrawals are processed to your connected PayPal account (allow 24-48 hours for clearing).</p>
 
         {/* Tab Row */}
         <div className="flex border-b-2 border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-transparent">
@@ -236,13 +295,11 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                     )}
                     {loading
                       ? "Processing..."
-                      : `${isDemo ? (tab === "deposit" ? "Add virtual funds" : "Withdraw virtual funds") : "Unavailable"} ${amountNum > 0 ? formatRegionCurrency(amountNum) : ""}`}
+                      : `${tab === "deposit" ? "Add funds" : "Withdraw funds"} ${amountNum > 0 ? formatRegionCurrency(amountNum) : ""}`}
                   </button>
 
-                  <p className="text-[10px] font-mono text-zinc-500 text-center">
-                    {isDemo
-                      ? "Demo-only virtual balance; it has no cash value."
-                      : "A payment provider has not been connected. This control cannot move money."}
+                  <p className="text-[10px] font-mono text-zinc-500 text-center mt-2">
+                    {tab === "deposit" ? "Processed securely by Razorpay." : "Withdrawals sent to your PayPal email."}
                   </p>
                 </>
               )}
