@@ -63,6 +63,7 @@ function VerifyContent() {
           return;
         }
         const now = new Date().toISOString();
+        const hasProof = Boolean(row.proof_type || row.proof_url || row.proof_text);
         setOath({
           id: row.oath_id,
           creator_id: "",
@@ -76,6 +77,16 @@ function VerifyContent() {
           status: row.challenge_status,
           min_players: 1,
           max_players: 1,
+          proofs: hasProof ? [{
+            id: `proof-${row.oath_id}`,
+            oath_id: row.oath_id,
+            submitted_by: "",
+            proof_type: row.proof_type || "photo",
+            proof_url: row.proof_url,
+            proof_text: row.proof_text,
+            status: "pending_review",
+            created_at: row.proof_created_at || now,
+          }] : [],
           created_at: now,
           updated_at: now,
         } as Oath);

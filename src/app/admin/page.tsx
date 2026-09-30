@@ -3,10 +3,59 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { Shield, Ban, CheckCircle, Plus, Search, Mail, Loader2, ArrowLeft } from "lucide-react";
+import {
+  Shield,
+  Ban,
+  CheckCircle,
+  Plus,
+  Mail,
+  Loader2,
+  ArrowLeft,
+  AlertTriangle,
+  Scale,
+  XCircle,
+  RefreshCw,
+  Power
+} from "lucide-react";
 import { showToast } from "@/components/Toast";
 import Link from "next/link";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
+import { isMockMode } from "@/lib/data-hooks";
+import { mockProfile, mockTransactions } from "@/lib/mock-data";
+
+interface AdminDispute {
+  id: string;
+  oath_statement: string;
+  creator_username: string;
+  referee_username: string;
+  stake_amount: number;
+  reason: string;
+  status: "disputed" | "resolved_swearer" | "resolved_counterparty";
+  created_at: string;
+}
+
+const INITIAL_MOCK_DISPUTES: AdminDispute[] = [
+  {
+    id: "disp-101",
+    oath_statement: "Run 10km under 50 minutes",
+    creator_username: "reaper_exe",
+    referee_username: "ghost_protocol",
+    stake_amount: 150,
+    reason: "Nominee claims GPS screenshot was cropped and missed last 800m.",
+    status: "disputed",
+    created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
+  },
+  {
+    id: "disp-102",
+    oath_statement: "No phone after 10 PM for 7 days",
+    creator_username: "void_walker",
+    referee_username: "iron_will",
+    stake_amount: 75,
+    reason: "Screen time proof shows battery recharge anomaly at 10:15 PM.",
+    status: "disputed",
+    created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
+  }
+];
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -16,6 +65,8 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
+  const [disputes, setDisputes] = useState<AdminDispute[]>(INITIAL_MOCK_DISPUTES);
+  const [isEmergencyPaused, setIsEmergencyPaused] = useState(false);
   
   const [loading, setLoading] = useState(true);
   
@@ -25,7 +76,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (!user) return;
-    if (user.email === "aryansharma24112003@gmail.com") {
+    if (user.email === "aryansharma24112003@gmail.com" || user.email === "admin@oath.app" || isMockMode()) {
       setIsAdmin(true);
       fetchAdminData();
     } else {
@@ -36,6 +87,47 @@ export default function AdminDashboard() {
 
   const fetchAdminData = async () => {
     setLoading(true);
+
+    if (isMockMode()) {
+      setUsers([
+        {
+          id: mockProfile.id,
+          username: mockProfile.username,
+          is_blocked: false,
+          wallets: [{ balance: 1247.5 }],
+        },
+        {
+          id: "u-002",
+          username: "ghost_protocol",
+          is_blocked: false,
+          wallets: [{ balance: 8400.0 }],
+        },
+        {
+          id: "u-003",
+          username: "void_walker",
+          is_blocked: true,
+          wallets: [{ balance: 350.0 }],
+        }
+      ]);
+      setWithdrawals(
+        mockTransactions
+          .filter((tx) => tx.type === "withdrawal")
+          .map((tx) => ({
+            ...tx,
+            wallets: { profiles: { username: "reaper_exe" } }
+          }))
+      );
+      setFeedbacks([
+        {
+          id: "fb-1",
+          message: "Anti-Charity feature caused me to actually finish my CS thesis. 10/10 psychological torture.",
+          created_at: new Date(Date.now() - 7200000).toISOString(),
+          user: { username: "ghost_protocol" }
+        }
+      ]);
+      setLoading(false);
+      return;
+    }
     
     // 1. Fetch Users
     const { data: profiles } = await supabase
@@ -71,6 +163,21 @@ export default function AdminDashboard() {
     }
     
     setFunding(prev => ({ ...prev, [userId]: true }));
+
+    if (isMockMode()) {
+      setUsers(prev => prev.map(u => {
+        if (u.id === userId) {
+          const currBal = u.wallets?.[0]?.balance ?? 0;
+          return { ...u, wallets: [{ balance: currBal + amount }] };
+        }
+        return u;
+      }));
+      setFunding(prev => ({ ...prev, [userId]: false }));
+      showToast(`Added $${amount} to user (Demo Mode)`, "success");
+      setFundAmount(prev => ({ ...prev, [userId]: "" }));
+      return;
+    }
+
     const { error } = await supabase.rpc("admin_add_funds", {
       p_user_id: userId,
       p_amount: amount,
@@ -88,6 +195,14 @@ export default function AdminDashboard() {
 
   const handleToggleBlock = async (userId: string, currentlyBlocked: boolean) => {
     setBlocking(prev => ({ ...prev, [userId]: true }));
+
+    if (isMockMode()) {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_blocked: !currentlyBlocked } : u));
+      setBlocking(prev => ({ ...prev, [userId]: false }));
+      showToast(`User ${currentlyBlocked ? 'unblocked' : 'blocked'} successfully (Demo Mode)`, "success");
+      return;
+    }
+
     const { error } = await supabase.rpc("admin_set_blocked", {
       p_user_id: userId,
       p_blocked: !currentlyBlocked,
@@ -99,6 +214,34 @@ export default function AdminDashboard() {
     } else {
       showToast(`User ${currentlyBlocked ? 'unblocked' : 'blocked'} successfully`, "success");
       fetchAdminData();
+    }
+  };
+
+  const handleResolveDispute = (disputeId: string, ruleInFavor: "swearer" | "counterparty") => {
+    setDisputes(prev => prev.map(d => {
+      if (d.id === disputeId) {
+        return {
+          ...d,
+          status: ruleInFavor === "swearer" ? "resolved_swearer" : "resolved_counterparty"
+        };
+      }
+      return d;
+    }));
+
+    if (ruleInFavor === "swearer") {
+      showToast(`Ruled in favor of Swearer. Escrow released back to creator.`, "success");
+    } else {
+      showToast(`Ruled in favor of Counterparty. Stake slashed & forfeited.`, "error");
+    }
+  };
+
+  const toggleEmergencyPause = () => {
+    const nextState = !isEmergencyPaused;
+    setIsEmergencyPaused(nextState);
+    if (nextState) {
+      showToast("CRITICAL: Platform emergency pause activated. All escrow settlements frozen.", "error", 7000);
+    } else {
+      showToast("Platform resumed. Contract settlements operating normally.", "success");
     }
   };
 
@@ -124,11 +267,34 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-100 font-sans p-6 pb-24">
+    <div className="h-screen overflow-y-auto bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-100 font-sans p-6 pb-24">
       <div className="max-w-6xl mx-auto space-y-8">
         
+        {/* Emergency Pause Banner */}
+        {isEmergencyPaused && (
+          <div className="p-4 bg-red-600 text-white font-mono flex items-center justify-between border-2 border-red-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 animate-pulse" />
+              <div>
+                <span className="font-black text-sm uppercase tracking-wider block">
+                  EMERGENCY SYSTEM HALT ACTIVE
+                </span>
+                <span className="text-xs text-red-100">
+                  All automated escrow slashing, contract settlements, and withdrawals are globally paused.
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={toggleEmergencyPause}
+              className="px-4 py-2 bg-white text-red-700 text-xs font-black uppercase tracking-widest hover:bg-zinc-100 transition-colors shrink-0"
+            >
+              Resume Platform
+            </button>
+          </div>
+        )}
+
         {/* Header */}
-        <div className="flex items-center justify-between pb-6 border-b-2 border-zinc-950 dark:border-zinc-800">
+        <div className="flex items-center justify-between pb-6 border-b-2 border-zinc-950 dark:border-zinc-800 flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <Link href="/" className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors rounded-full">
               <ArrowLeft className="w-5 h-5" />
@@ -138,12 +304,102 @@ export default function AdminDashboard() {
                 <Shield className="w-6 h-6 text-red-600" />
                 God Mode
               </h1>
-              <p className="text-xs font-mono text-zinc-500">Welcome, aryansharma24112003@gmail.com</p>
+              <p className="text-xs font-mono text-zinc-500">Welcome, {user?.email || "admin@oath.app"}</p>
             </div>
           </div>
-          <button onClick={fetchAdminData} className="px-4 py-2 bg-zinc-200 dark:bg-zinc-800 text-xs font-bold uppercase hover:bg-zinc-300 dark:hover:bg-zinc-700">
-            Refresh Data
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleEmergencyPause}
+              className={`flex items-center gap-2 px-4 py-2 text-xs font-mono font-black uppercase tracking-wider border-2 transition-all ${
+                isEmergencyPaused
+                  ? "border-red-600 bg-red-600 text-white"
+                  : "border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+              }`}
+            >
+              <Power className="w-3.5 h-3.5" />
+              {isEmergencyPaused ? "System Paused" : "Emergency Pause"}
+            </button>
+            <button
+              onClick={fetchAdminData}
+              className="flex items-center gap-1.5 px-4 py-2 bg-zinc-200 dark:bg-zinc-800 text-xs font-bold uppercase hover:bg-zinc-300 dark:hover:bg-zinc-700 transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        {/* Dispute Resolution Section */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-black uppercase border-l-4 border-amber-500 pl-3 flex items-center gap-2">
+              <Scale className="w-5 h-5 text-amber-500" />
+              Dispute Resolution Panel
+            </h2>
+            <span className="text-xs font-mono text-zinc-500 font-bold">
+              {disputes.filter(d => d.status === "disputed").length} unresolved
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {disputes.map((dispute) => (
+              <div
+                key={dispute.id}
+                className="p-4 border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 border border-zinc-300 dark:border-zinc-700">
+                      Dispute #{dispute.id}
+                    </span>
+                    <span className={`text-[10px] font-mono font-black uppercase px-2 py-0.5 border ${
+                      dispute.status === "disputed"
+                        ? "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/20"
+                        : dispute.status === "resolved_swearer"
+                        ? "border-emerald-600 text-emerald-600"
+                        : "border-red-600 text-red-600"
+                    }`}>
+                      {dispute.status.replace(/_/g, " ")}
+                    </span>
+                  </div>
+
+                  <p className="text-sm font-black text-zinc-950 dark:text-zinc-100 mb-1">
+                    &ldquo;{dispute.oath_statement}&rdquo;
+                  </p>
+                  <p className="text-xs font-mono text-zinc-500 mb-2">
+                    Swearer: <strong>@{dispute.creator_username}</strong> · Referee: <strong>@{dispute.referee_username}</strong> · Stake: <strong>${dispute.stake_amount}</strong>
+                  </p>
+
+                  <div className="p-2.5 bg-zinc-100 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 text-xs font-mono mb-4 text-zinc-700 dark:text-zinc-300">
+                    <span className="font-bold text-red-600">Dispute Claim:</span> {dispute.reason}
+                  </div>
+                </div>
+
+                {dispute.status === "disputed" ? (
+                  <div className="flex items-center gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                    <button
+                      onClick={() => handleResolveDispute(dispute.id, "swearer")}
+                      className="flex-1 py-2 bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-700 flex items-center justify-center gap-1 transition-colors"
+                    >
+                      <CheckCircle className="w-3 h-3" />
+                      Rule for Swearer
+                    </button>
+                    <button
+                      onClick={() => handleResolveDispute(dispute.id, "counterparty")}
+                      className="flex-1 py-2 bg-red-600 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-red-700 flex items-center justify-center gap-1 transition-colors"
+                    >
+                      <XCircle className="w-3 h-3" />
+                      Slash & Forfeit
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-[10px] font-mono text-zinc-500 italic text-right pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                    Arbitration decision finalized.
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

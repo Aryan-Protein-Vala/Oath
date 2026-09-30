@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 
 export default function DisclaimerPage() {
   return (
-    <div className="min-h-screen bg-white dark:bg-[#09090b] selection:bg-red-600/30">
+    <div className="h-screen overflow-y-auto bg-white dark:bg-[#09090b] selection:bg-red-600/30">
       <div className="max-w-3xl mx-auto px-6 py-16 md:py-24 fade-in">
         <Link 
           href="/" 

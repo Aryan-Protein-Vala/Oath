@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Swords, Check, Calendar, AlertCircle, ArrowLeft, Loader2 } from "lucide-react";
 import { formatCurrency, formatCurrencyPrecise } from "@/lib/utils";
 import { isDemoSession, useAuth } from "@/lib/auth-context";
-import { getMockOaths, acceptDuoChallenge } from "@/lib/data-hooks";
+import { getMockOaths, acceptDuoChallenge, cancelPendingOath } from "@/lib/data-hooks";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import type { Oath } from "@/lib/types";
 import { useRegion } from "@/lib/region-context";
@@ -95,10 +95,6 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
       router.push(`/auth?redirect=/challenge/${oathId}`);
       return;
     }
-    if (!wallet) {
-      setError("Your sandbox wallet is still loading. Refresh the page and try again.");
-      return;
-    }
 
     setAccepting(true);
     setError(null);
@@ -171,7 +167,7 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
               Challenge Accepted
             </h2>
             <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300 font-mono mb-6 leading-relaxed">
-              Your virtual stake of {formatCurrency(oath.stake_amount, region)} is locked in the sandbox ledger. No cash has moved.
+              You have accepted the duel for free. The winner will claim the {formatCurrency(oath.stake_amount * 2 * 0.9, region)} virtual prize pool upon verified completion.
             </p>
             <Link
               href="/"
@@ -231,8 +227,8 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
 
             {/* Rules */}
             <div className="border border-zinc-300 dark:border-zinc-800 p-4 bg-zinc-100 dark:bg-zinc-900/30 text-xs font-mono space-y-1.5 mb-6 text-zinc-700 dark:text-zinc-400">
-              <p>• <strong>Fair Share:</strong> Every joining member must match the {formatCurrency(oath?.stake_amount || 0, region)} stake to participate.</p>
-              <p>• Submit your proof before deadline to win your share.</p>
+              <p>• <strong>Free to Join:</strong> Challenger @{oath.creator?.username || "creator"} staked 2x the pot upfront ({formatCurrency(oath.stake_amount * 2, region)} total).</p>
+              <p>• Submit your verified proof before deadline to claim your share.</p>
             </div>
 
             {/* Error Message */}
@@ -247,9 +243,37 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
             {user ? (
               <div className="space-y-3">
                 {user.id === oath?.creator_id ? (
-                  <div className="p-4 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 text-xs font-mono text-center space-y-1">
+                  <div className="p-4 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 text-xs font-mono text-center space-y-2">
                     <p className="font-bold text-zinc-950 dark:text-zinc-100">You created this challenge.</p>
-                    <p className="text-zinc-600 dark:text-zinc-400">Share this link with your opponent so they can accept for free.</p>
+                    {oath.status === "active" ? (
+                      <div className="text-emerald-600 font-bold">
+                        Challenge accepted by @{oath.opponent?.username || "opponent"}! Duel is active.
+                      </div>
+                    ) : oath.status === "cancelled" ? (
+                      <div className="text-red-500 font-bold">
+                        This challenge was cancelled and your escrow has been refunded.
+                      </div>
+                    ) : challengeExpired ? (
+                      <div className="text-zinc-500 font-bold">
+                        Challenge deadline has passed without an opponent.
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-zinc-600 dark:text-zinc-400">Share this link with your opponent so they can accept for free.</p>
+                        <button
+                          onClick={async () => {
+                            if (confirm("Cancel this challenge and reclaim your 2x locked stake?")) {
+                              const { error: cancelErr } = await cancelPendingOath(oath.id);
+                              if (cancelErr) setError(cancelErr);
+                              else window.location.reload();
+                            }
+                          }}
+                          className="px-4 py-2 bg-red-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-red-700 transition-colors mt-2"
+                        >
+                          Cancel Challenge & Reclaim Escrow
+                        </button>
+                      </>
+                    )}
                   </div>
                 ) : oath.status !== "pending" || challengeExpired ? (
                   <div className="p-4 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-500 text-xs font-mono text-center space-y-1">
@@ -260,12 +284,8 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
                   <>
                     <button
                       onClick={handleAccept}
-                      disabled={accepting || !wallet}
-                      className={`w-full py-4 text-sm font-black uppercase tracking-tight transition-all border-2 ${
-                        !wallet
-                          ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border-transparent cursor-not-allowed"
-                          : "bg-red-600 text-white border-red-600 hover:bg-red-700 shadow-[4px_4px_0px_0px_rgba(220,38,38,1)] dark:shadow-none"
-                      }`}
+                      disabled={accepting}
+                      className="w-full py-4 text-sm font-black uppercase tracking-tight transition-all border-2 bg-red-600 text-white border-red-600 hover:bg-red-700 shadow-[4px_4px_0px_0px_rgba(220,38,38,1)] dark:shadow-none"
                     >
                       {accepting ? (
                         <span className="flex items-center justify-center gap-2">

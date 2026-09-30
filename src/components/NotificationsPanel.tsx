@@ -25,7 +25,7 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
     fetchNotifications();
 
     const channel = supabase
-      .channel("public:notifications")
+      .channel(`notifications_panel:${user.id}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
@@ -54,7 +54,7 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
     setLoading(false);
   };
 
-  const handleAction = async (notif: Notification, status: "accepted" | "rejected") => {
+  const handleAction = async (notif: Notification, status: "accepted" | "rejected" | "read") => {
     setProcessingId(notif.id);
     if (status === "accepted" && notif.oath_id) {
       if (notif.type === "invite_duo") {
@@ -129,11 +129,41 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
                       onClick={() => handleAction(notif, "rejected")}
                       disabled={processingId === notif.id}
                       className="flex items-center justify-center p-1.5 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-red-600 hover:border-red-600 disabled:opacity-50"
+                      title="Reject"
                     >
                       <XCircle className="w-4 h-4" />
                     </button>
                   </div>
                 )}
+
+                {notif.status === "pending" && notif.type === "verify_proof" && (
+                  <div className="flex items-center gap-2 mt-4">
+                    <a
+                      href={`/verify?token=${notif.oath_id}`}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-red-600 text-white text-xs font-bold uppercase hover:bg-red-700 transition-colors"
+                    >
+                      Review Proof Evidence &rarr;
+                    </a>
+                    <button
+                      onClick={() => handleAction(notif, "read")}
+                      className="px-2.5 py-1 text-[10px] font-mono border border-zinc-400 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-800 uppercase"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
+                {notif.status === "pending" && notif.type === "system" && (
+                  <div className="flex justify-end mt-3">
+                    <button
+                      onClick={() => handleAction(notif, "read")}
+                      className="px-2.5 py-1 text-[10px] font-mono font-bold uppercase border border-zinc-400 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-800"
+                    >
+                      Mark as Read
+                    </button>
+                  </div>
+                )}
+
                 {notif.status !== "pending" && (
                   <div className="mt-3 text-[10px] font-mono font-bold uppercase text-zinc-500 tracking-wider">
                     Status: {notif.status}

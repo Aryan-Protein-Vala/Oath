@@ -52,12 +52,12 @@ export default function ChatRoom({ oath, onClose }: ChatRoomProps) {
   const fetchMessages = async () => {
     const { data, error } = await supabase
       .from("messages")
-      .select("*")
+      .select("*, sender:profiles!messages_sender_id_fkey(id, username, display_name, avatar_url)")
       .eq("oath_id", oath.id)
       .order("created_at", { ascending: true });
 
     if (!error && data) {
-      setMessages(data);
+      setMessages(data as unknown as Message[]);
       scrollToBottom();
     }
     setLoading(false);
@@ -129,7 +129,7 @@ export default function ChatRoom({ oath, onClose }: ChatRoomProps) {
               return (
                 <div key={msg.id} className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
                   <span className="text-[9px] font-mono font-bold text-zinc-500 mb-1 px-1">
-                    {isMine ? "YOU" : "MEMBER"} • {formatRelativeTime(msg.created_at)}
+                    {isMine ? "YOU" : (msg.sender?.username ? `@${msg.sender.username}` : "MEMBER")} • {formatRelativeTime(msg.created_at)}
                   </span>
                   <div className={`max-w-[80%] border-2 border-zinc-950 dark:border-zinc-800 p-3 shadow-[4px_4px_0px_0px_rgba(9,9,11,1)] dark:shadow-none ${
                     isMine ? "bg-zinc-950 text-white dark:bg-zinc-800" : "bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100"

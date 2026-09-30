@@ -1145,29 +1145,54 @@ export async function acceptDuoChallenge(oathId: string) {
   return { error: null };
 }
 
-// ---- cancelDuoChallenge — refund a pending invitation's creator stake ----
-export async function cancelDuoChallenge(oathId: string) {
+// ---- cancelPendingOath — refund pending invitation/lobby creator and member stake ----
+export async function cancelPendingOath(oathId: string) {
   if (isMockMode()) {
     const oaths = getMockOaths();
     const oath = oaths.find((item) => item.id === oathId);
-    if (!oath || oath.oath_type !== "duo" || oath.status !== "pending") return { error: "Challenge is no longer pending." };
-    if (oath.creator_id !== ADMIN_MOCK_USER.id) return { error: "Only the challenge creator can cancel it." };
+    if (!oath || oath.status !== "pending") return { error: "Oath is no longer pending." };
+    if (oath.creator_id !== ADMIN_MOCK_USER.id) return { error: "Only the creator can cancel this oath." };
+
+    let refundAmount = oath.stake_amount;
+    if (oath.oath_type === "duo") {
+      refundAmount = oath.stake_amount * 2;
+    } else if (oath.oath_type === "squad") {
+      refundAmount = oath.stake_amount * (oath.max_players ?? 4);
+    }
+
     const wallet = getInitialMockWallet();
-    const refundAmount = oath.stake_amount * 2;
-    if (wallet.escrow_locked < refundAmount) return { error: "Creator escrow is inconsistent." };
-    setMockWallet({ ...wallet, balance: wallet.balance + refundAmount, escrow_locked: wallet.escrow_locked - refundAmount });
+    if (wallet.escrow_locked >= refundAmount) {
+      setMockWallet({ ...wallet, balance: wallet.balance + refundAmount, escrow_locked: wallet.escrow_locked - refundAmount });
+    }
     setMockOaths(oaths.map((item) => item.id === oathId ? { ...item, status: "cancelled" as const } : item));
-    setMockTransactions([{ id: `tx-${Date.now()}`, wallet_id: wallet.id, oath_id: oathId, type: "escrow_release", amount: refundAmount, description: "Cancelled duo invite; 2x stake returned", created_at: new Date().toISOString() }, ...getMockTransactions()]);
+    setMockSquads(getMockSquads().map((s) => s.id === oathId ? { ...s, status: "cancelled" as const } : s));
+
+    setMockTransactions([{
+      id: `tx-${Date.now()}`,
+      wallet_id: wallet.id,
+      oath_id: oathId,
+      type: "escrow_release",
+      amount: refundAmount,
+      description: `Cancelled pending ${oath.oath_type}; escrow refunded`,
+      created_at: new Date().toISOString()
+    }, ...getMockTransactions()]);
+
     notifyDataUpdated();
     return { error: null };
   }
+
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
-  const { error } = await supabase.rpc("cancel_duo_challenge", { p_oath_id: oathId });
+  const { error } = await supabase.rpc("cancel_pending_oath", { p_oath_id: oathId });
   if (error) return { error: error.message };
   notifyDataUpdated();
   return { error: null };
+}
+
+// ---- cancelDuoChallenge — alias to universal cancelPendingOath ----
+export async function cancelDuoChallenge(oathId: string) {
+  return cancelPendingOath(oathId);
 }
 
 // ---- forfeitOath — give up and incur penalty ----

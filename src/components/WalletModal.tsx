@@ -181,27 +181,31 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
     } else {
       // Withdrawal
       if (region === "in") {
-        if (!paypalEmail.trim()) {
-          showToast("Please enter your UPI ID (e.g. name@okhdfcbank) or bank details", "error");
+        const upiId = paypalEmail.trim();
+        const upiRegex = /^[a-zA-Z0-9.\-_]{2,49}@[a-zA-Z]{2,49}$/;
+        if (!upiId || !upiRegex.test(upiId)) {
+          showToast("Please enter a valid UPI ID (e.g. name@okhdfcbank or 9876543210@paytm)", "error");
           setLoading(false);
           return;
         }
 
-        const destination = `UPI: ${paypalEmail.trim()}`;
+        const destination = `UPI: ${upiId}`;
         const { error } = await withdrawFunds(amountUsd, destination);
         if (error) {
           showToast(`Withdrawal failed: ${error}`, "error");
         } else {
           setDone(true);
-          showToast(`${formatRegionCurrency(amountUsd)} withdrawal requested to ${paypalEmail.trim()}.`, "success");
+          showToast(`${formatRegionCurrency(amountUsd)} withdrawal requested to ${upiId}.`, "success");
           onRefresh();
           setTimeout(() => { setDone(false); setAmount(""); setPaypalEmail(""); setTab("overview"); }, 2000);
         }
         setLoading(false);
       } else {
         // Withdrawal request for global users
-        if (!paypalEmail.trim()) {
-          showToast("Please enter your withdrawal details", "error");
+        const email = paypalEmail.trim();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email || !emailRegex.test(email)) {
+          showToast("Please enter a valid PayPal email address", "error");
           setLoading(false);
           return;
         }
@@ -375,7 +379,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
 
                   {tab === "withdraw" && (
                     <button
-                      onClick={() => setAmount(Math.floor(convertToLocal(wallet.balance, region)).toString())}
+                      onClick={() => setAmount(region === "in" ? Math.floor(convertToLocal(wallet.balance, region)).toString() : wallet.balance.toFixed(2))}
                       className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200 transition-colors"
                     >
                       Withdraw all ({formatCurrencyPrecise(wallet.balance, region)})

@@ -30,7 +30,8 @@ function AuthForm() {
   const { signIn, signUp, enterDemo } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get("redirect") || "/";
+  const rawRedirect = searchParams.get("redirect") || "/";
+  const redirectUrl = rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/";
 
   const handleInstantDemo = () => {
     setError(null);

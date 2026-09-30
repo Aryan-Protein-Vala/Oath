@@ -121,7 +121,10 @@ before(async () => {
     "202609300008_fix_settlement_and_modes.sql",
     "202609300009_admin_features.sql",
     "202609300010_fix_lobby_and_invites.sql",
-    "202609300015_fix_rls_and_duo_lobby_flows.sql"
+    "202609300015_fix_rls_and_duo_lobby_flows.sql",
+    "202609300016_referee_tokens_and_cancellation.sql",
+    "202610010001_complete_readiness.sql",
+    "202610010002_apply_readiness_fixes.sql"
   ];
 
   for (const file of migrationFiles) {

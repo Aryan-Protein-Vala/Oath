@@ -5,9 +5,10 @@ import { ChevronRight, User, Users, Upload, Eye, XCircle, Shield, AlertTriangle,
 import type { Oath } from "@/lib/types";
 import { getTimeRemaining, padZero, formatCurrency as utilsFormatCurrency, formatRelativeTime } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
+import { useAuth } from "@/lib/auth-context";
 import ProofUploadModal from "./ProofUploadModal";
 import ChatRoom from "./ChatRoom";
-import { forfeitOath, forfeitSquadMember } from "@/lib/data-hooks";
+import { forfeitOath, forfeitSquadMember, cancelPendingOath } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
 import { MessageSquare } from "lucide-react";
 
@@ -199,6 +200,7 @@ function OathCountdownCard({
   onForfeit: () => void;
 }) {
   const { region } = useRegion();
+  const { user } = useAuth();
   const [now, setNow] = useState(() => Date.now());
   const [timeState, setTimeState] = useState(() => getTimeRemaining(oath.deadline));
 
@@ -375,6 +377,24 @@ function OathCountdownCard({
                   <XCircle className="w-3.5 h-3.5" />
                   Forfeit
                 </button>
+                {isPendingAcceptance && oath.creator_id === user?.id && (
+                  <button
+                    onClick={async () => {
+                      if (confirm("Cancel this pending invitation and reclaim your locked stake?")) {
+                        const { error } = await cancelPendingOath(oath.id);
+                        if (error) {
+                          showToast(error, "error");
+                        } else {
+                          showToast("Oath cancelled and escrow refunded to your balance.", "success");
+                        }
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2.5 bg-red-600 text-white text-xs font-black uppercase tracking-tight hover:bg-red-700 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    Cancel
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -520,7 +540,7 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
 
   const handleForfeit = async () => {
     setLoading(true);
-    const { error } = oath.oath_type === "squad"
+    const { error } = (oath.oath_type === "squad" || oath.oath_type === "lobby")
       ? await forfeitSquadMember(oath.id)
       : await forfeitOath(oath.id, excuse.trim() || undefined);
     setLoading(false);

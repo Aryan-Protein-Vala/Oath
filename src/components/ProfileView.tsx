@@ -24,6 +24,19 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
     ? Math.round((profile.oaths_completed / resolvedOaths) * 100)
     : 0;
 
+  const winLossRatio = profile.oaths_failed > 0
+    ? (profile.oaths_completed / profile.oaths_failed).toFixed(1)
+    : profile.oaths_completed > 0
+    ? `${profile.oaths_completed}.0`
+    : "0.0";
+
+  const reputationTier =
+    profile.reputation_score >= 80
+      ? "STALWART"
+      : profile.reputation_score >= 50
+      ? "RELIABLE"
+      : "PARIAH";
+
   const repColor =
     profile.reputation_score >= 80
       ? "text-zinc-950 dark:text-zinc-200"
@@ -52,8 +65,8 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
               </p>
               {profile.duffer_debt > 0 && (
                 <div className="mt-1 flex items-center gap-1">
-                  <span className="inline-flex items-center px-1.5 py-0.5 border-2 border-red-600 bg-red-100 dark:bg-red-900/30 text-[9px] font-mono font-bold text-red-700 dark:text-red-400 uppercase tracking-widest shadow-[2px_2px_0px_0px_rgba(220,38,38,1)] dark:shadow-none">
-                    Duffer (Debt: {profile.duffer_debt})
+                  <span className="inline-flex items-center px-1.5 py-0.5 border-2 border-red-600 bg-red-100 dark:bg-red-900/30 text-[9px] font-mono font-bold text-red-700 dark:text-red-400 uppercase tracking-widest shadow-[2px_2px_0px_0px_rgba(220,38,38,1)] dark:shadow-none" title="Unresolved defaulted oaths">
+                    Duffer ({profile.duffer_debt} Strike{profile.duffer_debt > 1 ? "s" : ""})
                   </span>
                 </div>
               )}
@@ -66,9 +79,14 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
               <span className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest">
                 Reputation
               </span>
-              <span className={`text-sm font-black stake-number ${repColor}`}>
-                {profile.reputation_score}/100
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[8px] font-mono font-bold px-1 py-0.5 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">
+                  {reputationTier}
+                </span>
+                <span className={`text-sm font-black stake-number ${repColor}`}>
+                  {profile.reputation_score}/100
+                </span>
+              </div>
             </div>
             <div className="progress-bar h-1 w-full bg-zinc-200 dark:bg-zinc-800">
               <div
@@ -86,7 +104,9 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
           <StatCell label="Created" value={profile.oaths_created} />
           <StatCell label="Completed" value={profile.oaths_completed} accent />
           <StatCell label="Failed" value={profile.oaths_failed} danger />
+          <StatCell label="Win/Loss" value={`${profile.oaths_completed}W / ${profile.oaths_failed}L`} />
           <StatCell label="Success" value={`${completionRate}%`} />
+          <StatCell label="Ratio" value={`${winLossRatio}x`} accent />
         </div>
 
         {/* Money stats */}
@@ -170,7 +190,7 @@ function StatCell({
   danger?: boolean;
 }) {
   return (
-    <div className="px-4 py-3 border-b-2 border-r-2 border-zinc-200 dark:border-zinc-800/30 last:border-r-0">
+    <div className="px-4 py-3 border-b-2 border-zinc-200 dark:border-zinc-800/30 odd:border-r-2">
       <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest mb-0.5 font-bold">{label}</p>
       <p
         className={`text-xl font-black stake-number ${

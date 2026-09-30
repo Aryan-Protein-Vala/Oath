@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import TopNav from "@/components/TopNav";
 import ActiveOathsView from "@/components/ActiveOathsView";
@@ -14,6 +14,7 @@ import NotificationsPanel from "@/components/NotificationsPanel";
 import { ToastContainer } from "@/components/Toast";
 import { useAuth } from "@/lib/auth-context";
 import { useOaths, useSquadLobbies, useWall, useTransactions, isMockMode } from "@/lib/data-hooks";
+import { createClient } from "@/lib/supabase/client";
 import {
   mockProfile,
   mockWallet,
@@ -66,6 +67,35 @@ export default function Home() {
   const activeHonor = isMockMode() ? (honorEntries.length > 0 ? honorEntries : mockWallOfHonor) : honorEntries;
   const activeTx = isMockMode() ? (transactions.length > 0 ? transactions : mockTransactions) : transactions;
 
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user || isMockMode()) return;
+    const supabase = createClient();
+    const fetchUnread = async () => {
+      const { count } = await supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("status", "pending");
+      setUnreadCount(count ?? 0);
+    };
+    fetchUnread();
+
+    const channel = supabase
+      .channel(`notifs_badge:${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        () => fetchUnread()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const handleSignOut = async () => {
     await signOut();
     router.push("/auth");
@@ -81,6 +111,7 @@ export default function Home() {
         username={activeProfile.username}
         onWalletClick={() => setShowWalletModal(true)}
         onNotificationsClick={() => setShowNotifications(true)}
+        unreadCount={unreadCount}
       />
 
       {/* Main Content */}

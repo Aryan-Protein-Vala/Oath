@@ -127,7 +127,10 @@ before(async () => {
     "202609300008_fix_settlement_and_modes.sql",
     "202609300009_admin_features.sql",
     "202609300010_fix_lobby_and_invites.sql",
-    "202609300015_fix_rls_and_duo_lobby_flows.sql"
+    "202609300015_fix_rls_and_duo_lobby_flows.sql",
+    "202609300016_referee_tokens_and_cancellation.sql",
+    "202610010001_complete_readiness.sql",
+    "202610010002_apply_readiness_fixes.sql"
   ];
 
   for (const file of migrationFiles) {
@@ -282,4 +285,39 @@ test("Real User Journey 4: Public Lobby Flow (Individual Buy-In, Member Escrow I
   assert.equal(Number(creatorAfterForfeit.escrow_locked), Number(creatorAfter.escrow_locked));
   assert.equal(Number(creatorAfterForfeit.balance), Number(creatorAfter.balance));
 });
+
+test("Real User Journey 5: Pending Cancellation & Unfilled Slot Refunds", async () => {
+  // 1. Creator creates a pending duo oath with $50 stake (locks $100 escrow)
+  const creatorPre = (await db.query("SELECT balance, escrow_locked FROM wallets WHERE user_id=$1", [ids.creator])).rows[0];
+  const duoId = (await asUser(ids.creator, `SELECT public.create_oath_with_stake(
+    '100 pull-ups daily', now()+interval '4 days', 'duo', 'peer', 'fiat', 50, 2, 2, NULL, NULL, NULL, NULL, NULL, 'survival'
+  )`)).rows[0].create_oath_with_stake;
+
+  const creatorDuoLocked = (await db.query("SELECT balance, escrow_locked FROM wallets WHERE user_id=$1", [ids.creator])).rows[0];
+  assert.equal(Number(creatorDuoLocked.balance), Number(creatorPre.balance) - 100);
+  assert.equal(Number(creatorDuoLocked.escrow_locked), Number(creatorPre.escrow_locked) + 100);
+
+  // Cancel pending duo oath -> full $100 refunded to creator
+  await asUser(ids.creator, "SELECT public.cancel_pending_oath($1)", [duoId]);
+  const creatorDuoRefunded = (await db.query("SELECT balance, escrow_locked FROM wallets WHERE user_id=$1", [ids.creator])).rows[0];
+  assert.equal(Number(creatorDuoRefunded.balance), Number(creatorPre.balance));
+  assert.equal(Number(creatorDuoRefunded.escrow_locked), Number(creatorPre.escrow_locked));
+  const duoRow = (await db.query("SELECT status FROM oaths WHERE id=$1", [duoId])).rows[0];
+  assert.equal(duoRow.status, "cancelled");
+
+  // 2. Creator creates pending lobby ($40 buy-in), Member 1 joins ($40 buy-in)
+  const lobbyId = (await asUser(ids.creator, `SELECT public.create_oath_with_stake(
+    'Weekend Hackathon', now()+interval '5 days', 'lobby', 'peer', 'fiat', 40, 3, 5, NULL, NULL, NULL, NULL, NULL, 'survival'
+  )`)).rows[0].create_oath_with_stake;
+  await asUser(ids.squadMember1, "SELECT public.join_squad($1, 40)", [lobbyId]);
+
+  // Cancel pending lobby -> refunds creator $40 and Member 1 $40
+  const m1PreCancel = (await db.query("SELECT balance, escrow_locked FROM wallets WHERE user_id=$1", [ids.squadMember1])).rows[0];
+  await asUser(ids.creator, "SELECT public.cancel_pending_oath($1)", [lobbyId]);
+
+  const m1PostCancel = (await db.query("SELECT balance, escrow_locked FROM wallets WHERE user_id=$1", [ids.squadMember1])).rows[0];
+  assert.equal(Number(m1PostCancel.balance), Number(m1PreCancel.balance) + 40);
+  assert.equal(Number(m1PostCancel.escrow_locked), Number(m1PreCancel.escrow_locked) - 40);
+});
+
 
