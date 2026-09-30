@@ -13,7 +13,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { depositFunds, withdrawFunds, isMockMode } from "@/lib/data-hooks";
-import { formatCurrencyPrecise, formatRelativeTime, convertToUSD } from "@/lib/utils";
+import { formatCurrencyPrecise, formatRelativeTime, convertToUSD, convertToLocal } from "@/lib/utils";
 import type { Wallet, Transaction } from "@/lib/types";
 import { showToast } from "./Toast";
 import { useRegion } from "@/lib/region-context";
@@ -269,7 +269,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                         autoFocus
                       />
                     </div>
-                    {tab === "withdraw" && amountNum > wallet.balance && (
+                    {tab === "withdraw" && amountUsd > wallet.balance && (
                       <div className="flex items-center gap-1.5 mt-2 text-red-500 font-bold">
                         <AlertCircle className="w-3.5 h-3.5" />
                         <span className="text-[10px] font-mono">Exceeds available balance</span>
@@ -305,17 +305,17 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                             : "border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-600 hover:text-zinc-900"
                         }`}
                       >
-                        {formatRegionCurrency(a)}
+                        {formatRegionCurrency(convertToUSD(a, region))}
                       </button>
                     ))}
                   </div>
 
                   {tab === "withdraw" && (
                     <button
-                      onClick={() => setAmount(wallet.balance.toString())}
+                      onClick={() => setAmount(Math.floor(convertToLocal(wallet.balance, region)).toString())}
                       className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200 transition-colors"
                     >
-                      Withdraw all ({formatCurrencyPrecise(wallet.balance)})
+                      Withdraw all ({formatCurrencyPrecise(wallet.balance, region)})
                     </button>
                   )}
 
