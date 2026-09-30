@@ -50,6 +50,13 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
               <p className="text-[10px] font-mono text-zinc-500">
                 Member since {formatRelativeTime(profile.created_at)}
               </p>
+              {profile.duffer_debt > 0 && (
+                <div className="mt-1 flex items-center gap-1">
+                  <span className="inline-flex items-center px-1.5 py-0.5 border-2 border-red-600 bg-red-100 dark:bg-red-900/30 text-[9px] font-mono font-bold text-red-700 dark:text-red-400 uppercase tracking-widest shadow-[2px_2px_0px_0px_rgba(220,38,38,1)] dark:shadow-none">
+                    Duffer (Debt: {profile.duffer_debt})
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

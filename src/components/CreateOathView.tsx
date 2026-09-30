@@ -122,10 +122,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
       return;
     }
 
-    const statementWithCause =
-      consequenceType === "anti_charity"
-        ? `${oathStatement.trim()} [Anti-Charity: ${antiCharityCause}]`
-        : oathStatement.trim();
+    const statementWithCause = oathStatement.trim();
 
     setSubmitting(true);
     const { error } = await createOath({
@@ -138,6 +135,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
       nominee_email: nomineeEmail || undefined,
       social_ransom_phone: socialPhone || undefined,
       social_ransom_message: socialMessage || undefined,
+      anti_charity_cause: consequenceType === "anti_charity" ? antiCharityCause : undefined,
       min_players: oathType === "squad" ? 5 : 1,
       max_players: oathType === "squad" ? 8 : 1,
     });

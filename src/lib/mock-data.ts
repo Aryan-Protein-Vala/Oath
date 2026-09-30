@@ -22,6 +22,7 @@ export const mockProfile: Profile = {
   total_lost: 750.0,
   total_won: 1800.0,
   reputation_score: 82,
+  duffer_debt: 0,
   created_at: "2025-01-15T00:00:00Z",
 };
 
@@ -47,6 +48,7 @@ const mockUsers: Profile[] = [
     total_lost: 200.0,
     total_won: 4200.0,
     reputation_score: 95,
+    duffer_debt: 0,
     created_at: "2025-02-01T00:00:00Z",
   },
   {
@@ -60,6 +62,7 @@ const mockUsers: Profile[] = [
     total_lost: 1500.0,
     total_won: 300.0,
     reputation_score: 45,
+    duffer_debt: 2,
     created_at: "2025-03-10T00:00:00Z",
   },
   {
@@ -73,6 +76,7 @@ const mockUsers: Profile[] = [
     total_lost: 100.0,
     total_won: 7500.0,
     reputation_score: 98,
+    duffer_debt: 0,
     created_at: "2024-11-20T00:00:00Z",
   },
   {
@@ -86,6 +90,7 @@ const mockUsers: Profile[] = [
     total_lost: 2800.0,
     total_won: 0.0,
     reputation_score: 12,
+    duffer_debt: 4,
     created_at: "2025-05-01T00:00:00Z",
   },
   {
@@ -99,6 +104,7 @@ const mockUsers: Profile[] = [
     total_lost: 900.0,
     total_won: 2800.0,
     reputation_score: 76,
+    duffer_debt: 0,
     created_at: "2025-01-28T00:00:00Z",
   },
 ];

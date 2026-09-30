@@ -452,6 +452,7 @@ export async function createOath(data: {
   social_ransom_phone?: string;
   social_ransom_message?: string;
   nominee_email?: string;
+  anti_charity_cause?: string;
   min_players?: number;
   max_players?: number;
 }): Promise<{ oath?: Oath; error: string | null }> {
@@ -553,9 +554,10 @@ export async function createOath(data: {
     p_verification_method: data.verification_method,
     p_consequence_type: data.consequence_type,
     p_stake_amount: validStake,
-    p_social_ransom_phone: data.social_ransom_phone ?? null,
-    p_social_ransom_message: data.social_ransom_message ?? null,
+    p_social_phone: data.social_ransom_phone ?? null,
+    p_social_msg: data.social_ransom_message ?? null,
     p_nominee_email: data.nominee_email ?? null,
+    p_anti_charity_cause: data.anti_charity_cause ?? null,
     p_min_players: data.min_players ?? 1,
     p_max_players: data.max_players ?? 1,
     p_opponent_id: null,
