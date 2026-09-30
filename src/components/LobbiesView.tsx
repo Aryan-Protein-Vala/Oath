@@ -25,17 +25,21 @@ interface LobbiesViewProps {
   squads: Oath[];
   wallet: Wallet;
   onJoined?: () => void;
+  onCreateLobby?: () => void;
 }
 
-export default function LobbiesView({ squads, wallet, onJoined }: LobbiesViewProps) {
+export default function LobbiesView({ squads, wallet, onJoined, onCreateLobby }: LobbiesViewProps) {
   const [selectedSquadId, setSelectedSquadId] = useState<string | null>(null);
+  const [mobileShowDetail, setMobileShowDetail] = useState(false);
 
   const selectedSquad = squads.find((s) => s.id === selectedSquadId) || null;
 
   return (
     <div className="flex-1 flex overflow-hidden">
-      {/* Lobby List */}
-      <div className={`${selectedSquad ? "w-96" : "flex-1"} flex flex-col border-r-2 border-zinc-950 dark:border-zinc-800/60 overflow-hidden transition-all bg-white dark:bg-transparent`}>
+      {/* Lobby List — hidden on mobile when detail is shown */}
+      <div className={`${
+        mobileShowDetail ? "hidden sm:flex" : "flex"
+      } ${selectedSquad ? "sm:w-96" : "flex-1"} w-full flex-col border-r-2 border-zinc-950 dark:border-zinc-800/60 overflow-hidden transition-all bg-white dark:bg-transparent`}>
         <div className="px-5 py-4 border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/50">
           <div className="flex items-center justify-between">
             <div>
@@ -50,6 +54,15 @@ export default function LobbiesView({ squads, wallet, onJoined }: LobbiesViewPro
               <span className="text-[10px] font-mono font-bold text-zinc-700 dark:text-zinc-400 px-2 py-1 border border-zinc-400 dark:border-zinc-800">
                 {squads.length} open
               </span>
+              {onCreateLobby && (
+                <button
+                  onClick={onCreateLobby}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 text-[10px] font-mono font-black uppercase tracking-widest hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors border-2 border-zinc-950 dark:border-transparent shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                >
+                  <UserPlus className="w-3 h-3" />
+                  Create
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -61,29 +74,55 @@ export default function LobbiesView({ squads, wallet, onJoined }: LobbiesViewPro
               squad={squad}
               index={index}
               isSelected={selectedSquad?.id === squad.id}
-              onClick={() => setSelectedSquadId(squad.id)}
+              onClick={() => {
+                setSelectedSquadId(squad.id);
+                setMobileShowDetail(true);
+              }}
             />
           ))}
 
           {squads.length === 0 && (
-            <div className="flex items-center justify-center h-64 p-6">
+            <div className="flex flex-col items-center justify-center h-64 p-6 gap-4">
               <div className="text-center">
                 <p className="text-zinc-800 dark:text-zinc-400 text-sm font-bold font-mono">No open lobbies</p>
-                <p className="text-zinc-500 text-xs font-mono mt-1">Create one yourself in the Create tab</p>
+                <p className="text-zinc-500 text-xs font-mono mt-1">Be the first to create a Squad oath</p>
               </div>
+              {onCreateLobby && (
+                <button
+                  onClick={onCreateLobby}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-black uppercase tracking-wider hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Create a Lobby
+                </button>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Squad Detail */}
+      {/* Squad Detail — mobile full screen when shown */}
       {selectedSquad && (
-        <SquadDetail
-          squad={selectedSquad}
-          wallet={wallet}
-          onClose={() => setSelectedSquadId(null)}
-          onJoined={onJoined}
-        />
+        <div className={`${
+          mobileShowDetail ? "flex" : "hidden sm:flex"
+        } flex-1 flex-col overflow-hidden`}>
+          {/* Mobile back button */}
+          <div className="flex sm:hidden items-center px-4 py-2 border-b-2 border-zinc-950 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/50">
+            <button
+              onClick={() => { setMobileShowDetail(false); setSelectedSquadId(null); }}
+              className="flex items-center gap-1.5 text-[10px] font-mono font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200"
+            >
+              <UserPlus className="w-3 h-3 rotate-180" />
+              All Lobbies
+            </button>
+          </div>
+          <SquadDetail
+            squad={selectedSquad}
+            wallet={wallet}
+            onClose={() => { setSelectedSquadId(null); setMobileShowDetail(false); }}
+            onJoined={onJoined}
+          />
+        </div>
       )}
     </div>
   );

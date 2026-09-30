@@ -1,7 +1,9 @@
 "use client";
 
+import React from "react";
+
 import { useSyncExternalStore } from "react";
-import { Wallet, Plus, Swords, Sun, Moon } from "lucide-react";
+import { Wallet, Plus, Swords, Sun, Moon, Zap, PenLine, Users, Skull, Crown, User } from "lucide-react";
 import { useTheme } from "next-themes";
 import { formatCurrencyPrecise } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
@@ -139,12 +141,12 @@ export default function TopNav({
 
       {/* Mobile Nav */}
       <div className="flex sm:hidden items-center border-t-2 border-zinc-950 dark:border-zinc-800/50 divide-x-2 divide-zinc-950 dark:divide-zinc-800/50 bg-zinc-50 dark:bg-[#09090b]">
-        <NavTab label="Active" isActive={currentView === "active"} onClick={() => onViewChange("active")} mobile />
-        <NavTab label="Create" isActive={currentView === "create"} onClick={() => onViewChange("create")} mobile />
-        <NavTab label="Lobbies" isActive={currentView === "lobbies"} onClick={() => onViewChange("lobbies")} mobile />
-        <NavTab label="Shame" isActive={currentView === "wall_shame"} onClick={() => onViewChange("wall_shame")} accent mobile />
-        <NavTab label="Honor" isActive={currentView === "wall_honor"} onClick={() => onViewChange("wall_honor")} mobile />
-        <NavTab label="Me" isActive={currentView === "profile"} onClick={() => onViewChange("profile")} mobile />
+        <MobileNavTab icon={<Zap className="w-3.5 h-3.5" />} label="Active" isActive={currentView === "active"} onClick={() => onViewChange("active")} />
+        <MobileNavTab icon={<PenLine className="w-3.5 h-3.5" />} label="Create" isActive={currentView === "create"} onClick={() => onViewChange("create")} />
+        <MobileNavTab icon={<Users className="w-3.5 h-3.5" />} label="Lobbies" isActive={currentView === "lobbies"} onClick={() => onViewChange("lobbies")} />
+        <MobileNavTab icon={<Skull className="w-3.5 h-3.5" />} label="Shame" isActive={currentView === "wall_shame"} onClick={() => onViewChange("wall_shame")} accent />
+        <MobileNavTab icon={<Crown className="w-3.5 h-3.5" />} label="Honor" isActive={currentView === "wall_honor"} onClick={() => onViewChange("wall_honor")} />
+        <MobileNavTab icon={<User className="w-3.5 h-3.5" />} label="Me" isActive={currentView === "profile"} onClick={() => onViewChange("profile")} />
       </div>
     </nav>
   );
@@ -181,6 +183,40 @@ function NavTab({
       `}
     >
       {label}
+    </button>
+  );
+}
+
+function MobileNavTab({
+  icon,
+  label,
+  isActive,
+  onClick,
+  accent,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+  accent?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-all border-b-2
+        ${
+          isActive
+            ? accent
+              ? "bg-red-600 text-white border-red-600 dark:border-transparent dark:bg-red-950/40 dark:text-red-400"
+              : "bg-zinc-950 text-white border-zinc-950 dark:bg-zinc-800/50 dark:text-zinc-50 dark:border-transparent"
+            : accent
+            ? "border-transparent text-red-600 hover:bg-red-50 dark:text-red-600/60 dark:hover:bg-red-950/20"
+            : "border-transparent text-zinc-500 hover:text-zinc-950 hover:bg-zinc-100 dark:text-zinc-600 dark:hover:text-zinc-300 dark:hover:bg-zinc-900"
+        }
+      `}
+    >
+      {icon}
+      <span className="text-[8px] font-black tracking-widest uppercase">{label}</span>
     </button>
   );
 }

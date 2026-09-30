@@ -48,8 +48,13 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   const [infoModal, setInfoModal] = useState<{ title: string; desc: string } | null>(null);
 
   const stakeNum = parseFloat(stakeAmount) || 0;
-  const stakeUsd = convertToUSD(stakeNum, region);
-  const isOverBudget = stakeUsd > walletBalance;
+  const financialConsequences = ["fiat", "anti_charity", "bounty_transfer", "mutual_destruction", "bounty_split"];
+  const isFinancial = financialConsequences.includes(consequenceType);
+  // walletBalance is stored in USD; convert to local for comparison
+  const INR_TO_USD = 0.012;
+  const walletInLocal = region === "in" ? walletBalance / INR_TO_USD : walletBalance;
+  const stakeUsd = region === "in" ? stakeNum * INR_TO_USD : stakeNum;
+  const isOverBudget = isFinancial && stakeNum > walletInLocal;
 
   // Handle mobile-exclusive features
   const handleMobileExclusive = (feature: string) => {
@@ -57,9 +62,6 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   };
 
   const [submitting, setSubmitting] = useState(false);
-
-  const financialConsequences = ["fiat", "anti_charity", "bounty_transfer", "mutual_destruction", "bounty_split"];
-  const isFinancial = financialConsequences.includes(consequenceType);
 
   const handleSubmit = async () => {
     if (!oathStatement.trim()) {
@@ -400,7 +402,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                       isOverBudget ? "text-red-500" : "text-zinc-600 dark:text-zinc-400"
                     }`}
                   >
-                    Balance: {formatRegionCurrency(walletBalance)}
+                    Balance: {formatRegionCurrency(walletInLocal)}
                   </span>
                   {stakeNum > 0 && (
                     <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
@@ -599,19 +601,19 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
             <div className="flex items-center gap-3">
               <button
                 onClick={handleSubmit}
-                disabled={!oathStatement || stakeNum <= 0 || isOverBudget || submitting}
+                disabled={!oathStatement || (isFinancial && (stakeNum <= 0 || isOverBudget)) || submitting}
                 className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-black tracking-tight uppercase transition-all ${
-                  !oathStatement || stakeNum <= 0 || isOverBudget || submitting
+                  !oathStatement || (isFinancial && (stakeNum <= 0 || isOverBudget)) || submitting
                     ? "bg-zinc-300 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-600 cursor-not-allowed"
                     : "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
                 }`}
               >
                 <Zap className="w-4 h-4" />
-                {submitting ? "Locking Escrow..." : `Lock ${formatRegionCurrency(stakeUsd)} & Create Oath`}
+                {submitting ? "Locking Escrow..." : isFinancial ? `Lock ${formatRegionCurrency(stakeNum)} & Create Oath` : "Create Oath"}
               </button>
             </div>
 
-            {isOverBudget && (
+            {isFinancial && isOverBudget && (
               <div className="flex items-center gap-2 mt-3 text-red-500 font-bold">
                 <AlertCircle className="w-3.5 h-3.5" />
                 <span className="text-[11px] font-mono">

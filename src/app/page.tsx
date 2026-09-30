@@ -99,7 +99,7 @@ export default function Home() {
           />
         )}
         {currentView === "lobbies" && (
-          <LobbiesView squads={activeLobbies} wallet={activeWallet} onJoined={() => { refreshOaths(); refreshWallet(); }} />
+          <LobbiesView squads={activeLobbies} wallet={activeWallet} onJoined={() => { refreshOaths(); refreshWallet(); }} onCreateLobby={() => setCurrentView("create")} />
         )}
         {currentView === "wall_shame" && (
           <WallView entries={activeShame} type="shame" />

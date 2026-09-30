@@ -22,6 +22,8 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
   const [showProofModal, setShowProofModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showForfeitModal, setShowForfeitModal] = useState(false);
+  // On mobile, track whether we're showing the detail panel or list
+  const [mobileShowDetail, setMobileShowDetail] = useState(false);
 
   // Selected oath lookup
   const selectedOath = oaths.find((o) => o.id === selectedOathId) || oaths[0] || null;
@@ -54,8 +56,10 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
 
   return (
     <div className="flex-1 flex overflow-hidden" suppressHydrationWarning>
-      {/* Sidebar */}
-      <div className="w-72 border-r-2 border-zinc-950 dark:border-zinc-800/60 flex flex-col overflow-y-auto shrink-0 bg-white dark:bg-transparent">
+      {/* Sidebar — hidden on mobile when detail is shown */}
+      <div className={`${
+        mobileShowDetail ? "hidden sm:flex" : "flex"
+      } sm:w-72 w-full border-r-2 border-zinc-950 dark:border-zinc-800/60 flex-col overflow-y-auto shrink-0 bg-white dark:bg-transparent`}>
         <div className="px-4 py-3 border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/50">
           <span className="text-[10px] font-mono font-bold text-zinc-700 dark:text-zinc-400 uppercase tracking-widest">
             Active Oaths ({oaths.length})
@@ -66,14 +70,30 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
             key={oath.id}
             oath={oath}
             isSelected={selectedOath?.id === oath.id}
-            onClick={() => setSelectedOathId(oath.id)}
+            onClick={() => {
+              setSelectedOathId(oath.id);
+              setMobileShowDetail(true);
+            }}
           />
         ))}
       </div>
 
-      {/* Main Countdown */}
+      {/* Main Countdown — hidden on mobile when list is shown */}
       {selectedOath && (
-        <>
+        <div className={`${
+          mobileShowDetail ? "flex" : "hidden sm:flex"
+        } flex-1 flex-col overflow-hidden`}>
+          {/* Mobile back button */}
+          <div className="flex sm:hidden items-center px-4 py-2 border-b-2 border-zinc-950 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/50">
+            <button
+              onClick={() => setMobileShowDetail(false)}
+              className="flex items-center gap-1.5 text-[10px] font-mono font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200"
+            >
+              <ChevronRight className="w-3 h-3 rotate-180" />
+              All Oaths
+            </button>
+          </div>
+
           <OathCountdownCard
             oath={selectedOath}
             onSubmitProof={() => setShowProofModal(true)}
@@ -102,11 +122,12 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
               onClose={() => setShowForfeitModal(false)}
               onForfeited={() => {
                 setShowForfeitModal(false);
+                setMobileShowDetail(false);
                 onProofSubmitted?.();
               }}
             />
           )}
-        </>
+        </div>
       )}
     </div>
   );
