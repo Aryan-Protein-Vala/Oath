@@ -104,7 +104,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
               showToast(error, "error");
             } else {
               setDone(true);
-              showToast(`${formatRegionCurrency(amountNum)} added to your wallet.`, "success");
+              showToast(`${formatRegionCurrency(amountUsd)} added to your wallet.`, "success");
               onRefresh();
               setTimeout(() => { setDone(false); setAmount(""); setTab("overview"); }, 1500);
             }
@@ -136,7 +136,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
         showToast(error, "error");
       } else {
         setDone(true);
-        showToast(`${formatRegionCurrency(amountNum)} withdrawn from your wallet.`, "success");
+        showToast(`${formatRegionCurrency(amountUsd)} withdrawn from your wallet.`, "success");
         onRefresh();
         setTimeout(() => { setDone(false); setAmount(""); setTab("overview"); }, 1500);
       }
@@ -295,7 +295,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                     )}
                     {loading
                       ? "Processing..."
-                      : `${tab === "deposit" ? "Add funds" : "Withdraw funds"} ${amountNum > 0 ? formatRegionCurrency(amountNum) : ""}`}
+                      : `${tab === "deposit" ? "Add funds" : "Withdraw funds"} ${amountNum > 0 ? formatRegionCurrency(amountUsd) : ""}`}
                   </button>
 
                   <p className="text-[10px] font-mono text-zinc-500 text-center mt-2">
