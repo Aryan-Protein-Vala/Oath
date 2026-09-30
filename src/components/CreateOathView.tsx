@@ -20,7 +20,8 @@ import {
   UserX,
   PieChart,
   Info,
-  X
+  X,
+  Globe
 } from "lucide-react";
 import type { OathType, VerificationMethod, ConsequenceType } from "@/lib/types";
 import { convertToUSD, convertToLocal } from "@/lib/utils";
@@ -40,15 +41,18 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   const [consequenceType, setConsequenceType] = useState<ConsequenceType>("fiat");
   const [verificationMethod, setVerificationMethod] = useState<VerificationMethod>("solo_lonely");
   const [groupMode, setGroupMode] = useState<"weakest_link" | "survival">("survival");
+  const [maxPlayers, setMaxPlayers] = useState<number>(4);
   const [stakeAmount, setStakeAmount] = useState("");
   const [deadline, setDeadline] = useState("");
   const [socialPhone, setSocialPhone] = useState("");
   const [socialMessage, setSocialMessage] = useState("");
   const [nomineeEmail, setNomineeEmail] = useState("");
-  const [userSuggestions, setUserSuggestions] = useState<{ id?: string; username: string; display_name?: string }[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [nomineeSuggestions, setNomineeSuggestions] = useState<{ id?: string; username: string; display_name?: string }[]>([]);
+  const [showNomineeSuggestions, setShowNomineeSuggestions] = useState(false);
   const [antiCharityCause, setAntiCharityCause] = useState("Opposing Political Party");
   const [opponentUsername, setOpponentUsername] = useState("");
+  const [opponentSuggestions, setOpponentSuggestions] = useState<{ id?: string; username: string; display_name?: string }[]>([]);
+  const [showOpponentSuggestions, setShowOpponentSuggestions] = useState(false);
   const [opponentId, setOpponentId] = useState("");
   const [infoModal, setInfoModal] = useState<{ title: string; desc: string } | null>(null);
 
@@ -59,7 +63,10 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   // walletBalance is stored in USD; convert to local for comparison
   const walletInLocal = convertToLocal(walletBalance, region);
   const stakeUsd = convertToUSD(stakeNum, region);
-  const isOverBudget = isFinancial && stakeNum > walletInLocal;
+  const multiplier = oathType === "squad" ? maxPlayers : oathType === "duo" ? 2 : 1;
+  const totalStakeLocal = isFinancial ? stakeNum * multiplier : 0;
+  const totalStakeUsd = isFinancial ? stakeUsd * multiplier : 0;
+  const isOverBudget = isFinancial && totalStakeLocal > walletInLocal;
 
   // Handle mobile-exclusive features
   const handleMobileExclusive = (feature: string) => {
@@ -81,13 +88,13 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
 
     const timer = setTimeout(async () => {
       if (query.length < 1 || isEmailFormat) {
-        setUserSuggestions([]);
-        setShowSuggestions(false);
+        setNomineeSuggestions([]);
+        setShowNomineeSuggestions(false);
         return;
       }
       const results = await searchUsersByUsername(query);
-      setUserSuggestions(results);
-      setShowSuggestions(results.length > 0);
+      setNomineeSuggestions(results);
+      setShowNomineeSuggestions(results.length > 0);
     }, 300); // 300ms debounce to prevent spamming DB
 
     return () => clearTimeout(timer);
@@ -102,13 +109,13 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
     const query = opponentUsername.replace("@", "").trim();
     const timer = setTimeout(async () => {
       if (query.length < 1) {
-        setUserSuggestions([]);
-        setShowSuggestions(false);
+        setOpponentSuggestions([]);
+        setShowOpponentSuggestions(false);
         return;
       }
       const results = await searchUsersByUsername(query);
-      setUserSuggestions(results);
-      setShowSuggestions(results.length > 0);
+      setOpponentSuggestions(results);
+      setShowOpponentSuggestions(results.length > 0);
     }, 300);
     return () => clearTimeout(timer);
   }, [opponentUsername, oathType]);
@@ -125,7 +132,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
         return;
       }
       if (isOverBudget) {
-        showToast("Insufficient funds. Deposit more or lower the stake.", "error");
+        showToast(`Insufficient funds. You need ${formatRegionCurrency(totalStakeUsd)} for this ${oathType} oath.`, "error");
         return;
       }
     }
@@ -161,6 +168,16 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
     const statementWithCause = oathStatement.trim();
 
     setSubmitting(true);
+    let finalOpponentId = opponentId;
+    if (oathType === "duo" && !finalOpponentId && opponentUsername.trim()) {
+      const clean = opponentUsername.replace("@", "").trim();
+      const results = await searchUsersByUsername(clean);
+      const match = results.find(u => u.username.toLowerCase() === clean.toLowerCase());
+      if (match?.id) {
+        finalOpponentId = match.id;
+      }
+    }
+
     const { error } = await createOath({
       oath_statement: statementWithCause,
       deadline: deadlineDate.toISOString(),
@@ -172,10 +189,10 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
       social_ransom_phone: socialPhone || undefined,
       social_ransom_message: socialMessage || undefined,
       anti_charity_cause: consequenceType === "anti_charity" ? antiCharityCause : undefined,
-      min_players: oathType === "squad" ? 4 : (oathType === "duo" ? 2 : 1),
-      max_players: oathType === "squad" ? 8 : (oathType === "duo" ? 2 : 1),
+      min_players: oathType === "squad" ? Math.min(3, maxPlayers) : (oathType === "duo" ? 2 : 1),
+      max_players: oathType === "squad" ? maxPlayers : (oathType === "duo" ? 2 : 1),
       group_mode: oathType === "duo" || oathType === "squad" ? groupMode : undefined,
-      opponent_id: oathType === "duo" && opponentId ? opponentId : undefined,
+      opponent_id: oathType === "duo" && finalOpponentId ? finalOpponentId : undefined,
     });
     setSubmitting(false);
     if (error) {
@@ -243,21 +260,21 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 onClick={() => {
                   setOathType("duo");
                   setVerificationMethod("peer");
-                  if (consequenceType !== "fiat" && consequenceType !== "shared_oath" && consequenceType !== "physical_debt" && consequenceType !== "mutual_destruction") {
-                    setConsequenceType("shared_oath");
+                  if (consequenceType !== "fiat" && consequenceType !== "anti_charity" && consequenceType !== "public_shame" && consequenceType !== "social_ransom") {
+                    setConsequenceType("fiat");
                   }
                 }}
               />
               <TypeButton
                 icon={<Users className="w-4 h-4" />}
                 label="Squad"
-                sublabel="5-8 Players"
+                sublabel="3-8 Players"
                 isActive={oathType === "squad"}
                 onClick={() => {
                   setOathType("squad");
                   setVerificationMethod("quorum");
-                  if (consequenceType !== "fiat" && consequenceType !== "deadweight_tag" && consequenceType !== "shared_oath" && consequenceType !== "squad_lockdown") {
-                    setConsequenceType("deadweight_tag");
+                  if (consequenceType !== "fiat" && consequenceType !== "anti_charity" && consequenceType !== "public_shame" && consequenceType !== "social_ransom") {
+                    setConsequenceType("fiat");
                   }
                 }}
               />
@@ -328,6 +345,30 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
             </div>
           </div>
 
+          {oathType === "squad" && (
+            <div className="mt-4 border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-950/50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
+              <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.2em] mb-2.5 block">
+                Squad Size ({maxPlayers} Players)
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {[4, 5, 6, 8].map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => setMaxPlayers(size)}
+                    className={`py-2 text-xs font-mono font-bold border-2 transition-colors ${
+                      maxPlayers === size
+                        ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-500 dark:bg-zinc-800 dark:text-zinc-100"
+                        : "border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-600"
+                    }`}
+                  >
+                    {size} Players
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {(oathType === "duo" || oathType === "squad") && (
             <div className="mt-4">
               <label className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em] mb-3 block">
@@ -370,15 +411,18 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                     selectedFromDropdownRef.current = false;
                     setOpponentUsername(e.target.value);
                   }}
-                  onFocus={() => { if (userSuggestions.length > 0) setShowSuggestions(true); }}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  onFocus={() => { if (opponentSuggestions.length > 0) setShowOpponentSuggestions(true); }}
+                  onBlur={() => setTimeout(() => setShowOpponentSuggestions(false), 200)}
                   placeholder="@username"
                   className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
                 />
                 
-                {showSuggestions && userSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a0f] border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none z-10 max-h-40 overflow-y-auto">
-                    {userSuggestions.map((u) => (
+                {showOpponentSuggestions && opponentSuggestions.length > 0 && (
+                  <div
+                    onMouseDown={(e) => e.preventDefault()}
+                    className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a0f] border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none z-10 max-h-40 overflow-y-auto"
+                  >
+                    {opponentSuggestions.map((u) => (
                       <button
                         key={u.username}
                         type="button"
@@ -387,8 +431,8 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                           selectedFromDropdownRef.current = true;
                           setOpponentUsername("@" + u.username);
                           setOpponentId(u.id || "");
-                          setShowSuggestions(false);
-                          setUserSuggestions([]);
+                          setShowOpponentSuggestions(false);
+                          setOpponentSuggestions([]);
                         }}
                       >
                         <span className="font-bold text-zinc-950 dark:text-zinc-100 text-sm">@{u.username}</span>
@@ -621,15 +665,18 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                     selectedFromDropdownRef.current = false;
                     setNomineeEmail(e.target.value);
                   }}
-                  onFocus={() => { if (userSuggestions.length > 0) setShowSuggestions(true); }}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  onFocus={() => { if (nomineeSuggestions.length > 0) setShowNomineeSuggestions(true); }}
+                  onBlur={() => setTimeout(() => setShowNomineeSuggestions(false), 200)}
                   placeholder="@username or referee@email.com"
                   className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
                 />
                 
-                {showSuggestions && userSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a0f] border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none z-10 max-h-40 overflow-y-auto">
-                    {userSuggestions.map((u) => (
+                {showNomineeSuggestions && nomineeSuggestions.length > 0 && (
+                  <div
+                    onMouseDown={(e) => e.preventDefault()}
+                    className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a0f] border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none z-10 max-h-40 overflow-y-auto"
+                  >
+                    {nomineeSuggestions.map((u) => (
                       <button
                         key={u.username}
                         type="button"
@@ -637,8 +684,8 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                         onClick={() => {
                           selectedFromDropdownRef.current = true;
                           setNomineeEmail("@" + u.username);
-                          setShowSuggestions(false);
-                          setUserSuggestions([]);
+                          setShowNomineeSuggestions(false);
+                          setNomineeSuggestions([]);
                         }}
                       >
                         <span className="font-bold text-zinc-950 dark:text-zinc-100 text-sm">@{u.username}</span>
@@ -709,10 +756,17 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                   )}
                   {" "}or I lose{" "}
                   <span className={`font-black ${isOverBudget ? "text-red-500" : "text-zinc-950 dark:text-zinc-50"}`}>
-                    {formatRegionCurrency(stakeUsd)}
+                    {formatRegionCurrency(totalStakeUsd)}
                   </span>
+                  {multiplier > 1 && ` (${multiplier}x total for ${oathType})`}
                   .&rdquo;
                 </p>
+              </div>
+            )}
+
+            {multiplier > 1 && isFinancial && (
+              <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 mb-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
+                💡 <strong>Leader Pays All:</strong> You are locking the stake for all {multiplier} players ({multiplier} × {formatRegionCurrency(stakeUsd)} = <strong>{formatRegionCurrency(totalStakeUsd)}</strong>). {oathType === "duo" ? "Opponent joins for free." : "Squad members join for free."}
               </div>
             )}
 
@@ -727,7 +781,11 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 }`}
               >
                 <Zap className="w-4 h-4" />
-                {submitting ? "Locking Escrow..." : isFinancial ? `Lock ${formatRegionCurrency(stakeUsd)} & Create Oath` : "Create Oath"}
+                {submitting
+                  ? "Locking Escrow..."
+                  : isFinancial
+                  ? `Lock ${formatRegionCurrency(totalStakeUsd)} & Create Oath${multiplier > 1 ? ` (${multiplier}x Leader Pays All)` : ""}`
+                  : "Create Oath"}
               </button>
             </div>
 
@@ -735,7 +793,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
               <div className="flex items-center gap-2 mt-3 text-red-500 font-bold">
                 <AlertCircle className="w-3.5 h-3.5" />
                 <span className="text-[11px] font-mono">
-                  Stake exceeds wallet balance. Deposit more funds.
+                  Total stake of {formatRegionCurrency(totalStakeUsd)} exceeds wallet balance. Deposit more funds.
                 </span>
               </div>
             )}

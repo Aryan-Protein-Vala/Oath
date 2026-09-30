@@ -475,11 +475,13 @@ export async function createOath(data: {
 
   if (isMockMode()) {
     const currentWallet = getInitialMockWallet();
-    if (currentWallet.balance < validStake) {
-      return { error: "Insufficient funds. Deposit more or lower the stake." };
+    const multiplier = data.oath_type === "squad" ? (data.max_players ?? 4) : data.oath_type === "duo" ? 2 : 1;
+    const totalStake = validStake * multiplier;
+    if (currentWallet.balance < totalStake) {
+      return { error: `Insufficient funds. Deposit more or lower the stake (${totalStake} required).` };
     }
 
-    const initialStatus = data.oath_type === "squad" ? "pending" : "active";
+    const initialStatus = (data.oath_type === "squad" || data.oath_type === "duo") ? "pending" : "active";
     const demoOathId = `oath-${Date.now()}`;
 
     const newOath: Oath = {
@@ -496,8 +498,8 @@ export async function createOath(data: {
       social_ransom_message: data.social_ransom_message,
       nominee_email: data.nominee_email,
       status: initialStatus,
-      min_players: data.min_players ?? 1,
-      max_players: data.max_players ?? 1,
+      min_players: data.min_players ?? (data.oath_type === "squad" ? 4 : data.oath_type === "duo" ? 2 : 1),
+      max_players: data.max_players ?? (data.oath_type === "squad" ? 8 : data.oath_type === "duo" ? 2 : 1),
       group_mode: data.group_mode,
       opponent_id: data.opponent_id,
       created_at: new Date().toISOString(),
@@ -521,8 +523,8 @@ export async function createOath(data: {
     // Update wallet
     const updatedWallet: Wallet = {
       ...currentWallet,
-      balance: currentWallet.balance - validStake,
-      escrow_locked: currentWallet.escrow_locked + validStake,
+      balance: currentWallet.balance - totalStake,
+      escrow_locked: currentWallet.escrow_locked + totalStake,
     };
     setMockWallet(updatedWallet);
 
@@ -532,7 +534,7 @@ export async function createOath(data: {
       wallet_id: currentWallet.id,
       oath_id: newOath.id,
       type: "escrow_lock",
-      amount: validStake,
+      amount: totalStake,
       description: `Locked for: ${data.oath_statement}`,
       created_at: new Date().toISOString(),
     };
@@ -724,9 +726,6 @@ export async function submitProof(data: {
 // ---- joinSquad ----
 export async function joinSquad(oathId: string, stakeAmount: number) {
   if (isMockMode()) {
-    const currentWallet = getInitialMockWallet();
-    if (currentWallet.balance < stakeAmount) return { error: "Insufficient funds to join pool." };
-
     const squads = getMockSquads();
     const target = squads.find((s) => s.id === oathId);
     if (!target) return { error: "Squad pool not found." };
@@ -750,33 +749,18 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
 
     const updatedSquads = squads.map((s) => {
       if (s.id === oathId) {
+        const updatedMembers = [...(s.members ?? []), newMember];
+        const minReached = updatedMembers.length >= (s.min_players ?? 4);
         return {
           ...s,
-          members: [...(s.members ?? []), newMember],
+          status: minReached ? ("active" as const) : s.status,
+          members: updatedMembers,
         };
       }
       return s;
     });
     setMockSquads(updatedSquads);
-
-    // Lock funds
-    const updatedWallet: Wallet = {
-      ...currentWallet,
-      balance: currentWallet.balance - stakeAmount,
-      escrow_locked: currentWallet.escrow_locked + stakeAmount,
-    };
-    setMockWallet(updatedWallet);
-
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      wallet_id: currentWallet.id,
-      oath_id: oathId,
-      type: "escrow_lock",
-      amount: stakeAmount,
-      description: `Joined squad pool: ${target.oath_statement}`,
-      created_at: new Date().toISOString(),
-    };
-    setMockTransactions([newTx, ...getMockTransactions()]);
+    notifyDataUpdated();
 
     return { error: null };
   }
@@ -852,20 +836,26 @@ export async function castVote(targetId: string, oathId: string, vote: boolean) 
 }
 
 // ---- failSquadMember — settle a member with no proof after the deadline ----
-export async function failSquadMember(oathId: string) {
+export async function failSquadMember(oathId: string, memberId?: string) {
   if (isMockMode()) {
     const squads = getMockSquads();
     const squad = squads.find((candidate) => candidate.id === oathId);
     if (!squad) return { error: "Squad not found." };
     if (new Date(squad.deadline).getTime() > Date.now()) return { error: "Squad deadline has not passed." };
-    const member = squad.members?.find((candidate) => candidate.user_id === ADMIN_MOCK_USER.id);
+    const member = memberId 
+      ? squad.members?.find((m) => m.id === memberId)
+      : squad.members?.find((m) => m.user_id === ADMIN_MOCK_USER.id);
     if (!member || member.status !== "joined") return { error: "No unresolved squad membership found." };
     if (member.proof_submitted) return { error: "Submitted proof must be resolved by quorum." };
+
+    const penaltyAmount = squad.group_mode === "weakest_link" ? squad.stake_amount * (squad.max_players ?? 4) : squad.stake_amount;
     const wallet = getInitialMockWallet();
-    if (wallet.escrow_locked < member.stake_amount) return { error: "Member escrow is inconsistent." };
-    setMockWallet({ ...wallet, escrow_locked: wallet.escrow_locked - member.stake_amount, total_lost: (wallet.total_lost ?? 0) + member.stake_amount });
+    if (wallet.escrow_locked >= penaltyAmount) {
+      setMockWallet({ ...wallet, escrow_locked: wallet.escrow_locked - penaltyAmount, total_lost: (wallet.total_lost ?? 0) + penaltyAmount });
+    }
     setMockSquads(squads.map((candidate) => candidate.id === oathId ? {
       ...candidate,
+      status: squad.group_mode === "weakest_link" ? ("failed" as const) : candidate.status,
       members: candidate.members?.map((item) => item.id === member.id ? { ...item, status: "failed" as const } : item),
     } : candidate));
     const transaction: Transaction = {
@@ -873,18 +863,51 @@ export async function failSquadMember(oathId: string) {
       wallet_id: wallet.id,
       oath_id: oathId,
       type: "penalty",
-      amount: member.stake_amount,
+      amount: penaltyAmount,
       description: "Squad deadline passed without proof",
       created_at: new Date().toISOString(),
     };
     setMockTransactions([transaction, ...getMockTransactions()]);
+    notifyDataUpdated();
     return { error: null };
   }
 
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
-  const { error } = await supabase.rpc("fail_squad_member", { p_oath_id: oathId });
+  const { error } = await supabase.rpc("fail_squad_member", { p_oath_id: oathId, p_member_id: memberId ?? null });
+  if (error) return { error: error.message };
+  notifyDataUpdated();
+  return { error: null };
+}
+
+// ---- forfeitSquadMember — member voluntary forfeiture ----
+export async function forfeitSquadMember(oathId: string) {
+  if (isMockMode()) {
+    const squads = getMockSquads();
+    const squad = squads.find((candidate) => candidate.id === oathId);
+    if (!squad) return { error: "Squad not found." };
+    const member = squad.members?.find((m) => m.user_id === ADMIN_MOCK_USER.id);
+    if (!member || member.status !== "joined") return { error: "No unresolved squad membership found." };
+
+    const penaltyAmount = squad.group_mode === "weakest_link" ? squad.stake_amount * (squad.max_players ?? 4) : squad.stake_amount;
+    const wallet = getInitialMockWallet();
+    if (wallet.escrow_locked >= penaltyAmount) {
+      setMockWallet({ ...wallet, escrow_locked: wallet.escrow_locked - penaltyAmount, total_lost: (wallet.total_lost ?? 0) + penaltyAmount });
+    }
+    setMockSquads(squads.map((candidate) => candidate.id === oathId ? {
+      ...candidate,
+      status: squad.group_mode === "weakest_link" ? ("failed" as const) : candidate.status,
+      members: candidate.members?.map((item) => item.id === member.id ? { ...item, status: "failed" as const } : item),
+    } : candidate));
+    notifyDataUpdated();
+    return { error: null };
+  }
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+  const { error } = await supabase.rpc("forfeit_squad_member", { p_oath_id: oathId });
   if (error) return { error: error.message };
   notifyDataUpdated();
   return { error: null };
@@ -915,6 +938,7 @@ export async function createDuoChallenge(data: {
   stake_amount: number;
   opponent_email?: string;
   opponent_username?: string;
+  group_mode?: "weakest_link" | "survival";
 }): Promise<{ oath?: Oath; error: string | null }> {
   if (isMockMode()) {
     const currentWallet = getInitialMockWallet();
@@ -980,7 +1004,10 @@ export async function createDuoChallenge(data: {
     p_verification_method: "peer",
     p_consequence_type: "shared_oath",
     p_stake_amount: data.stake_amount,
+    p_min_players: 2,
+    p_max_players: 2,
     p_opponent_id: opponentId,
+    p_group_mode: data.group_mode ?? "survival",
   });
   if (error || !oathId) return { error: error?.message ?? "Challenge creation failed" };
   const { data: oath, error: readError } = await supabase.from("oaths").select("*").eq("id", oathId).single();
@@ -1018,11 +1045,6 @@ export async function acceptDuoChallenge(oathId: string) {
     const target = oaths.find((o) => o.id === oathId);
     if (!target) return { error: "Challenge not found" };
 
-    const currentWallet = getInitialMockWallet();
-    if (currentWallet.balance < target.stake_amount) {
-      return { error: "Insufficient funds to accept this challenge." };
-    }
-
     const updatedOaths = oaths.map((o) => {
       if (o.id === oathId) {
         return {
@@ -1035,25 +1057,7 @@ export async function acceptDuoChallenge(oathId: string) {
       return o;
     });
     setMockOaths(updatedOaths);
-
-    // Lock funds
-    const updatedWallet: Wallet = {
-      ...currentWallet,
-      balance: currentWallet.balance - target.stake_amount,
-      escrow_locked: currentWallet.escrow_locked + target.stake_amount,
-    };
-    setMockWallet(updatedWallet);
-
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      wallet_id: currentWallet.id,
-      oath_id: oathId,
-      type: "escrow_lock",
-      amount: target.stake_amount,
-      description: `Accepted Duo Challenge: ${target.oath_statement}`,
-      created_at: new Date().toISOString(),
-    };
-    setMockTransactions([newTx, ...getMockTransactions()]);
+    notifyDataUpdated();
     return { error: null };
   }
 
@@ -1074,10 +1078,12 @@ export async function cancelDuoChallenge(oathId: string) {
     if (!oath || oath.oath_type !== "duo" || oath.status !== "pending") return { error: "Challenge is no longer pending." };
     if (oath.creator_id !== ADMIN_MOCK_USER.id) return { error: "Only the challenge creator can cancel it." };
     const wallet = getInitialMockWallet();
-    if (wallet.escrow_locked < oath.stake_amount) return { error: "Creator escrow is inconsistent." };
-    setMockWallet({ ...wallet, balance: wallet.balance + oath.stake_amount, escrow_locked: wallet.escrow_locked - oath.stake_amount });
+    const refundAmount = oath.stake_amount * 2;
+    if (wallet.escrow_locked < refundAmount) return { error: "Creator escrow is inconsistent." };
+    setMockWallet({ ...wallet, balance: wallet.balance + refundAmount, escrow_locked: wallet.escrow_locked - refundAmount });
     setMockOaths(oaths.map((item) => item.id === oathId ? { ...item, status: "cancelled" as const } : item));
-    setMockTransactions([{ id: `tx-${Date.now()}`, wallet_id: wallet.id, oath_id: oathId, type: "escrow_release", amount: oath.stake_amount, description: "Cancelled duo invite; stake returned", created_at: new Date().toISOString() }, ...getMockTransactions()]);
+    setMockTransactions([{ id: `tx-${Date.now()}`, wallet_id: wallet.id, oath_id: oathId, type: "escrow_release", amount: refundAmount, description: "Cancelled duo invite; 2x stake returned", created_at: new Date().toISOString() }, ...getMockTransactions()]);
+    notifyDataUpdated();
     return { error: null };
   }
   const supabase = createClient();

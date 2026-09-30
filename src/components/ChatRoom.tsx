@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { X, Send, Camera, Info, ShieldAlert, BadgeCheck } from "lucide-react";
+import { X, Send, Camera, Info, ShieldAlert, BadgeCheck, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Message, Oath, Profile, Proof } from "@/lib/types";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase/client";
 import { formatRelativeTime } from "@/lib/utils";
 
 interface ChatRoomProps {
@@ -18,7 +18,7 @@ export default function ChatRoom({ oath, onClose }: ChatRoomProps) {
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
 
   useEffect(() => {
     if (!user) return;
@@ -29,7 +29,7 @@ export default function ChatRoom({ oath, onClose }: ChatRoomProps) {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `oath_id=eq.${oath.id}` },
-        (payload) => {
+        (payload: { new: Message }) => {
           setMessages((prev) => [...prev, payload.new as Message]);
           scrollToBottom();
         }
@@ -93,7 +93,7 @@ export default function ChatRoom({ oath, onClose }: ChatRoomProps) {
                 {oath.oath_type}
               </span>
               <h2 className="text-xl font-black text-zinc-950 dark:text-zinc-100 tracking-tight uppercase line-clamp-1">
-                {oath.statement}
+                {oath.oath_statement}
               </h2>
             </div>
             <p className="text-xs font-mono font-bold text-zinc-600 dark:text-zinc-400">

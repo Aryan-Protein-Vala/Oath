@@ -181,12 +181,19 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
     } else {
       // Withdrawal
       if (region === "in") {
-        const { error } = await withdrawFunds(amountUsd, "admin_request");
+        if (!paypalEmail.trim()) {
+          showToast("Please enter your UPI ID (e.g. name@okhdfcbank) or bank details", "error");
+          setLoading(false);
+          return;
+        }
+
+        const destination = `UPI: ${paypalEmail.trim()}`;
+        const { error } = await withdrawFunds(amountUsd, destination);
         if (error) {
           showToast(`Withdrawal failed: ${error}`, "error");
         } else {
           setDone(true);
-          showToast(`${formatRegionCurrency(amountUsd)} withdrawal requested.`, "success");
+          showToast(`${formatRegionCurrency(amountUsd)} withdrawal requested to ${paypalEmail.trim()}.`, "success");
           onRefresh();
           setTimeout(() => { setDone(false); setAmount(""); setPaypalEmail(""); setTab("overview"); }, 2000);
         }
@@ -414,7 +421,8 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
 
 function TxRow({ tx, region }: { tx: Transaction; region: Region }) {
   const isCredit = ["deposit", "escrow_release", "reward"].includes(tx.type);
-  const isDebit = ["withdrawal", "penalty", "escrow_lock", "house_cut"].includes(tx.type);
+  const isLock = tx.type === "escrow_lock";
+  const isDebit = ["withdrawal", "penalty", "house_cut"].includes(tx.type);
 
   return (
     <div className="flex items-center justify-between py-3 border-b border-zinc-200 dark:border-zinc-800/30">
@@ -427,8 +435,10 @@ function TxRow({ tx, region }: { tx: Transaction; region: Region }) {
           <p className="text-[9px] font-mono text-zinc-500 mt-0.5">{formatRelativeTime(tx.created_at)}</p>
         </div>
       </div>
-      <span className={`text-sm font-black stake-number ${isCredit ? "text-zinc-900 dark:text-zinc-200" : isDebit ? "text-red-600" : "text-zinc-500"}`}>
-        {isCredit ? "+" : isDebit ? "-" : ""}{formatCurrency(tx.amount, region)}
+      <span className={`text-sm font-black stake-number ${
+        isCredit ? "text-zinc-900 dark:text-zinc-200" : isLock ? "text-zinc-500 dark:text-zinc-400 font-mono" : isDebit ? "text-red-600" : "text-zinc-500"
+      }`}>
+        {isCredit ? "+" : isLock ? "🔒 " : isDebit ? "-" : ""}{formatCurrency(tx.amount, region)}
       </span>
     </div>
   );

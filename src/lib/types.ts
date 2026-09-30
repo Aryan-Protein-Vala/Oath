@@ -154,9 +154,36 @@ export interface ToastMessage {
   duration?: number;
 }
 
+export interface Message {
+  id: string;
+  oath_id: string;
+  sender_id: string;
+  content: string;
+  type: "text" | "proof" | "system";
+  proof_id?: string;
+  created_at: string;
+  sender?: Profile;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: "invite_duo" | "invite_squad" | "verify_proof" | "system";
+  title?: string;
+  message?: string;
+  oath_id?: string;
+  proof_id?: string;
+  actor_id?: string;
+  status: "pending" | "accepted" | "rejected" | "read";
+  created_at: string;
+  actor?: Profile;
+  oath?: Oath;
+}
+
 export interface AppState {
   currentView: "active" | "create" | "lobbies" | "wall_shame" | "wall_honor" | "verify";
   wallet: Wallet;
   activeOaths: Oath[];
   profile: Profile;
 }
+

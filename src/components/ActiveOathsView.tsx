@@ -7,7 +7,7 @@ import { getTimeRemaining, padZero, formatCurrency as utilsFormatCurrency, forma
 import { useRegion } from "@/lib/region-context";
 import ProofUploadModal from "./ProofUploadModal";
 import ChatRoom from "./ChatRoom";
-import { forfeitOath } from "@/lib/data-hooks";
+import { forfeitOath, forfeitSquadMember } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
 import { MessageSquare } from "lucide-react";
 
@@ -314,9 +314,10 @@ function OathCountdownCard({
       {(() => {
         const isExpired = timeState.isExpired;
         const isActionable = oath.status === "active" && !isExpired;
-        const hasPendingProof = oath.proofs?.some(p => p.status === "pending_review") || oath.status === "pending";
-        const isApproved = oath.proofs?.some(p => p.status === "verified");
-        const isLockedOut = hasPendingProof || isApproved;
+        const hasPendingProof = Boolean(oath.proofs?.some(p => p.status === "pending_review"));
+        const isApproved = Boolean(oath.proofs?.some(p => p.status === "verified"));
+        const isPendingAcceptance = oath.status === "pending";
+        const isLockedOut = hasPendingProof || isApproved || isPendingAcceptance;
 
         return (
           <div className="flex items-center gap-2.5">
@@ -340,7 +341,13 @@ function OathCountdownCard({
                   }`}
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  {hasPendingProof ? "Proof In Review" : isApproved ? "Proof Verified" : "Submit Proof"}
+                  {isPendingAcceptance
+                    ? (oath.oath_type === "duo" ? "Waiting for Opponent" : "Waiting for Squad")
+                    : hasPendingProof
+                    ? "Proof In Review"
+                    : isApproved
+                    ? "Proof Verified"
+                    : "Submit Proof"}
                 </button>
                 <button
                   onClick={onOpenChat}
@@ -513,7 +520,9 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
 
   const handleForfeit = async () => {
     setLoading(true);
-    const { error } = await forfeitOath(oath.id, excuse.trim() || undefined);
+    const { error } = oath.oath_type === "squad"
+      ? await forfeitSquadMember(oath.id)
+      : await forfeitOath(oath.id, excuse.trim() || undefined);
     setLoading(false);
     if (error) {
       showToast(error, "error");

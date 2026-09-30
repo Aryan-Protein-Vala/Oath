@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { X, Check, XCircle, Bell, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Notification } from "@/lib/types";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase/client";
 import { formatRelativeTime } from "@/lib/utils";
 
 interface NotificationsPanelProps {
@@ -15,7 +15,7 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
 
   useEffect(() => {
     if (!user) return;
@@ -26,7 +26,7 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
-        (payload) => {
+        (_payload: unknown) => {
           fetchNotifications(); // Simple refresh strategy
         }
       )

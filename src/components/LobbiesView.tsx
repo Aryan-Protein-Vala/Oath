@@ -263,17 +263,13 @@ function SquadDetail({
   const poolTotal = memberCount * squad.stake_amount;
 
   const handleJoin = async () => {
-    if (wallet.balance < squad.stake_amount) {
-      showToast("Insufficient funds. Deposit more to join.", "error");
-      return;
-    }
     setLoading(true);
     const { error } = await joinSquad(squad.id, squad.stake_amount);
     setLoading(false);
     if (error) {
       showToast(error, "error");
     } else {
-      showToast("Joined accountability squad. Stake locked in escrow.", "success");
+      showToast("Joined accountability squad! Stake covered by squad leader.", "success");
       onJoined?.();
     }
   };
@@ -361,7 +357,7 @@ function SquadDetail({
       </div>
 
       {/* Join Button */}
-      {spotsLeft > 0 && squad.status === "pending" && (
+      {spotsLeft > 0 && (squad.status === "pending" || squad.status === "active") && !squad.members?.some((m) => m.user_id === user?.id) && (
         <div className="px-5 py-4 border-t-2 border-zinc-950 dark:border-zinc-800/40 bg-white dark:bg-transparent">
           <button
             onClick={handleJoin}
@@ -369,7 +365,7 @@ function SquadDetail({
             className="w-full flex items-center justify-center gap-2 py-3.5 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 text-sm font-black tracking-tight uppercase hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {loading ? "Locking Funds..." : `Join Squad — Lock ${utilsFormatCurrency(squad.stake_amount, region)}`}
+            {loading ? "Joining Squad..." : "Join Squad (Free — Covered by Leader)"}
           </button>
         </div>
       )}

@@ -35,7 +35,7 @@ export default function Home() {
 
   // Real data hooks (only fire when user is logged in)
   const { oaths, refresh: refreshOaths } = useOaths();
-  const { lobbies } = useSquadLobbies();
+  const { lobbies, refresh: refreshLobbies } = useSquadLobbies();
   const { entries: shameEntries } = useWall("shame");
   const { entries: honorEntries } = useWall("honor");
   const { transactions } = useTransactions();
@@ -95,11 +95,11 @@ export default function Home() {
         {currentView === "create" && (
           <CreateOathView
             walletBalance={activeWallet.balance}
-            onOathCreated={() => { setCurrentView("active"); refreshOaths(); refreshWallet(); }}
+            onOathCreated={() => { setCurrentView("active"); refreshOaths(); refreshLobbies(); refreshWallet(); }}
           />
         )}
         {currentView === "lobbies" && (
-          <LobbiesView squads={activeLobbies} wallet={activeWallet} onJoined={() => { refreshOaths(); refreshWallet(); }} onCreateLobby={() => setCurrentView("create")} />
+          <LobbiesView squads={activeLobbies} wallet={activeWallet} onJoined={() => { refreshOaths(); refreshLobbies(); refreshWallet(); }} onCreateLobby={() => setCurrentView("create")} />
         )}
         {currentView === "wall_shame" && (
           <WallView entries={activeShame} type="shame" />
