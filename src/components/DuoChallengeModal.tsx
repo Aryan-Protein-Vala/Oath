@@ -23,9 +23,10 @@ interface DuoChallengeModalProps {
   wallet: Wallet;
   onClose: () => void;
   onSuccess: () => void;
+  onCreateSharedAlternative?: () => void;
 }
 
-export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoChallengeModalProps) {
+export default function DuoChallengeModal({ wallet, onClose, onSuccess, onCreateSharedAlternative }: DuoChallengeModalProps) {
   const [step, setStep] = useState<"setup" | "invite" | "done">("setup");
   const [statement, setStatement] = useState("");
   const [deadline, setDeadline] = useState("");
@@ -141,13 +142,13 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
             {/* Oath Statement */}
             <div>
               <label className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-[0.15em] mb-1.5 block font-bold">
-                The Shared Oath
+                Challenge Statement
               </label>
               <textarea
                 maxLength={500}
                 value={statement}
                 onChange={(e) => setStatement(e.target.value)}
-                placeholder="Both of you swear to..."
+                placeholder="The goal you are competing on..."
                 className="w-full px-3.5 py-3 text-sm border-2 border-zinc-900 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:border-zinc-950 dark:focus:border-zinc-400 resize-none transition-colors outline-none"
                 rows={2}
               />
@@ -169,7 +170,7 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
                 />
               </div>
               <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 mt-1">
-                Leave empty to send an invite link instead.
+                Leave empty to send an invite link instead. The invited member verifies the creator’s oath; this head-to-head flow does not track two independent completions.
               </p>
             </div>
 
@@ -205,6 +206,12 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
                   className="w-full text-sm bg-transparent text-zinc-900 dark:text-zinc-100 outline-none border-none"
                 />
               </div>
+            </div>
+
+            <div className="border-2 border-emerald-700/50 bg-emerald-50/60 dark:bg-emerald-950/20 p-3">
+              <p className="text-[10px] font-mono font-bold text-emerald-900 dark:text-emerald-300">Want a no-money shared goal?</p>
+              <p className="mt-1 text-[10px] font-mono text-zinc-600 dark:text-zinc-400">Create a Squad Recovery Quest: everyone works on the same statement, stakes are not used, and each person is reviewed separately. Squads need 4–8 people. This Duo flow remains a head-to-head sandbox-stake challenge.</p>
+              {onCreateSharedAlternative && <button type="button" onClick={onCreateSharedAlternative} className="mt-2 min-h-11 px-3 border-2 border-emerald-700 text-[10px] font-black uppercase text-emerald-900 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-950/40">Create a squad quest instead</button>}
             </div>
 
             {/* How it works */}

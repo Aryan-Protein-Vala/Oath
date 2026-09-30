@@ -147,30 +147,17 @@ function WallEntryCard({
           )}
         </div>
 
-        {/* Right — stake amount */}
+        {/* Money appears only for entries with a real sandbox stake. */}
         <div className="flex flex-col items-end shrink-0">
-          <div className="flex items-center gap-1">
-            {isShame ? (
-              <Ban className="w-3.5 h-3.5 text-red-600" />
-            ) : (
-              <DollarSign className="w-3.5 h-3.5 text-zinc-500" />
-            )}
-            <span
-              className={`text-lg font-black stake-number tracking-tight ${
-                isShame ? "text-red-600 dark:text-red-500" : "text-zinc-950 dark:text-zinc-200"
-              }`}
-            >
-              {isShame ? "-" : "+"}
-              {formatCurrency(entry.stake_amount, region)}
-            </span>
-          </div>
-          <span
-            className={`text-[9px] font-mono font-bold mt-0.5 ${
-              isShame ? "text-red-700 dark:text-red-400" : "text-zinc-500"
-            }`}
-          >
-            {isShame ? "LOST" : "EARNED"}
-          </span>
+          {entry.stake_amount > 0 ? <>
+            <div className="flex items-center gap-1">
+              {isShame ? <Ban className="w-3.5 h-3.5 text-red-600" /> : <DollarSign className="w-3.5 h-3.5 text-zinc-500" />}
+              <span className={`text-lg font-black stake-number tracking-tight ${isShame ? "text-red-600 dark:text-red-500" : "text-zinc-950 dark:text-zinc-200"}`}>
+                {isShame ? "-" : "+"}{formatCurrency(entry.stake_amount, region)}
+              </span>
+            </div>
+            <span className={`text-[9px] font-mono font-bold mt-0.5 ${isShame ? "text-red-700 dark:text-red-400" : "text-zinc-500"}`}>{isShame ? "VIRTUAL LOSS" : "VIRTUAL GAIN"}</span>
+          </> : <span className="text-[9px] font-mono font-bold text-zinc-500">NO MONEY AT STAKE</span>}
         </div>
       </div>
     </div>

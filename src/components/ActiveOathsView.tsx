@@ -92,7 +92,7 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
                 showToast(error, "error");
                 return false;
               }
-              showToast(verdict === "success" ? "Success recorded; virtual stake settled." : "Failure recorded; virtual stake settled.", "success");
+              showToast(selectedOath.stake_amount > 0 ? (verdict === "success" ? "Success recorded; virtual stake settled." : "Failure recorded; virtual stake settled.") : (verdict === "success" ? "Success recorded. No monetary stake was involved." : "Failure recorded. No monetary stake was involved."), "success");
               onProofSubmitted?.();
               return true;
             }}
@@ -165,7 +165,7 @@ function OathListItem({ oath, isSelected, onClick }: { oath: Oath; isSelected: b
             <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 uppercase font-semibold">{oath.oath_type}</span>
             <span className="text-zinc-400">·</span>
             <span className="text-[10px] font-mono font-black text-zinc-800 dark:text-zinc-300 stake-number">
-              {utilsFormatCurrency(oath.stake_amount, region)}
+              {oath.stake_amount > 0 ? `${utilsFormatCurrency(oath.stake_amount, region)} virtual` : "No monetary stake"}
             </span>
           </div>
         </div>
@@ -271,15 +271,13 @@ function OathCountdownCard({
         )}
       </div>
 
-      {/* Stake */}
+      {/* Show money only when this oath actually has a financial stake. */}
       <div className="text-center mb-6">
-        <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-[0.2em] font-bold mb-1">At stake</p>
-        <p className="text-4xl sm:text-5xl font-black text-zinc-950 dark:text-zinc-50 stake-number tracking-tight">
-          {utilsFormatCurrency(oath.stake_amount, region)}
-        </p>
-        <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-500 mt-1">
-          {oath.oath_type === "duo" ? `${oath.house_cut_percent}% fee on the winner’s virtual payout` : oath.stake_amount > 0 ? "Virtual stake forfeited on failure" : "No virtual stake"}
-        </p>
+        {oath.stake_amount > 0 ? <>
+          <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-[0.2em] font-bold mb-1">Virtual stake</p>
+          <p className="text-4xl sm:text-5xl font-black text-zinc-950 dark:text-zinc-50 stake-number tracking-tight">{utilsFormatCurrency(oath.stake_amount, region)}</p>
+          <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-500 mt-1">{oath.oath_type === "duo" ? `${oath.house_cut_percent}% fee on the winner’s virtual payout` : "Virtual stake forfeited on failure"}</p>
+        </> : <p className="text-sm font-mono font-bold uppercase tracking-wider text-zinc-500">No monetary stake</p>}
       </div>
 
       {/* Progress bar */}
@@ -483,8 +481,8 @@ function OathDetailsModal({ oath, onClose }: { oath: Oath; onClose: () => void }
               <span className="text-sm font-mono font-black text-zinc-900 dark:text-zinc-200 uppercase">{oath.consequence_type.replace(/_/g, " ")}</span>
             </div>
             <div>
-              <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Virtual Stake Locked</span>
-              <span className="text-sm font-mono font-black text-zinc-900 dark:text-zinc-200">{utilsFormatCurrency(oath.stake_amount, region)}</span>
+              <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">{oath.stake_amount > 0 ? "Virtual Stake Locked" : "Financial consequence"}</span>
+              <span className="text-sm font-mono font-black text-zinc-900 dark:text-zinc-200">{oath.stake_amount > 0 ? utilsFormatCurrency(oath.stake_amount, region) : "None"}</span>
             </div>
             <div>
               <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Duo Platform Fee</span>
@@ -568,8 +566,7 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
           Are you conceding defeat?
         </p>
         <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 mb-4 leading-relaxed">
-          Forfeiting immediately terminates this oath. Its virtual stake of{" "}
-          <strong className="text-red-600 dark:text-red-500 font-bold">{utilsFormatCurrency(oath.stake_amount, region)}</strong> will be forfeited in the sandbox; no cash moves. {oath.consequence_type === "public_shame" ? "This oath opted into the public wall, so the failure note will be posted there." : "This oath did not opt into the public wall, so no wall entry will be created."}
+          Forfeiting immediately terminates this oath. {oath.stake_amount > 0 ? <>Its virtual stake of <strong className="text-red-600 dark:text-red-500 font-bold">{utilsFormatCurrency(oath.stake_amount, region)}</strong> will be forfeited in the sandbox; no cash moves.</> : "This oath has no monetary consequence."} {oath.consequence_type === "public_shame" ? "This oath opted into the public wall, so the failure note will be posted there." : "This oath did not opt into the public wall, so no wall entry will be created."}
         </p>
 
         <div className="mb-4">
@@ -591,7 +588,7 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
             disabled={loading}
             className="flex-1 py-3 bg-red-600 text-white font-black text-xs uppercase tracking-wider hover:bg-red-700 transition-colors disabled:opacity-50"
           >
-            {loading ? "Processing..." : `Forfeit ${utilsFormatCurrency(oath.stake_amount, region)}`}
+            {loading ? "Processing..." : oath.stake_amount > 0 ? `Forfeit ${utilsFormatCurrency(oath.stake_amount, region)}` : "Forfeit oath"}
           </button>
           <button
             onClick={onClose}

@@ -17,6 +17,7 @@ interface TopNavProps {
   username: string;
   onWalletClick: () => void;
   onDuoClick: () => void;
+  reviewCount?: number;
 }
 
 export default function TopNav({
@@ -26,6 +27,7 @@ export default function TopNav({
   username,
   onWalletClick,
   onDuoClick,
+  reviewCount = 0,
 }: TopNavProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const { region, setRegion } = useRegion();
@@ -53,6 +55,7 @@ export default function TopNav({
             <NavTab label="Active" isActive={currentView === "active"} onClick={() => onViewChange("active")} />
             <NavTab label="Create" isActive={currentView === "create"} onClick={() => onViewChange("create")} />
             <NavTab label="Lobbies" isActive={currentView === "lobbies"} onClick={() => onViewChange("lobbies")} />
+            <NavTab label="Reviews" badge={reviewCount} isActive={currentView === "reviews"} onClick={() => onViewChange("reviews")} />
             <NavTab label="Shame" isActive={currentView === "wall_shame"} onClick={() => onViewChange("wall_shame")} accent />
             <NavTab label="Honor" isActive={currentView === "wall_honor"} onClick={() => onViewChange("wall_honor")} />
           </div>
@@ -142,6 +145,7 @@ export default function TopNav({
         <NavTab label="Active" isActive={currentView === "active"} onClick={() => onViewChange("active")} mobile />
         <NavTab label="Create" isActive={currentView === "create"} onClick={() => onViewChange("create")} mobile />
         <NavTab label="Lobbies" isActive={currentView === "lobbies"} onClick={() => onViewChange("lobbies")} mobile />
+        <NavTab label="Review" badge={reviewCount} isActive={currentView === "reviews"} onClick={() => onViewChange("reviews")} mobile />
         <NavTab label="Shame" isActive={currentView === "wall_shame"} onClick={() => onViewChange("wall_shame")} accent mobile />
         <NavTab label="Honor" isActive={currentView === "wall_honor"} onClick={() => onViewChange("wall_honor")} mobile />
         <NavTab label="Me" isActive={currentView === "profile"} onClick={() => onViewChange("profile")} mobile />
@@ -156,16 +160,19 @@ function NavTab({
   onClick,
   accent,
   mobile,
+  badge,
 }: {
   label: string;
   isActive: boolean;
   onClick: () => void;
   accent?: boolean;
   mobile?: boolean;
+  badge?: number;
 }) {
   return (
     <button
       onClick={onClick}
+      aria-label={badge ? `${label}, ${badge} pending` : label}
       className={`
         ${mobile ? "flex-1 py-2.5" : "px-3.5 py-2"}
         text-[11px] font-black tracking-widest uppercase transition-all border-b-2
@@ -180,7 +187,7 @@ function NavTab({
         }
       `}
     >
-      {label}
+      <span className="inline-flex items-center justify-center gap-1.5">{label}{Boolean(badge) && <span className="inline-flex min-w-4 h-4 px-1 items-center justify-center rounded-full bg-red-600 text-white text-[8px] leading-none">{badge}</span>}</span>
     </button>
   );
 }

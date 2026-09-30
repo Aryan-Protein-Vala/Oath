@@ -11,12 +11,13 @@ import ProfileView from "@/components/ProfileView";
 import LandingView from "@/components/LandingView";
 import WalletModal from "@/components/WalletModal";
 import DuoChallengeModal from "@/components/DuoChallengeModal";
+import NomineeInboxView from "@/components/NomineeInboxView";
 import { ToastContainer } from "@/components/Toast";
 import { useAuth } from "@/lib/auth-context";
-import { useOaths, useSquadLobbies, useWall, useTransactions } from "@/lib/data-hooks";
+import { useOaths, useSquadLobbies, useWall, useTransactions, useNomineeRequests } from "@/lib/data-hooks";
 import { mockProfile, mockWallet } from "@/lib/mock-data";
 
-type View = "active" | "create" | "lobbies" | "wall_shame" | "wall_honor" | "profile";
+type View = "active" | "create" | "lobbies" | "reviews" | "wall_shame" | "wall_honor" | "profile";
 
 export default function Home() {
   const [currentView, setCurrentView] = useState<View>("active");
@@ -32,6 +33,7 @@ export default function Home() {
   const { entries: shameEntries } = useWall("shame");
   const { entries: honorEntries } = useWall("honor");
   const { transactions } = useTransactions();
+  const { requests: nomineeRequests, loading: nomineeRequestsLoading, refresh: refreshNomineeRequests } = useNomineeRequests();
 
   // Show loading state while auth resolves
   if (loading) {
@@ -74,6 +76,7 @@ export default function Home() {
         username={activeProfile.username}
         onWalletClick={() => setShowWalletModal(true)}
         onDuoClick={() => setShowDuoModal(true)}
+        reviewCount={nomineeRequests.length}
       />
 
       {/* Main Content */}
@@ -93,6 +96,9 @@ export default function Home() {
         )}
         {currentView === "lobbies" && (
           <LobbiesView squads={activeLobbies} wallet={activeWallet} onJoined={() => { refreshOaths(); refreshWallet(); }} />
+        )}
+        {currentView === "reviews" && (
+          <NomineeInboxView requests={nomineeRequests} loading={nomineeRequestsLoading} onResolved={() => { refreshNomineeRequests(); refreshOaths(); refreshWallet(); }} />
         )}
         {currentView === "wall_shame" && (
           <WallView entries={activeShame} type="shame" />
@@ -124,6 +130,7 @@ export default function Home() {
           wallet={activeWallet}
           onClose={() => setShowDuoModal(false)}
           onSuccess={() => { refreshOaths(); setCurrentView("active"); }}
+          onCreateSharedAlternative={() => { setShowDuoModal(false); setCurrentView("create"); }}
         />
       )}
 

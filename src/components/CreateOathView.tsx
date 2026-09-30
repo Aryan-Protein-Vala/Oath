@@ -1,14 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { createOath } from "@/lib/data-hooks";
+import { useEffect, useState } from "react";
+import { createOath, searchRegisteredUsers } from "@/lib/data-hooks";
 import {
   Zap,
   User,
   Users,
   DollarSign,
   MessageSquare,
-  Phone,
   Calendar,
   Shield,
   Camera,
@@ -18,7 +17,6 @@ import {
   Flame,
   Activity,
   UserX,
-  PieChart,
   Info,
   X
 } from "lucide-react";
@@ -41,15 +39,32 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   const [verificationMethod, setVerificationMethod] = useState<VerificationMethod>("solo_lonely");
   const [stakeAmount, setStakeAmount] = useState("");
   const [deadline, setDeadline] = useState("");
-  const [socialPhone, setSocialPhone] = useState("");
-  const [socialMessage, setSocialMessage] = useState("");
-  const [nomineeEmail, setNomineeEmail] = useState("");
+  const [nomineeQuery, setNomineeQuery] = useState("");
+  const [nomineeOptions, setNomineeOptions] = useState<{ id: string; username: string; display_name: string | null }[]>([]);
+  const [nomineeOptionsQuery, setNomineeOptionsQuery] = useState("");
+  const [selectedNominee, setSelectedNominee] = useState<{ id: string; username: string } | null>(null);
   const [infoModal, setInfoModal] = useState<{ title: string; desc: string } | null>(null);
 
   const stakeNum = parseFloat(stakeAmount) || 0;
   const stakeUsd = convertToUSD(stakeNum, region);
   const isOverBudget = stakeUsd > walletBalance;
-  const requiresStake = consequenceType === "fiat" || oathType === "duo" || oathType === "squad";
+  const isFinancialConsequence = consequenceType === "fiat";
+  const requiresStake = isFinancialConsequence || oathType === "duo";
+  const chooseConsequence = (type: ConsequenceType) => {
+    setConsequenceType(type);
+    if (type !== "fiat") setStakeAmount("");
+  };
+
+  useEffect(() => {
+    const normalizedQuery = nomineeQuery.trim().replace(/^@/, "");
+    if (verificationMethod !== "nominee" || normalizedQuery.length < 2 || selectedNominee) return;
+    const timer = window.setTimeout(async () => {
+      const result = await searchRegisteredUsers(nomineeQuery);
+      setNomineeOptions(result.users);
+      setNomineeOptionsQuery(nomineeQuery);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [verificationMethod, nomineeQuery, selectedNominee]);
 
   // Handle mobile-exclusive features
   const handleMobileExclusive = (feature: string) => {
@@ -88,12 +103,8 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
       showToast("Deadline must be in the future.", "error");
       return;
     }
-    if (verificationMethod === "nominee" && !nomineeEmail.trim()) {
-      showToast("Please provide the nominee referee email.", "error");
-      return;
-    }
-    if (consequenceType === "social_ransom" && (!socialPhone.trim() || !socialMessage.trim())) {
-      showToast("Social ransom requires both a recipient phone number and a ransom message.", "error");
+    if (verificationMethod === "nominee" && !selectedNominee) {
+      showToast("Choose a registered user as the nominee.", "error");
       return;
     }
 
@@ -106,10 +117,8 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
         oath_type: oathType,
         verification_method: verificationMethod,
         consequence_type: consequenceType,
-        stake_amount: stakeUsd,
-        nominee_email: nomineeEmail || undefined,
-        social_ransom_phone: socialPhone || undefined,
-        social_ransom_message: socialMessage || undefined,
+        stake_amount: isFinancialConsequence ? stakeUsd : 0,
+        nominee_user_id: verificationMethod === "nominee" ? selectedNominee?.id : undefined,
         min_players: oathType === "squad" ? 4 : 1,
         max_players: oathType === "squad" ? 8 : 1,
       });
@@ -172,6 +181,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 onClick={() => {
                   setOathType("solo");
                   setVerificationMethod("solo_lonely");
+                  setSelectedNominee(null);
                   if (consequenceType !== "fiat" && consequenceType !== "social_ransom" && consequenceType !== "app_blocking" && consequenceType !== "anti_charity" && consequenceType !== "public_shame") {
                     setConsequenceType("fiat");
                   }
@@ -194,8 +204,10 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 onClick={() => {
                   setOathType("squad");
                   setVerificationMethod("quorum");
+                  setSelectedNominee(null);
                   if (consequenceType !== "deadweight_tag" && consequenceType !== "bounty_split" && consequenceType !== "squad_lockdown") {
                     setConsequenceType("deadweight_tag");
+                    setStakeAmount("");
                   }
                 }}
               />
@@ -215,7 +227,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                     label="Sandbox stake"
                     sublabel="Virtual ledger"
                     isActive={consequenceType === "fiat"}
-                    onClick={() => setConsequenceType("fiat")}
+                    onClick={() => chooseConsequence("fiat")}
                     onInfo={() => setInfoModal({ title: "Sandbox stake", desc: "A failed oath forfeits the virtual stake from the demo ledger. This build does not process payments or cash withdrawals." })}
                   />
                   <TypeButton
@@ -225,7 +237,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                     isActive={consequenceType === "social_ransom"}
                     onClick={() => showToast("SMS delivery is not configured yet; this consequence is unavailable.", "info")}
                     disabled
-                    onInfo={() => setInfoModal({ title: "Social Ransom", desc: "Automated messaging is not configured, so OATH will not collect or send a recipient phone number in this build." })}
+                    onInfo={() => setInfoModal({ title: "Social Ransom", desc: "This build has no secure staff dispatch workflow or delivery provider. OATH does not collect recipient details or claim to send messages." })}
                   />
                   <TypeButton
                     icon={<Lock className="w-3.5 h-3.5" />}
@@ -243,14 +255,14 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                     isActive={consequenceType === "anti_charity"}
                     onClick={() => showToast("Donation routing is not configured yet; this consequence is unavailable.", "info")}
                     disabled
-                    onInfo={() => setInfoModal({ title: "Donation routing", desc: "OATH does not currently route forfeited stakes to charities. This option is unavailable until that integration exists." })}
+                    onInfo={() => setInfoModal({ title: "Donation routing", desc: "A selected destination alone would not make a donation. OATH has no payment or charity-disbursement integration, so this option stays unavailable rather than implying funds were sent." })}
                   />
                   <TypeButton
                     icon={<AlertCircle className="w-4 h-4" />}
                     label="Public Shame"
                     sublabel="Wall of Shame"
                     isActive={consequenceType === "public_shame"}
-                    onClick={() => setConsequenceType("public_shame")}
+                    onClick={() => chooseConsequence("public_shame")}
                     onInfo={() => setInfoModal({ title: "Public Shame", desc: "If you fail, the oath statement and failure note are published to the public Wall of Shame. No proof photo is published." })}
                   />
                 </>
@@ -291,20 +303,19 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 <>
                   <TypeButton
                     icon={<UserX className="w-4 h-4" />}
-                    label="Member status"
-                    sublabel="Squad-only result"
+                    label="Recovery Quest"
+                    sublabel="No monetary stake"
                     isActive={consequenceType === "deadweight_tag"}
-                    onClick={() => setConsequenceType("deadweight_tag")}
-                    onInfo={() => setInfoModal({ title: "Squad status", desc: "Quorum votes mark each member complete or failed. This build does not publish a permanent profile label or redistribute stakes." })}
+                    onClick={() => chooseConsequence("deadweight_tag")}
+                    onInfo={() => setInfoModal({ title: "Recovery quest", desc: "Each member is reviewed individually by quorum. A missed oath stays in history; the member can complete a private reflection and set a new check-in before the failed badge is cleared; the failure stays in history." })}
                   />
                   <TypeButton
-                    icon={<PieChart className="w-4 h-4" />}
-                    label="Bounty Split"
-                    sublabel="Not available yet"
-                    isActive={consequenceType === "bounty_split"}
-                    onClick={() => showToast("Bounty redistribution is not configured yet.", "info")}
-                    disabled
-                    onInfo={() => setInfoModal({ title: "Bounty split", desc: "This build does not redistribute failed members’ stakes to winners." })}
+                    icon={<DollarSign className="w-4 h-4" />}
+                    label="Individual sandbox loss"
+                    sublabel="Forfeit your own virtual stake"
+                    isActive={consequenceType === "fiat"}
+                    onClick={() => chooseConsequence("fiat")}
+                    onInfo={() => setInfoModal({ title: "Individual sandbox loss", desc: "Each member risks only their own virtual stake. If they fail, it is forfeited in the sandbox ledger; no amount is redistributed to squad winners and no real money moves." })}
                   />
                   <TypeButton
                     icon={<Lock className="w-4 h-4" />}
@@ -320,36 +331,10 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
             </div>
           </div>
 
-          {/* SOCIAL RANSOM FIELDS */}
-          {(consequenceType === "social_ransom") && (
-            <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950/50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none space-y-4 fade-in">
-              <div className="flex items-center gap-2 mb-2">
-                <Phone className="w-4 h-4 text-zinc-950 dark:text-zinc-500" />
-                <span className="text-[11px] font-mono font-bold text-zinc-950 dark:text-zinc-400 uppercase tracking-[0.2em]">
-                  Social Ransom Target
-                </span>
-              </div>
-              <input
-                type="tel"
-                value={socialPhone}
-                onChange={(e) => setSocialPhone(e.target.value)}
-                placeholder="Friend's phone number"
-                className="w-full px-3 py-3 text-sm bg-white dark:bg-zinc-950 border-2 border-zinc-950 dark:border-zinc-700 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none"
-              />
-              <textarea
-                value={socialMessage}
-                onChange={(e) => setSocialMessage(e.target.value)}
-                placeholder="The embarrassing message that gets sent if you fail..."
-                className="w-full px-3 py-3 text-sm resize-none bg-white dark:bg-zinc-950 border-2 border-zinc-950 dark:border-zinc-700 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none"
-                rows={3}
-              />
-            </div>
-          )}
-
           {/* STAKE & DEADLINE ROW */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* STAKE AMOUNT */}
-            <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950/50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
+          <div className={`grid grid-cols-1 ${isFinancialConsequence ? "sm:grid-cols-2" : "sm:grid-cols-1"} gap-4`}>
+            {/* STAKE AMOUNT — only shown for financial consequences */}
+            {isFinancialConsequence && <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950/50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
               <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.2em] mb-2 block">
                 Virtual stake
               </label>
@@ -395,7 +380,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                   </button>
                 ))}
               </div>
-            </div>
+            </div>}
 
             {/* DEADLINE */}
             <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950/50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
@@ -451,11 +436,11 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
               <TypeButton
                 icon={<Shield className="w-4 h-4" />}
                 label="Nominee"
-                sublabel="Not available yet"
+                sublabel="Registered user inbox"
                 isActive={verificationMethod === "nominee"}
-                onClick={() => showToast("Nominee invite delivery is not configured yet.", "info")}
-                disabled
-                onInfo={() => setInfoModal({ title: "Nominee verification", desc: "A secure token flow exists server-side, but delivery is not configured. Use another verification method for now." })}
+                onClick={() => { setVerificationMethod("nominee"); setSelectedNominee(null); }}
+                disabled={oathType !== "solo"}
+                onInfo={() => setInfoModal({ title: "Nominee verification", desc: "Choose a registered OATH user. They will receive a request in their Reviews inbox and can approve or reject it. A verdict settles this sandbox oath immediately." })}
               />
               <TypeButton
                 icon={<Users className="w-4 h-4" />}
@@ -483,25 +468,43 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
             </div>
           </div>
 
-          {/* NOMINEE INPUT */}
+          {/* REGISTERED NOMINEE PICKER */}
           {verificationMethod === "nominee" && (
             <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-950/50 fade-in shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
-              <div className="flex items-center gap-2 mb-3">
-                <Shield className="w-3.5 h-3.5 text-zinc-500" />
-                <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-500 uppercase tracking-[0.2em]">
-                  Nominee Email or Phone
-                </span>
-              </div>
-              <input
-                type="email"
-                value={nomineeEmail}
-                onChange={(e) => setNomineeEmail(e.target.value)}
-                placeholder="nominee@email.com or +1234567890"
-                className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
-              />
-              <p className="text-[10px] font-bold text-zinc-500 mt-2.5 font-mono">
-                Nominee delivery is unavailable until an email provider is configured.
-              </p>
+              <label htmlFor="nominee-search" className="flex items-center gap-2 mb-3 text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.2em]">
+                <Shield className="w-3.5 h-3.5" /> Choose a registered nominee
+              </label>
+              {selectedNominee ? (
+                <div className="flex items-center justify-between gap-3 border-2 border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3">
+                  <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">@{selectedNominee.username}</span>
+                  <button type="button" onClick={() => { setSelectedNominee(null); setNomineeQuery(""); }} className="min-h-11 px-3 text-[10px] font-black uppercase text-zinc-600 hover:text-red-600">Change</button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    id="nominee-search"
+                    type="search"
+                    value={nomineeQuery}
+                    onChange={(event) => setNomineeQuery(event.target.value)}
+                    placeholder="Search @username (at least 2 characters)"
+                    autoComplete="off"
+                    className="w-full min-h-11 px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 focus:outline-none"
+                  />
+                  {nomineeOptionsQuery === nomineeQuery && nomineeOptions.length > 0 && (
+                    <ul className="mt-2 divide-y divide-zinc-200 dark:divide-zinc-800 border-2 border-zinc-200 dark:border-zinc-800" aria-label="Registered users">
+                      {nomineeOptions.map((option) => (
+                        <li key={option.id}>
+                          <button type="button" onClick={() => { setSelectedNominee({ id: option.id, username: option.username }); setNomineeOptions([]); }} className="min-h-11 w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900">
+                            <span className="text-sm font-bold">@{option.username}</span>{option.display_name && <span className="ml-2 text-xs text-zinc-500">{option.display_name}</span>}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {nomineeQuery.trim().length >= 2 && nomineeOptionsQuery === nomineeQuery && nomineeOptions.length === 0 && <p className="mt-2 text-[10px] font-mono text-zinc-500">No matching registered user found yet.</p>}
+                </>
+              )}
+              <p className="text-[10px] text-zinc-500 mt-2 font-mono">Only the selected account can see and resolve this request. No email alert is sent; they can find it in Reviews. No nominee token or contact details are exposed.</p>
             </div>
           )}
 

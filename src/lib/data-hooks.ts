@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Oath, WallEntry, Transaction, Proof, GroupMember, Wallet, OathType, VerificationMethod, ConsequenceType, ProofType } from "@/lib/types";
+import type { Oath, WallEntry, Transaction, Proof, GroupMember, Wallet, OathType, VerificationMethod, ConsequenceType, ProofType, NomineeRequest } from "@/lib/types";
 import {
   mockProfile,
   mockActiveOaths,
@@ -160,6 +160,35 @@ export function useOaths() {
   }, [loadData]);
 
   return { oaths, loading, refresh: loadData };
+}
+
+// ---- Registered nominee review inbox ----
+export function useNomineeRequests() {
+  const { user } = useAuth();
+  const [requests, setRequests] = useState<NomineeRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const supabase = useMemo(() => createClient(), []);
+
+  const loadData = useCallback(async () => {
+    if (isMockMode() || !user) {
+      setRequests([]);
+      setLoading(false);
+      return;
+    }
+    const { data, error } = await supabase.rpc("get_my_nominee_requests");
+    setRequests(error || !data ? [] : data as NomineeRequest[]);
+    setLoading(false);
+  }, [supabase, user]);
+
+  useEffect(() => {
+    const execute = async () => { await loadData(); };
+    void execute();
+    const handleUpdate = () => void loadData();
+    window.addEventListener("oath_data_updated", handleUpdate);
+    return () => window.removeEventListener("oath_data_updated", handleUpdate);
+  }, [loadData]);
+
+  return { requests, loading, refresh: loadData };
 }
 
 // ---- useSquadLobbies — fetch open squad pools ----
@@ -450,6 +479,7 @@ export async function createOath(data: {
   social_ransom_phone?: string;
   social_ransom_message?: string;
   nominee_email?: string;
+  nominee_user_id?: string;
   min_players?: number;
   max_players?: number;
 }): Promise<{ oath?: Oath; error: string | null }> {
@@ -464,11 +494,21 @@ export async function createOath(data: {
   if (!Number.isFinite(deadlineMs) || deadlineMs <= Date.now()) {
     return { error: "Deadline must be a valid future date." };
   }
-  if ((data.oath_type === "duo" || data.oath_type === "squad" || data.consequence_type === "fiat") && validStake <= 0) {
-    return { error: "This oath requires a positive stake." };
+  if ((data.oath_type === "duo" || data.consequence_type === "fiat") && validStake <= 0) {
+    return { error: "This financial consequence requires a positive virtual stake." };
+  }
+  if (data.oath_type === "squad" && data.consequence_type === "deadweight_tag" && validStake !== 0) {
+    return { error: "Recovery-quest squads do not use a monetary stake." };
+  }
+  if (data.verification_method === "nominee" && (!data.nominee_user_id || data.oath_type !== "solo")) {
+    return { error: "Choose a registered nominee for a solo oath." };
+  }
+  if (data.nominee_user_id && data.verification_method !== "nominee") {
+    return { error: "A nominee can only be attached to nominee-verified oaths." };
   }
 
   if (isMockMode()) {
+    if (data.nominee_user_id) return { error: "Registered nominee inbox is available in authenticated accounts, not demo mode." };
     const currentWallet = getInitialMockWallet();
     if (currentWallet.balance < validStake) {
       return { error: "Insufficient funds. Deposit more or lower the stake." };
@@ -520,7 +560,8 @@ export async function createOath(data: {
     };
     setMockWallet(updatedWallet);
 
-    // Add transaction
+    // A no-stake oath must not create a zero-value ledger transaction.
+    if (validStake > 0) {
     const newTx: Transaction = {
       id: `tx-${Date.now()}`,
       wallet_id: currentWallet.id,
@@ -531,6 +572,7 @@ export async function createOath(data: {
       created_at: new Date().toISOString(),
     };
     setMockTransactions([newTx, ...getMockTransactions()]);
+    }
 
     // Save oath
     if (data.oath_type === "squad") {
@@ -545,20 +587,28 @@ export async function createOath(data: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  const { data: oathId, error } = await supabase.rpc("create_oath_with_stake", {
-    p_oath_statement: data.oath_statement,
-    p_deadline: data.deadline,
-    p_oath_type: data.oath_type,
-    p_verification_method: data.verification_method,
-    p_consequence_type: data.consequence_type,
-    p_stake_amount: validStake,
-    p_social_ransom_phone: data.social_ransom_phone ?? null,
-    p_social_ransom_message: data.social_ransom_message ?? null,
-    p_nominee_email: data.nominee_email ?? null,
-    p_min_players: data.min_players ?? 1,
-    p_max_players: data.max_players ?? 1,
-    p_opponent_id: null,
-  });
+  const { data: oathId, error } = data.nominee_user_id
+    ? await supabase.rpc("create_oath_with_registered_nominee", {
+      p_oath_statement: data.oath_statement,
+      p_deadline: data.deadline,
+      p_consequence_type: data.consequence_type,
+      p_stake_amount: validStake,
+      p_nominee_user_id: data.nominee_user_id,
+    })
+    : await supabase.rpc("create_oath_with_stake", {
+      p_oath_statement: data.oath_statement,
+      p_deadline: data.deadline,
+      p_oath_type: data.oath_type,
+      p_verification_method: data.verification_method,
+      p_consequence_type: data.consequence_type,
+      p_stake_amount: validStake,
+      p_social_ransom_phone: data.social_ransom_phone ?? null,
+      p_social_ransom_message: data.social_ransom_message ?? null,
+      p_nominee_email: data.nominee_email ?? null,
+      p_min_players: data.min_players ?? 1,
+      p_max_players: data.max_players ?? 1,
+      p_opponent_id: null,
+    });
   if (error || !oathId) return { error: error?.message ?? "Oath creation failed" };
 
   const { data: oath, error: readError } = await supabase
@@ -706,16 +756,18 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
     };
     setMockWallet(updatedWallet);
 
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      wallet_id: currentWallet.id,
-      oath_id: oathId,
-      type: "escrow_lock",
-      amount: stakeAmount,
-      description: `Joined squad pool: ${target.oath_statement}`,
-      created_at: new Date().toISOString(),
-    };
-    setMockTransactions([newTx, ...getMockTransactions()]);
+    if (stakeAmount > 0) {
+      const newTx: Transaction = {
+        id: `tx-${Date.now()}`,
+        wallet_id: currentWallet.id,
+        oath_id: oathId,
+        type: "escrow_lock",
+        amount: stakeAmount,
+        description: `Joined squad: ${target.oath_statement}`,
+        created_at: new Date().toISOString(),
+      };
+      setMockTransactions([newTx, ...getMockTransactions()]);
+    }
 
     return { error: null };
   }
@@ -807,16 +859,18 @@ export async function failSquadMember(oathId: string) {
       ...candidate,
       members: candidate.members?.map((item) => item.id === member.id ? { ...item, status: "failed" as const } : item),
     } : candidate));
-    const transaction: Transaction = {
-      id: `tx-${Date.now()}`,
-      wallet_id: wallet.id,
-      oath_id: oathId,
-      type: "penalty",
-      amount: member.stake_amount,
-      description: "Squad deadline passed without proof",
-      created_at: new Date().toISOString(),
-    };
-    setMockTransactions([transaction, ...getMockTransactions()]);
+    if (member.stake_amount > 0) {
+      const transaction: Transaction = {
+        id: `tx-${Date.now()}`,
+        wallet_id: wallet.id,
+        oath_id: oathId,
+        type: "penalty",
+        amount: member.stake_amount,
+        description: "Squad deadline passed without proof",
+        created_at: new Date().toISOString(),
+      };
+      setMockTransactions([transaction, ...getMockTransactions()]);
+    }
     return { error: null };
   }
 
@@ -1054,17 +1108,19 @@ export async function forfeitOath(oathId: string, excuse?: string) {
     );
     setMockOaths(updatedOaths);
 
-    // Add penalty transaction
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      wallet_id: currentWallet.id,
-      oath_id: oathId,
-      type: "penalty",
-      amount: oath.stake_amount,
-      description: `Forfeited oath: ${oath.oath_statement}`,
-      created_at: new Date().toISOString(),
-    };
-    setMockTransactions([newTx, ...getMockTransactions()]);
+    // Only financial consequences create ledger transactions.
+    if (oath.stake_amount > 0) {
+      const newTx: Transaction = {
+        id: `tx-${Date.now()}`,
+        wallet_id: currentWallet.id,
+        oath_id: oathId,
+        type: "penalty",
+        amount: oath.stake_amount,
+        description: `Forfeited oath: ${oath.oath_statement}`,
+        created_at: new Date().toISOString(),
+      };
+      setMockTransactions([newTx, ...getMockTransactions()]);
+    }
 
     if (oath.consequence_type === "public_shame") {
       const shameEntry: WallEntry = {
@@ -1162,16 +1218,18 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
       );
       setMockOaths(updatedOaths);
 
-      const newTx: Transaction = {
-        id: `tx-${Date.now()}`,
-        wallet_id: currentWallet.id,
-        oath_id: oathId,
-        type: "penalty",
-        amount: oath.stake_amount,
-        description: isDuo ? `Lost Duo Challenge: ${oath.oath_statement}` : `Failed: ${oath.oath_statement}`,
-        created_at: new Date().toISOString(),
-      };
-      setMockTransactions([newTx, ...getMockTransactions()]);
+      if (oath.stake_amount > 0) {
+        const newTx: Transaction = {
+          id: `tx-${Date.now()}`,
+          wallet_id: currentWallet.id,
+          oath_id: oathId,
+          type: "penalty",
+          amount: oath.stake_amount,
+          description: isDuo ? `Lost Duo Challenge: ${oath.oath_statement}` : `Failed: ${oath.oath_statement}`,
+          created_at: new Date().toISOString(),
+        };
+        setMockTransactions([newTx, ...getMockTransactions()]);
+      }
 
       if (oath.consequence_type === "public_shame") {
         const shameEntry: WallEntry = {
@@ -1218,6 +1276,72 @@ export async function verifyNominee(token: string, verdict: "success" | "penalty
     p_success: verdict === "success",
     p_note: note ?? null,
   });
+  if (error) return { error: error.message };
+  notifyDataUpdated();
+  return { error: null };
+}
+
+
+export interface RegisteredUserOption { id: string; username: string; display_name: string | null }
+
+export async function searchRegisteredUsers(query: string): Promise<{ users: RegisteredUserOption[]; error: string | null }> {
+  const username = query.trim().replace(/^@/, "").replace(/[^a-z0-9_.-]/gi, "");
+  if (username.length < 2 || isMockMode()) return { users: [], error: null };
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { users: [], error: "Sign in to search registered users." };
+  const { data, error } = await supabase.from("profiles")
+    .select("id,username,display_name")
+    .ilike("username", `${username}%`)
+    .neq("id", user.id)
+    .order("username")
+    .limit(8);
+  return { users: (data ?? []) as RegisteredUserOption[], error: error?.message ?? null };
+}
+
+export async function resolveNomineeRequest(nomineeId: string, success: boolean) {
+  if (isMockMode()) return { error: "Nominee reviews are not available in demo mode." };
+  const supabase = createClient();
+  const { error } = await supabase.rpc("resolve_my_nominee_request", {
+    p_nominee_id: nomineeId, p_success: success, p_note: null,
+  });
+  if (error) return { error: error.message };
+  notifyDataUpdated();
+  return { error: null };
+}
+
+export async function acknowledgeSquadRecovery(oathId: string, reflection: string) {
+  if (isMockMode()) {
+    const squads = getMockSquads();
+    const squad = squads.find((candidate) => candidate.id === oathId);
+    const member = squad?.members?.find((candidate) => candidate.user_id === ADMIN_MOCK_USER.id);
+    if (!member || member.status !== "failed") return { error: "No failed squad membership is available for recovery." };
+    member.recovery_acknowledged_at = member.recovery_acknowledged_at ?? new Date().toISOString();
+    try { localStorage.setItem(`oath_mock_recovery_${oathId}`, reflection.trim()); } catch {}
+    setMockSquads(squads);
+    return { error: null };
+  }
+  const supabase = createClient();
+  const { error } = await supabase.rpc("acknowledge_squad_recovery", { p_oath_id: oathId, p_reflection: reflection });
+  if (error) return { error: error.message };
+  notifyDataUpdated();
+  return { error: null };
+}
+
+export async function completeSquadRecovery(oathId: string, nextCheckinAt: string) {
+  if (isMockMode()) {
+    const date = new Date(nextCheckinAt);
+    if (!Number.isFinite(date.getTime()) || date <= new Date() || date.getTime() > Date.now() + 90 * 86400000) return { error: "Choose a check-in within the next 90 days." };
+    const squads = getMockSquads();
+    const squad = squads.find((candidate) => candidate.id === oathId);
+    const member = squad?.members?.find((candidate) => candidate.user_id === ADMIN_MOCK_USER.id);
+    if (!member || member.status !== "failed" || !member.recovery_acknowledged_at) return { error: "Complete the reflection step first." };
+    member.recovered_at = new Date().toISOString();
+    setMockSquads(squads);
+    return { error: null };
+  }
+  const supabase = createClient();
+  const { error } = await supabase.rpc("complete_squad_recovery", { p_oath_id: oathId, p_next_checkin_at: nextCheckinAt });
   if (error) return { error: error.message };
   notifyDataUpdated();
   return { error: null };

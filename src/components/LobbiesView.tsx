@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import type { Oath, GroupMember, Wallet } from "@/lib/types";
 import { formatCurrency as utilsFormatCurrency, getTimeRemaining, formatRelativeTime } from "@/lib/utils";
-import { joinSquad, castVote, failSquadMember } from "@/lib/data-hooks";
+import { joinSquad, castVote, failSquadMember, acknowledgeSquadRecovery, completeSquadRecovery } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
 import { useRegion } from "@/lib/region-context";
 import { useAuth } from "@/lib/auth-context";
@@ -41,7 +41,7 @@ export default function LobbiesView({ squads, wallet, onJoined }: LobbiesViewPro
                 SQUAD POOLS
               </h2>
               <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 tracking-wide mt-0.5 font-bold">
-                Sandbox stakes stay personal; three peer votes resolve proof.
+                Each member is resolved independently; only financial squads use personal virtual stakes.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -102,7 +102,7 @@ function SquadCard({
   const time = getTimeRemaining(squad.deadline);
   const memberCount = squad.members?.length ?? 0;
   const spotsLeft = Math.max(0, squad.max_players - memberCount);
-  const poolTotal = memberCount * squad.stake_amount;
+  const financial = squad.consequence_type === "fiat" || squad.stake_amount > 0;
 
   return (
     <button
@@ -133,12 +133,7 @@ function SquadCard({
               )}
             </div>
 
-            <div className="flex items-center gap-1.5">
-              <DollarSign className="w-3 h-3 text-zinc-500" />
-              <span className="text-[10px] font-mono font-black text-zinc-900 dark:text-zinc-300 stake-number">
-                {utilsFormatCurrency(squad.stake_amount, region)}/player
-              </span>
-            </div>
+            {financial ? <div className="flex items-center gap-1.5"><DollarSign className="w-3 h-3 text-zinc-500" /><span className="text-[10px] font-mono font-black text-zinc-900 dark:text-zinc-300 stake-number">{utilsFormatCurrency(squad.stake_amount, region)} virtual/player</span></div> : <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500">No monetary stake</span>}
 
             <div className="flex items-center gap-1.5">
               <Clock className="w-3 h-3 text-zinc-500" />
@@ -181,10 +176,7 @@ function SquadCard({
 
         {/* Right — Combined virtual stakes & status */}
         <div className="flex flex-col items-end shrink-0">
-          <span className="text-lg font-black stake-number text-zinc-950 dark:text-zinc-200 tracking-tight">
-            {utilsFormatCurrency(poolTotal, region)}
-          </span>
-          <span className="text-[9px] font-mono font-bold text-zinc-500 mt-0.5">VIRTUAL TOTAL</span>
+          {financial ? <span className="max-w-20 text-right text-[9px] font-mono font-bold text-zinc-500">NO SHARED POOL · PERSONAL STAKES</span> : <span className="max-w-20 text-right text-[9px] font-mono font-bold text-zinc-500">NO MONEY AT STAKE</span>}
           <span
             className={`text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 border mt-2 ${
               squad.status === "pending"
@@ -218,11 +210,11 @@ function SquadDetail({
   const [loading, setLoading] = useState(false);
   const memberCount = squad.members?.length ?? 0;
   const spotsLeft = Math.max(0, squad.max_players - memberCount);
-  const poolTotal = memberCount * squad.stake_amount;
+  const financial = squad.consequence_type === "fiat" || squad.stake_amount > 0;
   const deadlineExpired = getTimeRemaining(squad.deadline).isExpired;
 
   const handleJoin = async () => {
-    if (wallet.balance < squad.stake_amount) {
+    if (squad.stake_amount > 0 && wallet.balance < squad.stake_amount) {
       showToast("Insufficient virtual balance to join this squad.", "error");
       return;
     }
@@ -232,7 +224,7 @@ function SquadDetail({
       if (error) {
         showToast(error, "error");
       } else {
-        showToast("Joined squad. Your virtual stake is locked in the sandbox ledger.", "success");
+        showToast(squad.stake_amount > 0 ? "Joined squad. Your virtual stake is locked in the sandbox ledger." : "Joined the no-stake recovery quest.", "success");
         onJoined?.();
       }
     } catch (cause) {
@@ -248,12 +240,24 @@ function SquadDetail({
       if (error) {
         showToast(error, "error");
       } else {
-        showToast("No-proof failure recorded; your virtual stake was settled.", "success");
+        showToast(squad.stake_amount > 0 ? "No-proof failure recorded; your individual virtual stake was settled." : "No-proof failure recorded. No monetary stake was involved.", "success");
         onJoined?.();
       }
     } catch (cause) {
       showToast(cause instanceof Error ? cause.message : "Could not resolve this squad entry.", "error");
     }
+  };
+
+  const handleRecoveryReflection = async (reflection: string) => {
+    const { error } = await acknowledgeSquadRecovery(squad.id, reflection);
+    if (error) showToast(error, "error");
+    else { showToast("Reflection saved privately. Now set a check-in date.", "success"); onJoined?.(); }
+  };
+
+  const handleRecoveryCheckin = async (checkin: string) => {
+    const { error } = await completeSquadRecovery(squad.id, checkin);
+    if (error) showToast(error, "error");
+    else { showToast("Recovery plan saved. The original failure remains in oath history.", "success"); onJoined?.(); }
   };
 
   const handleVote = async (memberId: string, vote: boolean) => {
@@ -293,20 +297,12 @@ function SquadDetail({
         </p>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-3 border-b-2 border-zinc-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-950/30">
+      {/* Stats Row: never present personal stakes as a shared pool. */}
+      <div className="grid grid-cols-2 border-b-2 border-zinc-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-950/30">
         <div className="px-4 py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center">
-          <p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{utilsFormatCurrency(poolTotal, region)}</p>
-          <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5 leading-tight">Combined Virtual Stakes</p>
+          {financial ? <><p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{utilsFormatCurrency(squad.stake_amount, region)}</p><p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Personal virtual stake</p></> : <><p className="text-xs font-black uppercase text-zinc-600 dark:text-zinc-400">No monetary stake</p><p className="text-[9px] font-mono text-zinc-500 mt-1">Recovery quest</p></>}
         </div>
-        <div className="px-4 py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center">
-          <p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{utilsFormatCurrency(squad.stake_amount, region)}</p>
-          <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Per Player</p>
-        </div>
-        <div className="px-4 py-3 text-center">
-          <p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{spotsLeft}</p>
-          <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Spots Left</p>
-        </div>
+        <div className="px-4 py-3 text-center"><p className="text-2xl font-black text-zinc-950 dark:text-zinc-100">{spotsLeft}</p><p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Spots left</p></div>
       </div>
 
       {/* Members List — Task Log Feed */}
@@ -326,6 +322,9 @@ function SquadDetail({
             onVote={handleVote}
             canFail={deadlineExpired && member.user_id === user?.id && member.status === "joined" && !member.proof_submitted}
             onFail={handleFailMember}
+            showStake={financial}
+            onRecoveryReflection={handleRecoveryReflection}
+            onRecoveryCheckin={handleRecoveryCheckin}
           />
         ))}
 
@@ -352,7 +351,7 @@ function SquadDetail({
             className="w-full flex items-center justify-center gap-2 py-3.5 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 text-sm font-black tracking-tight uppercase hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {loading ? "Locking virtual stake…" : `Join squad — lock ${utilsFormatCurrency(squad.stake_amount, region)} virtual`}
+            {loading ? "Joining…" : squad.stake_amount > 0 ? `Join squad — lock ${utilsFormatCurrency(squad.stake_amount, region)} virtual` : "Join recovery quest — no stake"}
           </button>
         </div>
       )}
@@ -367,6 +366,9 @@ function MemberLogEntry({
   onVote,
   canFail = false,
   onFail,
+  showStake,
+  onRecoveryReflection,
+  onRecoveryCheckin,
 }: {
   member: GroupMember;
   index: number;
@@ -374,11 +376,17 @@ function MemberLogEntry({
   onVote: (memberId: string, vote: boolean) => Promise<void>;
   canFail?: boolean;
   onFail: () => Promise<void>;
+  showStake: boolean;
+  onRecoveryReflection: (reflection: string) => Promise<void>;
+  onRecoveryCheckin: (checkin: string) => Promise<void>;
 }) {
   const { region } = useRegion();
   const [voting, setVoting] = useState(false);
   const [confirmFailure, setConfirmFailure] = useState(false);
   const [failing, setFailing] = useState(false);
+  const [reflection, setReflection] = useState("");
+  const [checkin, setCheckin] = useState("");
+  const [savingRecovery, setSavingRecovery] = useState(false);
   const isCurrentUser = Boolean(currentUserId && member.user_id === currentUserId);
   const hasVoted = Boolean(currentUserId && member.voted_by?.includes(currentUserId));
   const isConcluded = member.status === "completed" || member.status === "failed";
@@ -408,9 +416,7 @@ function MemberLogEntry({
             )}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 stake-number font-bold">
-              {utilsFormatCurrency(member.stake_amount, region)} virtual
-            </span>
+            {showStake && member.stake_amount > 0 && <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 stake-number font-bold">{utilsFormatCurrency(member.stake_amount, region)} virtual personal stake</span>}
             {member.proof_submitted && (
               <span className="text-[9px] font-mono text-zinc-600 dark:text-zinc-400 flex items-center gap-1 font-bold">
                 <Upload className="w-2.5 h-2.5 text-zinc-500" /> Proof submitted
@@ -419,6 +425,22 @@ function MemberLogEntry({
           </div>
         </div>
       </div>
+
+      {isCurrentUser && member.status === "failed" && !member.recovered_at && (
+        <div className="w-full border border-amber-500/40 bg-amber-50/50 dark:bg-amber-950/10 p-3">
+          <p className="text-[10px] font-mono font-black uppercase text-amber-800 dark:text-amber-400">Recovery checklist · failure remains in history</p>
+          {!member.recovery_acknowledged_at ? <>
+            <label className="block mt-2 text-[10px] font-mono text-zinc-600 dark:text-zinc-400" htmlFor={`reflection-${member.id}`}>1. Write a brief, private reflection (10–500 characters).</label>
+            <textarea id={`reflection-${member.id}`} value={reflection} maxLength={500} onChange={(event) => setReflection(event.target.value)} rows={2} className="mt-1 w-full border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-2 text-xs" placeholder="What got in the way, and what will you change?" />
+            <button type="button" disabled={savingRecovery || reflection.trim().length < 10} onClick={async () => { setSavingRecovery(true); try { await onRecoveryReflection(reflection); } finally { setSavingRecovery(false); } }} className="mt-2 min-h-11 border-2 border-zinc-700 px-3 text-[10px] font-black uppercase disabled:opacity-40">{savingRecovery ? "Saving…" : "Save reflection"}</button>
+          </> : <>
+            <label className="block mt-2 text-[10px] font-mono text-zinc-600 dark:text-zinc-400" htmlFor={`checkin-${member.id}`}>2. Set a future check-in (within 90 days).</label>
+            <input id={`checkin-${member.id}`} type="datetime-local" value={checkin} onChange={(event) => setCheckin(event.target.value)} className="mt-1 min-h-11 max-w-full border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-2 text-xs" />
+            <button type="button" disabled={savingRecovery || !checkin} onClick={async () => { setSavingRecovery(true); try { await onRecoveryCheckin(new Date(checkin).toISOString()); } finally { setSavingRecovery(false); } }} className="ml-2 mt-2 min-h-11 border-2 border-zinc-700 px-3 text-[10px] font-black uppercase disabled:opacity-40">{savingRecovery ? "Saving…" : "Set check-in & recover"}</button>
+          </>}
+        </div>
+      )}
+      {isCurrentUser && member.recovered_at && <p className="w-full text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400">Recovery plan set on {new Date(member.recovered_at).toLocaleDateString()}. The original failure remains recorded.</p>}
 
       {/* Voting / Status */}
       <div className="w-full sm:w-auto flex items-center justify-end gap-2">
@@ -485,12 +507,14 @@ function MemberLogEntry({
               ? "border-zinc-400 dark:border-zinc-700 text-zinc-700 dark:text-zinc-400"
               : member.status === "completed"
               ? "border-zinc-800 bg-zinc-950 text-white dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200"
+              : member.status === "failed" && member.recovered_at
+              ? "border-emerald-700 bg-emerald-700 text-white"
               : member.status === "failed"
-              ? "border-red-600 bg-red-600 text-white"
+              ? "border-amber-600 text-amber-700 dark:text-amber-400"
               : "border-zinc-400 text-zinc-600"
           }`}
         >
-          {member.status}
+          {member.status === "failed" && member.recovered_at ? "Cleared · failure kept in history" : member.status === "failed" && isCurrentUser ? "Recovery available" : member.status}
         </span>
       </div>
     </div>

@@ -78,6 +78,16 @@ export interface Oath {
   proofs?: Proof[];
 }
 
+export interface NomineeRequest {
+  nominee_id: string;
+  oath_id: string;
+  oath_statement: string;
+  deadline: string;
+  stake_amount: number;
+  consequence_type: ConsequenceType;
+  creator_username: string;
+}
+
 export interface Nominee {
   id: string;
   oath_id: string;
@@ -104,6 +114,8 @@ export interface GroupMember {
   is_winner: boolean;
   voted_by?: string[];
   votes_rejected?: number;
+  recovery_acknowledged_at?: string | null;
+  recovered_at?: string | null;
 }
 
 export interface Proof {
@@ -151,7 +163,7 @@ export interface ToastMessage {
 }
 
 export interface AppState {
-  currentView: "active" | "create" | "lobbies" | "wall_shame" | "wall_honor" | "verify";
+  currentView: "active" | "create" | "lobbies" | "reviews" | "wall_shame" | "wall_honor" | "verify";
   wallet: Wallet;
   activeOaths: Oath[];
   profile: Profile;
