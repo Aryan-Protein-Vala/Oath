@@ -34,6 +34,8 @@ export interface Wallet {
   escrow_locked: number;
   total_deposited: number;
   total_withdrawn: number;
+  total_won?: number;
+  total_lost?: number;
 }
 
 export interface Transaction {

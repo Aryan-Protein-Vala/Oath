@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronRight, User, Users, Upload, Eye, XCircle, Shield, AlertTriangle, X } from "lucide-react";
+import { ChevronRight, User, Users, Upload, Eye, XCircle, Shield, AlertTriangle, X, CheckCircle } from "lucide-react";
 import type { Oath } from "@/lib/types";
 import { getTimeRemaining, padZero, formatCurrency as utilsFormatCurrency, formatRelativeTime } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
 import ProofUploadModal from "./ProofUploadModal";
-import { forfeitOath } from "@/lib/data-hooks";
+import { cancelDuoChallenge, forfeitOath, settleOath } from "@/lib/data-hooks";
+import { useAuth } from "@/lib/auth-context";
 import { showToast } from "./Toast";
 
 interface ActiveOathsViewProps {
@@ -16,6 +17,7 @@ interface ActiveOathsViewProps {
 }
 
 export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick }: ActiveOathsViewProps) {
+  const { user } = useAuth();
   const [selectedOathId, setSelectedOathId] = useState<string | null>(
     oaths.length > 0 ? oaths[0].id : null
   );
@@ -53,22 +55,24 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
   }
 
   return (
-    <div className="flex-1 flex overflow-hidden" suppressHydrationWarning>
-      {/* Sidebar */}
-      <div className="w-72 border-r-2 border-zinc-950 dark:border-zinc-800/60 flex flex-col overflow-y-auto shrink-0 bg-white dark:bg-transparent">
-        <div className="px-4 py-3 border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/50">
+    <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-hidden" suppressHydrationWarning>
+      {/* Oath picker: horizontal and compact on phones, sidebar on larger screens. */}
+      <div className="w-full max-h-32 sm:max-h-none sm:w-72 border-b-2 sm:border-b-0 sm:border-r-2 border-zinc-950 dark:border-zinc-800/60 flex flex-col overflow-hidden shrink-0 bg-white dark:bg-transparent">
+        <div className="px-4 py-2 sm:py-3 border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/50">
           <span className="text-[10px] font-mono font-bold text-zinc-700 dark:text-zinc-400 uppercase tracking-widest">
             Active Oaths ({oaths.length})
           </span>
         </div>
-        {oaths.map((oath) => (
-          <OathListItem
-            key={oath.id}
-            oath={oath}
-            isSelected={selectedOath?.id === oath.id}
-            onClick={() => setSelectedOathId(oath.id)}
-          />
-        ))}
+        <div className="flex flex-row sm:flex-col flex-1 min-h-0 overflow-x-auto sm:overflow-x-hidden overflow-y-hidden sm:overflow-y-auto">
+          {oaths.map((oath) => (
+            <OathListItem
+              key={oath.id}
+              oath={oath}
+              isSelected={selectedOath?.id === oath.id}
+              onClick={() => setSelectedOathId(oath.id)}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Main Countdown */}
@@ -79,6 +83,29 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
             onSubmitProof={() => setShowProofModal(true)}
             onViewDetails={() => setShowDetailsModal(true)}
             onForfeit={() => setShowForfeitModal(true)}
+            canCancelDuo={selectedOath.oath_type === "duo" && selectedOath.status === "pending" && selectedOath.creator_id === user?.id}
+            canForfeit={selectedOath.status === "active" && selectedOath.oath_type !== "squad" && selectedOath.creator_id === user?.id}
+            canResolve={Boolean(user && selectedOath.status === "active" && ((selectedOath.oath_type === "solo" && selectedOath.creator_id === user.id) || (selectedOath.oath_type === "duo" && selectedOath.opponent_id === user.id)))}
+            onResolve={async (verdict) => {
+              const { error } = await settleOath(selectedOath.id, verdict);
+              if (error) {
+                showToast(error, "error");
+                return false;
+              }
+              showToast(verdict === "success" ? "Success recorded; virtual stake settled." : "Failure recorded; virtual stake settled.", "success");
+              onProofSubmitted?.();
+              return true;
+            }}
+            onCancelDuo={async () => {
+              const { error } = await cancelDuoChallenge(selectedOath.id);
+              if (error) {
+                showToast(error, "error");
+                return false;
+              }
+              showToast("Invitation cancelled. Your virtual stake was returned.", "success");
+              onProofSubmitted?.();
+              return true;
+            }}
           />
 
           {showProofModal && (
@@ -122,7 +149,7 @@ function OathListItem({ oath, isSelected, onClick }: { oath: Oath; isSelected: b
     <button
       onClick={onClick}
       suppressHydrationWarning
-      className={`w-full text-left px-4 py-3.5 border-b-2 border-zinc-200 dark:border-zinc-800/30 transition-all ${
+      className={`w-[82vw] max-w-[280px] sm:max-w-none sm:w-full min-w-[220px] sm:min-w-0 shrink-0 text-left px-3 sm:px-4 py-2.5 sm:py-3.5 border-r-2 sm:border-r-0 border-b-0 sm:border-b-2 border-zinc-200 dark:border-zinc-800/30 transition-all ${
         isSelected
           ? "bg-zinc-200 dark:bg-zinc-900/80 shadow-[inset_4px_0_0_0_rgba(220,38,38,1)]"
           : "hover:bg-zinc-100 dark:hover:bg-zinc-900/40"
@@ -158,13 +185,27 @@ function OathCountdownCard({
   onSubmitProof,
   onViewDetails,
   onForfeit,
+  canCancelDuo = false,
+  canForfeit = false,
+  canResolve = false,
+  onResolve,
+  onCancelDuo,
 }: {
   oath: Oath;
   onSubmitProof: () => void;
   onViewDetails: () => void;
   onForfeit: () => void;
+  canCancelDuo?: boolean;
+  canForfeit?: boolean;
+  canResolve?: boolean;
+  onResolve: (verdict: "success" | "penalty") => Promise<boolean>;
+  onCancelDuo?: () => Promise<boolean>;
 }) {
   const { region } = useRegion();
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [canceling, setCanceling] = useState(false);
+  const [showResolveConfirm, setShowResolveConfirm] = useState(false);
+  const [resolving, setResolving] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const timeState = getTimeRemaining(oath.deadline, now);
 
@@ -178,7 +219,7 @@ function OathCountdownCard({
   const progressPercent = Math.min(100, Math.max(0, (progressElapsed / (progressTotal || 1)) * 100));
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-8 relative overflow-hidden bg-zinc-50 dark:bg-transparent" suppressHydrationWarning>
+    <div className="flex-1 min-h-0 flex flex-col items-center justify-start sm:justify-center gap-0 px-4 sm:px-8 py-12 sm:py-0 relative overflow-y-auto bg-zinc-50 dark:bg-transparent" suppressHydrationWarning>
       {/* Crimson glow when urgent */}
       {timeState.isUrgent && (
         <div className="absolute inset-0 pointer-events-none crimson-glow" />
@@ -263,7 +304,7 @@ function OathCountdownCard({
       {(() => {
         const isActionable = oath.status === "active" && !timeState.isExpired;
         return (
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center justify-center gap-2.5">
             <button
               onClick={onSubmitProof}
               disabled={!isActionable}
@@ -283,21 +324,95 @@ function OathCountdownCard({
               <Eye className="w-3.5 h-3.5" />
               Details
             </button>
-            <button
-              onClick={onForfeit}
-              disabled={!isActionable}
-              className={`flex items-center gap-2 px-4 py-2.5 border-2 text-xs font-black uppercase tracking-tight transition-colors shadow-[2px_2px_0px_0px_rgba(220,38,38,1)] dark:shadow-none ${
-                isActionable
-                  ? "border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                  : "border-zinc-300 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600 cursor-not-allowed shadow-none"
-              }`}
-            >
-              <XCircle className="w-3.5 h-3.5" />
-              Forfeit
-            </button>
+            {canForfeit && oath.status === "active" && (
+              <button
+                type="button"
+                onClick={onForfeit}
+                className="min-h-11 flex items-center gap-2 px-4 py-2.5 border-2 border-red-600 text-xs font-black uppercase tracking-tight text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                Forfeit
+              </button>
+            )}
+            {canResolve && timeState.isExpired && (
+              <button
+                type="button"
+                onClick={() => setShowResolveConfirm(true)}
+                className="min-h-11 flex items-center gap-2 px-4 py-2.5 border-2 border-zinc-950 bg-zinc-950 text-xs font-black uppercase tracking-tight text-white hover:bg-zinc-800 dark:border-zinc-300 dark:bg-zinc-100 dark:text-zinc-950"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                Resolve oath
+              </button>
+            )}
+            {canCancelDuo && (
+              <button
+                type="button"
+                onClick={() => setShowCancelConfirm(true)}
+                className="min-h-11 px-4 py-2 border-2 border-zinc-500 text-xs font-black uppercase tracking-tight text-zinc-700 dark:text-zinc-300 hover:border-red-600 hover:text-red-600"
+              >
+                Cancel invite
+              </button>
+            )}
           </div>
         );
       })()}
+
+      {showCancelConfirm && (
+        <div role="alertdialog" aria-modal="true" aria-labelledby="cancel-duo-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm border-4 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-5 shadow-[8px_8px_0_0_rgba(0,0,0,1)]">
+            <h2 id="cancel-duo-title" className="text-base font-black uppercase">Cancel this invitation?</h2>
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">This ends the pending challenge and returns your virtual stake. The invitation link will stop working.</p>
+            <div className="mt-5 flex gap-3">
+              <button type="button" onClick={() => setShowCancelConfirm(false)} disabled={canceling} className="min-h-11 flex-1 border-2 border-zinc-500 px-3 text-xs font-bold uppercase">Keep invite</button>
+              <button type="button" disabled={canceling} onClick={async () => {
+                if (!onCancelDuo) return;
+                setCanceling(true);
+                try {
+                  if (await onCancelDuo()) setShowCancelConfirm(false);
+                } catch (error) {
+                  showToast(error instanceof Error ? error.message : "Could not cancel invitation.", "error");
+                } finally {
+                  setCanceling(false);
+                }
+              }} className="min-h-11 flex-1 bg-red-600 px-3 text-xs font-black uppercase text-white disabled:opacity-60">
+                {canceling ? "Cancelling…" : "Cancel invite"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showResolveConfirm && (
+        <div role="alertdialog" aria-modal="true" aria-labelledby="resolve-oath-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto border-4 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-5 sm:p-6 shadow-[8px_8px_0_0_rgba(0,0,0,1)]">
+            <h2 id="resolve-oath-title" className="text-base font-black uppercase">Resolve this oath</h2>
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">This permanently records the outcome and settles the virtual stake. {oath.oath_type === "solo" ? "Solo completion is self-reported." : "As the assigned peer, your verdict is final."} No cash moves.</p>
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <button type="button" disabled={resolving} onClick={async () => {
+                setResolving(true);
+                try {
+                  if (await onResolve("success")) setShowResolveConfirm(false);
+                } catch (error) {
+                  showToast(error instanceof Error ? error.message : "Could not resolve this oath.", "error");
+                } finally {
+                  setResolving(false);
+                }
+              }} className="min-h-11 border-2 border-zinc-950 bg-zinc-950 px-3 text-xs font-black uppercase text-white disabled:opacity-50 dark:border-zinc-200 dark:bg-zinc-100 dark:text-zinc-950">{resolving ? "Recording…" : "Mark complete"}</button>
+              <button type="button" disabled={resolving} onClick={async () => {
+                setResolving(true);
+                try {
+                  if (await onResolve("penalty")) setShowResolveConfirm(false);
+                } catch (error) {
+                  showToast(error instanceof Error ? error.message : "Could not resolve this oath.", "error");
+                } finally {
+                  setResolving(false);
+                }
+              }} className="min-h-11 border-2 border-red-600 bg-red-600 px-3 text-xs font-black uppercase text-white disabled:opacity-50">{resolving ? "Recording…" : "Mark failed"}</button>
+            </div>
+            <button type="button" disabled={resolving} onClick={() => setShowResolveConfirm(false)} className="mt-3 min-h-11 w-full border-2 border-zinc-500 px-3 text-xs font-bold uppercase disabled:opacity-50">Not now</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -341,7 +456,7 @@ function OathDetailsModal({ oath, onClose }: { oath: Oath; onClose: () => void }
       aria-labelledby="details-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
     >
-      <div className="w-full max-w-lg bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
+      <div className="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
         <div className="flex items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 pb-4 mb-4">
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-red-600" />
@@ -421,13 +536,18 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
 
   const handleForfeit = async () => {
     setLoading(true);
-    const { error } = await forfeitOath(oath.id, excuse.trim() || undefined);
-    setLoading(false);
-    if (error) {
-      showToast(error, "error");
-    } else {
-      showToast("Oath forfeited. The virtual sandbox stake was updated; no cash moved.", "error", 6000);
-      onForfeited();
+    try {
+      const { error } = await forfeitOath(oath.id, excuse.trim() || undefined);
+      if (error) {
+        showToast(error, "error");
+      } else {
+        showToast("Oath forfeited. The virtual sandbox stake was updated; no cash moved.", "error", 6000);
+        onForfeited();
+      }
+    } catch (cause) {
+      showToast(cause instanceof Error ? cause.message : "Could not forfeit this oath. Try again.", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -438,7 +558,7 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
       aria-labelledby="forfeit-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
     >
-      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-red-600 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(220,38,38,1)] dark:shadow-none text-left">
+      <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-[#0a0a0f] border-4 border-red-600 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(220,38,38,1)] dark:shadow-none text-left">
         <div className="flex items-center gap-2 mb-3 text-red-600">
           <AlertTriangle className="w-6 h-6" />
           <h3 id="forfeit-modal-title" className="text-lg font-black uppercase tracking-tight">Forfeit Oath</h3>

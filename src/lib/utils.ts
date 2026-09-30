@@ -93,7 +93,7 @@ export function getTimeRemaining(deadline: string, now: number = Date.now()): {
  */
 export function formatTimeRemaining(deadline: string): string {
   const { days, hours, minutes, seconds, isExpired } = getTimeRemaining(deadline);
-  
+
   if (isExpired) return "EXPIRED";
   if (days > 0) return `${days}d ${hours}h ${minutes}m`;
   if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;

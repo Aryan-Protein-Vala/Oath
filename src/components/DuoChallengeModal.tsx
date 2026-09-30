@@ -60,27 +60,31 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
       return;
     }
     if (isOverBudget) {
-      showToast("Insufficient funds.", "error");
+      showToast("Insufficient virtual balance.", "error");
       return;
     }
 
     setLoading(true);
-    const { oath, error } = await createDuoChallenge({
-      oath_statement: statement,
-      deadline: new Date(deadline).toISOString(),
-      stake_amount: stakeUsd,
-      opponent_username: opponentUsername.trim() || undefined,
-    });
+    try {
+      const { oath, error } = await createDuoChallenge({
+        oath_statement: statement,
+        deadline: new Date(deadline).toISOString(),
+        stake_amount: stakeUsd,
+        opponent_username: opponentUsername.trim() || undefined,
+      });
 
-    if (error || !oath) {
-      showToast(error ?? "Failed to create challenge.", "error");
+      if (error || !oath) {
+        showToast(error ?? "Failed to create challenge.", "error");
+        return;
+      }
+
+      setOathId(oath.id);
+      setStep("invite");
+    } catch (cause) {
+      showToast(cause instanceof Error ? cause.message : "Could not create challenge. Check your connection and try again.", "error");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setOathId(oath.id);
-    setStep("invite");
-    setLoading(false);
   };
 
   const handleCopy = async () => {
@@ -119,7 +123,7 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
       aria-labelledby="duo-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
     >
-      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 shadow-[10px_10px_0px_0px_rgba(9,9,11,1)] dark:shadow-none fade-in">
+      <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 shadow-[10px_10px_0px_0px_rgba(9,9,11,1)] dark:shadow-none fade-in">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b-2 border-zinc-200 dark:border-zinc-800">
           <div className="flex items-center gap-2">
@@ -173,7 +177,7 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
             <div className="grid grid-cols-2 gap-3">
               <div className="border-2 border-zinc-900 dark:border-zinc-800 p-3 bg-zinc-50 dark:bg-zinc-950/50">
                 <label className="text-[9px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-1.5 block font-bold">
-                  Each wagers
+                  Each virtual stake
                 </label>
                 <div className="flex items-center gap-1.5">
                   <span className="text-zinc-500 dark:text-zinc-400 font-black text-lg">{region === "in" ? "₹" : "$"}</span>
@@ -208,9 +212,9 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
               <p className="text-[9px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2 font-bold">
                 How Duo Works
               </p>
-              <Rule icon={<UserCheck className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />} text="Both players lock equal stakes in escrow" />
+              <Rule icon={<UserCheck className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />} text="Each player locks an equal virtual stake in the sandbox ledger" />
               <Rule icon={<Users className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />} text="At deadline, the opponent verifies your proof" />
-              <Rule icon={<DollarSign className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />} text="Winner takes both stakes minus 10% house cut" />
+              <Rule icon={<DollarSign className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />} text="Estimated virtual payout reflects the 10% platform fee; no cash moves" />
             </div>
 
             {/* Preview */}
@@ -218,9 +222,9 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
               <div className="border-2 border-zinc-900 dark:border-zinc-800 p-3 bg-zinc-100 dark:bg-zinc-950/80 fade-in">
                 <p className="text-[9px] font-mono text-zinc-600 dark:text-zinc-400 uppercase tracking-widest mb-1.5 font-bold">Preview</p>
                 <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed font-mono">
-                  Both players stake{" "}
+                  Both players lock a virtual stake of{" "}
                   <span className="font-bold text-zinc-950 dark:text-zinc-100">{formatCurrency(stakeNum)}</span>.
-                  Winner gets{" "}
+                  Estimated virtual payout{" "}
                   <span className="font-bold text-emerald-600 dark:text-emerald-400">
                     {formatCurrency(stakeNum * 2 * 0.9)}
                   </span>{" "}

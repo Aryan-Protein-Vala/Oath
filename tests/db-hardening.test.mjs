@@ -122,6 +122,9 @@ test("solo creation, forfeiture, and duplicate settlement preserve escrow and le
   const created = await asUser(ids.alice, `SELECT public.create_oath_with_stake(
     'Run every day', now()+interval '2 days', 'solo','solo_lonely','fiat',100)`);
   const oathId = created.rows[0].create_oath_with_stake;
+  let profile = (await db.query("SELECT oaths_created,oaths_completed,oaths_failed,total_staked,total_lost FROM profiles WHERE id=$1", [ids.alice])).rows[0];
+  assert.equal(profile.oaths_created, 1);
+  assert.equal(Number(profile.total_staked), 100);
   let wallet = (await db.query("SELECT balance,escrow_locked FROM wallets WHERE user_id=$1", [ids.alice])).rows[0];
   assert.equal(Number(wallet.balance), 400);
   assert.equal(Number(wallet.escrow_locked), 100);
@@ -133,6 +136,9 @@ test("solo creation, forfeiture, and duplicate settlement preserve escrow and le
   assert.equal(Number(wallet.balance), 400);
   assert.equal(Number(wallet.escrow_locked), 0);
   assert.equal(Number(wallet.total_lost), 100);
+  profile = (await db.query("SELECT oaths_failed,total_lost FROM profiles WHERE id=$1", [ids.alice])).rows[0];
+  assert.equal(profile.oaths_failed, 1);
+  assert.equal(Number(profile.total_lost), 100);
   assert.equal((await db.query("SELECT count(*)::int AS n FROM transactions WHERE oath_id=$1", [oathId])).rows[0].n, 2);
   assert.equal((await db.query("SELECT count(*)::int AS n FROM wall_entries WHERE oath_id=$1", [oathId])).rows[0].n, 0, "private fiat failure must not be published");
 });
@@ -151,6 +157,7 @@ test("public-shame zero-stake oath creates a public failure entry without touchi
 });
 
 test("duo acceptance locks both stakes atomically and settlement is verifier-only", async () => {
+  const profileBefore = await db.query("SELECT id,oaths_completed,oaths_failed,total_won,total_lost FROM profiles WHERE id = ANY($1::uuid[])", [[ids.alice, ids.bob]]);
   const oathId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
     'Train 4 times weekly', now()+interval '3 days', 'duo','peer','bounty_transfer',100)`)).rows[0].create_oath_with_stake;
   await assert.rejects(asUser(ids.alice, "SELECT public.accept_duo_challenge($1)", [oathId]), /not addressed/i);
@@ -159,6 +166,13 @@ test("duo acceptance locks both stakes atomically and settlement is verifier-onl
   await asUser(ids.bob, "SELECT public.settle_oath($1,true,NULL)", [oathId]);
   const creatorWallet = (await db.query("SELECT balance,escrow_locked,total_won FROM wallets WHERE user_id=$1", [ids.alice])).rows[0];
   const opponentWallet = (await db.query("SELECT balance,escrow_locked,total_lost FROM wallets WHERE user_id=$1", [ids.bob])).rows[0];
+  const profileAfter = await db.query("SELECT id,oaths_completed,oaths_failed,total_won,total_lost FROM profiles WHERE id = ANY($1::uuid[])", [[ids.alice, ids.bob]]);
+  const beforeById = new Map(profileBefore.rows.map((row) => [row.id, row]));
+  const afterById = new Map(profileAfter.rows.map((row) => [row.id, row]));
+  assert.equal(afterById.get(ids.alice).oaths_completed, beforeById.get(ids.alice).oaths_completed + 1);
+  assert.equal(afterById.get(ids.bob).oaths_failed, beforeById.get(ids.bob).oaths_failed + 1);
+  assert.equal(Number(afterById.get(ids.alice).total_won - beforeById.get(ids.alice).total_won), 80);
+  assert.equal(Number(afterById.get(ids.bob).total_lost - beforeById.get(ids.bob).total_lost), 100);
   assert.equal(Number(creatorWallet.balance), 480, "winner receives the $200 pot less 10% fee after the initial $100 stake lock");
   assert.equal(Number(creatorWallet.escrow_locked), 0);
   assert.equal(Number(creatorWallet.total_won), 80);
@@ -183,7 +197,7 @@ test("creator can cancel a pending duo invite and recover escrow exactly once", 
 
 test("squad proof requires membership; three approvals release only the member's escrow", async () => {
   const oathId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
-    'Finish a 5k', now()+interval '4 days', 'squad','quorum','deadweight_tag',25, NULL,NULL,NULL,3,4)`)).rows[0].create_oath_with_stake;
+    'Finish a 5k', now()+interval '4 days', 'squad','quorum','deadweight_tag',25, NULL,NULL,NULL,4,4)`)).rows[0].create_oath_with_stake;
   await asUser(ids.bob, "SELECT public.join_squad($1,25)", [oathId]);
   await asUser(ids.cara, "SELECT public.join_squad($1,25)", [oathId]);
   await asUser(ids.dan, "SELECT public.join_squad($1,25)", [oathId]);
@@ -191,11 +205,15 @@ test("squad proof requires membership; three approvals release only the member's
   assert.ok(proofId);
   const memberId = (await db.query("SELECT id FROM group_members WHERE oath_id=$1 AND user_id=$2", [oathId, ids.alice])).rows[0].id;
   await assert.rejects(asUser(ids.alice, "SELECT public.cast_squad_vote($1,$2,true)", [oathId, memberId]), /own proof/i);
-  for (const voter of [ids.bob, ids.cara, ids.dan]) await asUser(voter, "SELECT public.cast_squad_vote($1,$2,true)", [oathId, memberId]);
+  await asUser(ids.bob, "SELECT public.cast_squad_vote($1,$2,true)", [oathId, memberId]);
+  await assert.rejects(asUser(ids.bob, "SELECT public.cast_squad_vote($1,$2,false)", [oathId, memberId]), /already voted/i);
+  for (const voter of [ids.cara, ids.dan]) await asUser(voter, "SELECT public.cast_squad_vote($1,$2,true)", [oathId, memberId]);
   const member = (await db.query("SELECT status,votes_received,is_winner FROM group_members WHERE id=$1", [memberId])).rows[0];
   assert.equal(member.status, "completed");
   assert.equal(member.votes_received, 3);
   assert.equal(member.is_winner, true);
+  const profile = (await db.query("SELECT oaths_completed FROM profiles WHERE id=$1", [ids.alice])).rows[0];
+  assert.equal(profile.oaths_completed, 2, "squad quorum updates the participant profile once");
   const wallet = (await db.query("SELECT balance,escrow_locked FROM wallets WHERE user_id=$1", [ids.alice])).rows[0];
   assert.equal(Number(wallet.balance), 480, "stake is refunded after quorum approval");
   assert.equal(Number(wallet.escrow_locked), 0);
@@ -223,11 +241,17 @@ test("nominee token is private, anonymous verification is one-time, and public s
   const token = (await db.query("INSERT INTO nominees(oath_id,email) VALUES($1,'referee@example.test') RETURNING verification_token", [oathId])).rows[0].verification_token;
   await db.exec("SET ROLE anon");
   await assert.rejects(db.query("SELECT * FROM nominees"), /permission denied/i);
+  const challenge = (await db.query("SELECT * FROM public.get_nominee_challenge($1)", [String(token)])).rows[0];
+  assert.equal(challenge.oath_id, oathId);
+  assert.equal(challenge.oath_statement, "Review my study log");
+  assert.equal(challenge.creator_username, "alice");
+  assert.equal("verification_token" in challenge, false, "resolver never returns the bearer token");
   await db.query("SELECT public.verify_nominee($1,true,'verified by referee')", [String(token)]);
   await assert.rejects(db.query("SELECT public.verify_nominee($1,true,'replay')", [String(token)]), /invalid or already used/i);
   await db.exec("RESET ROLE");
   assert.equal((await db.query("SELECT status FROM oaths WHERE id=$1", [oathId])).rows[0].status, "completed");
   assert.equal((await db.query("SELECT verified FROM nominees WHERE verification_token=$1", [token])).rows[0].verified, true);
+  assert.equal((await db.query("SELECT count(*)::int AS n FROM public.get_nominee_challenge($1)", [String(token)])).rows[0].n, 0);
   assert.equal((await db.query("SELECT count(*)::int AS n FROM wall_entries WHERE oath_id=$1", [oathId])).rows[0].n, 1);
   assert.equal((await db.query("SELECT count(*)::int AS n FROM information_schema.columns WHERE table_schema='public' AND table_name='oaths' AND column_name IN ('social_ransom_phone','social_ransom_message','nominee_email')")).rows[0].n, 0);
   assert.equal((await db.query("SELECT count(*)::int AS n FROM information_schema.columns WHERE table_schema='public' AND table_name='profiles' AND column_name='phone'")).rows[0].n, 0);
@@ -254,7 +278,7 @@ test("private proof storage requires oath participation and validates uploaded o
 test("quorum rejection fails only the member and removes the personal escrow", async () => {
   const escrowBefore = Number((await db.query("SELECT escrow_locked FROM wallets WHERE user_id=$1", [ids.alice])).rows[0].escrow_locked);
   const oathId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
-    'Complete a language lesson', now()+interval '2 days', 'squad','quorum','deadweight_tag',20,NULL,NULL,NULL,3,4)`)).rows[0].create_oath_with_stake;
+    'Complete a language lesson', now()+interval '2 days', 'squad','quorum','deadweight_tag',20,NULL,NULL,NULL,4,4)`)).rows[0].create_oath_with_stake;
   for (const member of [ids.bob, ids.cara, ids.dan]) await asUser(member, "SELECT public.join_squad($1,20)", [oathId]);
   const proofId = (await asUser(ids.alice, "SELECT public.submit_oath_proof($1,'text',NULL,'Completed one lesson today')", [oathId])).rows[0].submit_oath_proof;
   const memberId = (await db.query("SELECT id FROM group_members WHERE oath_id=$1 AND user_id=$2", [oathId, ids.alice])).rows[0].id;
@@ -266,6 +290,46 @@ test("quorum rejection fails only the member and removes the personal escrow", a
   const wallet = (await db.query("SELECT escrow_locked,total_lost FROM wallets WHERE user_id=$1", [ids.alice])).rows[0];
   assert.equal(Number(wallet.escrow_locked), escrowBefore);
   assert.equal(Number(wallet.total_lost), 120);
+  const profile = (await db.query("SELECT oaths_failed,total_lost FROM profiles WHERE id=$1", [ids.alice])).rows[0];
+  assert.equal(profile.oaths_failed, 3);
+  assert.equal(Number(profile.total_lost), 120);
+});
+
+test("expired oaths reject late proofs and squad joins; invalid quorum sizes fail closed", async () => {
+  await assert.rejects(asUser(ids.alice, `SELECT public.create_oath_with_stake(
+    'Too few reviewers', now()+interval '2 days', 'squad','quorum','deadweight_tag',10,NULL,NULL,NULL,3,8)`), /squad size/i);
+
+  const soloId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
+    'Submit evidence before the deadline', now()+interval '2 days', 'solo','solo_lonely','fiat',10)`)).rows[0].create_oath_with_stake;
+  await db.query("UPDATE public.oaths SET deadline=now()-interval '1 second' WHERE id=$1", [soloId]);
+  await assert.rejects(asUser(ids.alice, "SELECT public.submit_oath_proof($1,'text',NULL,'This proof is late')", [soloId]), /expired/i);
+
+  const squadId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
+    'Join before the deadline', now()+interval '2 days', 'squad','quorum','deadweight_tag',10,NULL,NULL,NULL,4,6)`)).rows[0].create_oath_with_stake;
+  await db.query("UPDATE public.oaths SET deadline=now()-interval '1 second' WHERE id=$1", [squadId]);
+  await assert.rejects(asUser(ids.bob, "SELECT public.join_squad($1,10)", [squadId]), /deadline has passed/i);
+});
+
+test("expired squad members without proof can settle only their own personal stake", async () => {
+  const oathId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
+    'Close the weekly review', now()+interval '2 days', 'squad','quorum','deadweight_tag',15,NULL,NULL,NULL,4,4)`)).rows[0].create_oath_with_stake;
+  for (const member of [ids.bob, ids.cara, ids.dan]) await asUser(member, "SELECT public.join_squad($1,15)", [oathId]);
+  await assert.rejects(asUser(ids.alice, "SELECT public.fail_squad_member($1)", [oathId]), /deadline has not passed/i);
+
+  const beforeWallet = (await db.query("SELECT escrow_locked,total_lost FROM wallets WHERE user_id=$1", [ids.alice])).rows[0];
+  const beforeProfile = (await db.query("SELECT oaths_failed,total_lost FROM profiles WHERE id=$1", [ids.alice])).rows[0];
+  await db.query("UPDATE public.oaths SET deadline=now()-interval '1 second' WHERE id=$1", [oathId]);
+  await asUser(ids.alice, "SELECT public.fail_squad_member($1)", [oathId]);
+  await assert.rejects(asUser(ids.alice, "SELECT public.fail_squad_member($1)", [oathId]), /no unresolved squad membership/i);
+
+  const member = (await db.query("SELECT status FROM group_members WHERE oath_id=$1 AND user_id=$2", [oathId, ids.alice])).rows[0];
+  assert.equal(member.status, "failed");
+  const wallet = (await db.query("SELECT escrow_locked,total_lost FROM wallets WHERE user_id=$1", [ids.alice])).rows[0];
+  assert.equal(Number(wallet.escrow_locked), Number(beforeWallet.escrow_locked) - 15);
+  assert.equal(Number(wallet.total_lost), Number(beforeWallet.total_lost) + 15);
+  const profile = (await db.query("SELECT oaths_failed,total_lost FROM profiles WHERE id=$1", [ids.alice])).rows[0];
+  assert.equal(profile.oaths_failed, beforeProfile.oaths_failed + 1);
+  assert.equal(Number(profile.total_lost), Number(beforeProfile.total_lost) + 15);
 });
 
 test("unsupported nominee and social delivery fail closed", async () => {

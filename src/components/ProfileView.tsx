@@ -19,10 +19,10 @@ interface ProfileViewProps {
 
 export default function ProfileView({ profile, wallet, transactions, onSignOut }: ProfileViewProps) {
   const { region } = useRegion();
-  const completionRate =
-    profile.oaths_created > 0
-      ? Math.round((profile.oaths_completed / profile.oaths_created) * 100)
-      : 0;
+  const resolvedOaths = profile.oaths_completed + profile.oaths_failed;
+  const completionRate = resolvedOaths > 0
+    ? Math.round((profile.oaths_completed / resolvedOaths) * 100)
+    : 0;
 
   const repColor =
     profile.reputation_score >= 80
@@ -32,9 +32,9 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
       : "text-red-600 dark:text-red-500";
 
   return (
-    <div className="flex-1 flex overflow-hidden bg-zinc-50 dark:bg-transparent">
-      {/* Left — Profile stats */}
-      <div className="w-72 border-r-2 border-zinc-950 dark:border-zinc-800/60 flex flex-col overflow-y-auto bg-white dark:bg-transparent">
+    <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-hidden bg-zinc-50 dark:bg-transparent">
+      {/* Profile summary scrolls above the ledger on phones. */}
+      <div className="w-full max-h-[46vh] sm:max-h-none sm:w-72 shrink-0 border-b-2 sm:border-b-0 sm:border-r-2 border-zinc-950 dark:border-zinc-800/60 flex flex-col overflow-y-auto bg-white dark:bg-transparent">
         {/* Identity */}
         <div className="p-5 border-b-2 border-zinc-200 dark:border-zinc-800/40">
           <div className="flex items-center gap-3 mb-4">
@@ -79,20 +79,20 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
           <StatCell label="Created" value={profile.oaths_created} />
           <StatCell label="Completed" value={profile.oaths_completed} accent />
           <StatCell label="Failed" value={profile.oaths_failed} danger />
-          <StatCell label="Rate" value={`${completionRate}%`} />
+          <StatCell label="Success" value={`${completionRate}%`} />
         </div>
 
         {/* Money stats */}
         <div className="p-4 border-b-2 border-zinc-200 dark:border-zinc-800/40 space-y-3">
-          <MoneyRow label="Total Staked" value={profile.total_staked} region={region} />
-          <MoneyRow label="Total Won" value={profile.total_won} positive region={region} />
-          <MoneyRow label="Total Lost" value={profile.total_lost} negative region={region} />
+          <MoneyRow label="Virtual Staked" value={profile.total_staked} region={region} />
+          <MoneyRow label="Virtual Won" value={profile.total_won} positive region={region} />
+          <MoneyRow label="Virtual Lost" value={profile.total_lost} negative region={region} />
         </div>
 
         {/* Wallet summary */}
         <div className="p-4 border-b-2 border-zinc-200 dark:border-zinc-800/40 space-y-2">
           <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mb-2">
-            Wallet
+            Sandbox Wallet
           </p>
           <div className="flex justify-between items-center">
             <span className="text-[11px] font-mono text-zinc-500 font-bold">Available</span>
@@ -101,13 +101,13 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-[11px] font-mono text-zinc-500 font-bold">In Escrow</span>
+            <span className="text-[11px] font-mono text-zinc-500 font-bold">Locked in active oaths</span>
             <span className="text-sm font-black stake-number text-zinc-500">
               {utilsFormatCurrencyPrecise(wallet.escrow_locked, region)}
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-[11px] font-mono text-zinc-500 font-bold">All-time In</span>
+            <span className="text-[11px] font-mono text-zinc-500 font-bold">Virtual In</span>
             <span className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-400 stake-number">
               {utilsFormatCurrencyPrecise(wallet.total_deposited, region)}
             </span>
@@ -127,13 +127,13 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
       </div>
 
       {/* Right — Transaction History */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-transparent">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white dark:bg-transparent">
         <div className="px-5 py-4 border-b-2 border-zinc-200 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/40">
           <h3 className="text-base font-black tracking-tight text-zinc-950 dark:text-zinc-100 uppercase">
-            TRANSACTION LEDGER
+            SANDBOX ACTIVITY
           </h3>
           <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 mt-0.5 font-bold">
-            Full financial record of your oaths.
+            Virtual balance changes only; no cash is collected or paid out.
           </p>
         </div>
 

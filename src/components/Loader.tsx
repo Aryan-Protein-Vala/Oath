@@ -37,7 +37,7 @@ export default function Loader() {
           >
             <Skull className="w-24 h-24 text-red-600 mb-8 mx-auto" />
           </motion.div>
-          
+
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

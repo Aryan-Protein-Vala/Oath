@@ -7,7 +7,7 @@ import { RegionProvider } from "@/lib/region-context";
 export const metadata: Metadata = {
   title: "OATH — Accountability Sandbox",
   description:
-    "An accountability sandbox for personal goals, proof uploads, peer voting, and virtual stakes. No real payments or automated consequences.",
+    "An accountability sandbox for personal goals, proof uploads, peer voting, and virtual stakes. No cash payments or external consequence integrations are enabled.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
   openGraph: {
     title: "OATH — Accountability Sandbox",

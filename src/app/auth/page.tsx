@@ -107,7 +107,7 @@ function AuthForm() {
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-black tracking-[-0.08em] text-zinc-950 dark:text-zinc-50">OATH</h1>
           <p className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 tracking-[0.25em] uppercase mt-1">
-            Stake everything.
+            Accountability sandbox.
           </p>
         </div>
 
@@ -116,8 +116,8 @@ function AuthForm() {
           <button
             onClick={() => { setMode("signin"); setError(null); }}
             className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all ${
-              mode === "signin" 
-                ? "bg-zinc-950 text-white dark:bg-zinc-800/60 dark:text-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] dark:shadow-none" 
+              mode === "signin"
+                ? "bg-zinc-950 text-white dark:bg-zinc-800/60 dark:text-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] dark:shadow-none"
                 : "text-zinc-500 hover:text-zinc-950 dark:text-zinc-600 dark:hover:text-zinc-400"
             }`}
           >
@@ -126,8 +126,8 @@ function AuthForm() {
           <button
             onClick={() => { setMode("signup"); setError(null); }}
             className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all ${
-              mode === "signup" 
-                ? "bg-zinc-950 text-white dark:bg-zinc-800/60 dark:text-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] dark:shadow-none" 
+              mode === "signup"
+                ? "bg-zinc-950 text-white dark:bg-zinc-800/60 dark:text-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] dark:shadow-none"
                 : "text-zinc-500 hover:text-zinc-950 dark:text-zinc-600 dark:hover:text-zinc-400"
             }`}
           >
@@ -225,9 +225,9 @@ function AuthForm() {
         </form>
 
         <p className="text-center text-[10px] font-mono font-bold text-zinc-500 dark:text-zinc-700 mt-8 leading-relaxed">
-          By continuing you agree that you are bound by your oaths.
+          This beta uses virtual balances only.
           <br />
-          Consequences are real. Excuses are not.
+          No cash payments or external consequence integrations are enabled.
         </p>
       </div>
     </div>

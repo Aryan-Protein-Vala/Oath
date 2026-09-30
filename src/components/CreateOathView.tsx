@@ -110,7 +110,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
         nominee_email: nomineeEmail || undefined,
         social_ransom_phone: socialPhone || undefined,
         social_ransom_message: socialMessage || undefined,
-        min_players: oathType === "squad" ? 5 : 1,
+        min_players: oathType === "squad" ? 4 : 1,
         max_players: oathType === "squad" ? 8 : 1,
       });
       error = result.error;
@@ -189,12 +189,12 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
               <TypeButton
                 icon={<Users className="w-4 h-4" />}
                 label="Squad"
-                sublabel="5-8 Players"
+                sublabel="4-8 Players"
                 isActive={oathType === "squad"}
                 onClick={() => {
                   setOathType("squad");
                   setVerificationMethod("quorum");
-                  if (consequenceType !== "fiat" && consequenceType !== "deadweight_tag" && consequenceType !== "bounty_split" && consequenceType !== "squad_lockdown") {
+                  if (consequenceType !== "deadweight_tag" && consequenceType !== "bounty_split" && consequenceType !== "squad_lockdown") {
                     setConsequenceType("deadweight_tag");
                   }
                 }}
@@ -212,8 +212,8 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 <>
                   <TypeButton
                     icon={<DollarSign className="w-4 h-4" />}
-                    label="Fiat"
-                    sublabel="Lose money"
+                    label="Sandbox stake"
+                    sublabel="Virtual ledger"
                     isActive={consequenceType === "fiat"}
                     onClick={() => setConsequenceType("fiat")}
                     onInfo={() => setInfoModal({ title: "Sandbox stake", desc: "A failed oath forfeits the virtual stake from the demo ledger. This build does not process payments or cash withdrawals." })}
@@ -260,27 +260,29 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 <>
                   <TypeButton
                     icon={<DollarSign className="w-4 h-4" />}
-                    label="Direct Bounty"
-                    sublabel="Winner takes all"
+                    label="Virtual Bounty"
+                    sublabel="Sandbox payout"
                     isActive={consequenceType === "bounty_transfer"}
                     onClick={() => setConsequenceType("bounty_transfer")}
-                    onInfo={() => setInfoModal({ title: "Direct Bounty", desc: "Head-to-head match. If you fail, your entire locked stake is transferred directly to your opponent's wallet." })}
+                    onInfo={() => setInfoModal({ title: "Virtual bounty", desc: "Head-to-head sandbox match. The estimated virtual winner payout is the combined stake minus a 10% platform fee. No cash moves." })}
                   />
                   <TypeButton
                     icon={<Activity className="w-4 h-4" />}
                     label="Physical Debt"
-                    sublabel="Servant clause"
+                    sublabel="Not available yet"
                     isActive={consequenceType === "physical_debt"}
-                    onClick={() => setConsequenceType("physical_debt")}
-                    onInfo={() => setInfoModal({ title: "Physical Debt", desc: "The loser must record themselves doing 100 burpees or buying the winner a meal, verified by the winner." })}
+                    onClick={() => showToast("Physical-debt verification is not available in this build.", "info")}
+                    disabled
+                    onInfo={() => setInfoModal({ title: "Physical debt", desc: "Recording and verifying physical consequences is not connected in this prototype." })}
                   />
                   <TypeButton
                     icon={<Flame className="w-4 h-4" />}
                     label="M.A.D."
-                    sublabel="Mutual destruction"
+                    sublabel="Not available yet"
                     isActive={consequenceType === "mutual_destruction"}
-                    onClick={() => setConsequenceType("mutual_destruction")}
-                    onInfo={() => setInfoModal({ title: "Mutual Assured Destruction", desc: "If EITHER of you fail the oath, BOTH of your stakes are completely seized by the house." })}
+                    onClick={() => showToast("Mutual-destruction settlement is not available in this build.", "info")}
+                    disabled
+                    onInfo={() => setInfoModal({ title: "Mutual consequence", desc: "This prototype does not support joint loss settlement. Only the virtual bounty is available for duo challenges." })}
                   />
                 </>
               )}
@@ -349,7 +351,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
             {/* STAKE AMOUNT */}
             <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950/50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
               <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.2em] mb-2 block">
-                Or I lose
+                Virtual stake
               </label>
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-black text-zinc-500">{region === "in" ? "₹" : "$"}</span>
@@ -650,9 +652,9 @@ function TypeButton({
         disabled={disabled}
         className="absolute inset-0 w-full h-full"
       />
-      
+
       {onInfo && (
-        <button 
+        <button
           onClick={(e) => {
             e.stopPropagation();
             onInfo();

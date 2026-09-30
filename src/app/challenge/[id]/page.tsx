@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Swords, Check, Calendar, AlertCircle, ArrowLeft, Loader2 } from "lucide-react";
 import { formatCurrency, formatCurrencyPrecise } from "@/lib/utils";
-import { useAuth } from "@/lib/auth-context";
+import { isDemoSession, useAuth } from "@/lib/auth-context";
 import { getMockOaths, acceptDuoChallenge } from "@/lib/data-hooks";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import type { Oath } from "@/lib/types";
 import { useRegion } from "@/lib/region-context";
 
@@ -23,93 +23,101 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
+  const [clockNow, setClockNow] = useState<number | null>(null);
+  const challengeDeadline = oath ? new Date(oath.deadline).getTime() : Number.POSITIVE_INFINITY;
+  const challengeExpired = Boolean(oath && (!Number.isFinite(challengeDeadline) || (clockNow !== null && challengeDeadline <= clockNow)));
 
   useEffect(() => {
+    const updateClock = () => setClockNow(Date.now());
+    updateClock();
+    const interval = window.setInterval(updateClock, 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
     const fetchChallenge = async () => {
       setLoading(true);
-      // First check local mock storage
-      const mockOaths = getMockOaths();
-      const local = mockOaths.find((o) => o.id === oathId);
-      if (local) {
-        setOath(local);
-        setLoading(false);
+      setError(null);
+      setOath(null);
+
+      if (isDemoSession()) {
+        const local = getMockOaths().find((item) => item.id === oathId && item.oath_type === "duo");
+        if (!cancelled) {
+          setOath(local ?? null);
+          if (!local) setError("This demo invitation is missing, expired, or no longer available.");
+          setLoading(false);
+        }
         return;
       }
 
-      // Check Supabase
+      if (!isSupabaseConfigured()) {
+        if (!cancelled) {
+          setError("Challenge links are unavailable until the account backend is configured.");
+          setLoading(false);
+        }
+        return;
+      }
+
       try {
         const supabase = createClient();
-        const { data, error } = await supabase
+        const { data, error: readError } = await supabase
           .from("oaths")
           .select("*, creator:profiles!oaths_creator_id_fkey(*)")
           .eq("id", oathId)
+          .eq("oath_type", "duo")
           .single();
 
-        if (error || !data) {
-          // Fallback to a default challenge representation
-          setOath({
-            id: oathId,
-            creator_id: "creator-unknown",
-            creator: {
-              id: "creator-unknown",
-              username: "Challenger",
-              display_name: "Challenger",
-              oaths_created: 1,
-              oaths_completed: 0,
-              oaths_failed: 0,
-              total_staked: 100,
-              total_lost: 0,
-              total_won: 0,
-              reputation_score: 100,
-              created_at: new Date().toISOString(),
-            },
-            oath_statement: "High Stakes Duo Challenge",
-            deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-            oath_type: "duo",
-            verification_method: "peer",
-            consequence_type: "bounty_transfer",
-            stake_amount: 100,
-            house_cut_percent: 10,
-            status: "pending",
-            min_players: 2,
-            max_players: 2,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
+        if (cancelled) return;
+        if (readError || !data) {
+          setError("This invitation could not be found, has expired, or is no longer pending.");
         } else {
           setOath(data as Oath);
         }
       } catch {
-        setError("Could not load challenge.");
+        if (!cancelled) setError("Could not load this invitation. Check your connection and try again.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    fetchChallenge();
+    void fetchChallenge();
+    return () => { cancelled = true; };
   }, [oathId]);
 
   const handleAccept = async () => {
     if (!oath) return;
+    if (oath.status !== "pending" || !Number.isFinite(Date.parse(oath.deadline)) || Date.parse(oath.deadline) <= Date.now()) {
+      setError("This invitation is no longer open or its deadline has passed.");
+      return;
+    }
     if (!user) {
       router.push(`/auth?redirect=/challenge/${oathId}`);
       return;
     }
-    if (wallet && wallet.balance < oath.stake_amount) {
-      setError("Insufficient wallet funds. Please deposit funds first.");
+    if (!wallet) {
+      setError("Your sandbox wallet is still loading. Refresh the page and try again.");
+      return;
+    }
+    if (wallet.balance < oath.stake_amount) {
+      setError("Insufficient virtual balance to accept this challenge.");
       return;
     }
 
     setAccepting(true);
     setError(null);
-    const { error: acceptErr } = await acceptDuoChallenge(oath.id);
-    setAccepting(false);
-
-    if (acceptErr) {
-      setError(acceptErr);
-    } else {
+    try {
+      const { error: acceptErr } = await acceptDuoChallenge(oath.id);
+      if (acceptErr) {
+        setError(acceptErr);
+        return;
+      }
       setAccepted(true);
       await refreshWallet();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Challenge could not be accepted. Try again.");
+    } finally {
+      setAccepting(false);
     }
   };
 
@@ -126,12 +134,25 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
     );
   }
 
+  if (!oath) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-[#09090b] px-4 py-8 text-zinc-950 dark:text-zinc-50">
+        <section className="w-full max-w-md border-4 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-[#0a0a0f] p-6 sm:p-8 text-center shadow-[8px_8px_0_0_rgba(0,0,0,1)]">
+          <AlertCircle className="mx-auto mb-4 h-8 w-8 text-red-600" />
+          <h1 className="text-xl font-black uppercase">Invitation unavailable</h1>
+          <p role="alert" className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">{error ?? "This challenge does not exist or is no longer open."}</p>
+          <Link href="/" className="mt-6 inline-flex min-h-11 w-full items-center justify-center bg-zinc-950 px-4 text-xs font-black uppercase text-white dark:bg-zinc-100 dark:text-zinc-950">Back to OATH</Link>
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 px-6 py-12 transition-colors duration-300">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 px-4 py-8 sm:px-6 sm:py-12 transition-colors duration-300">
       <div className="noise-overlay" aria-hidden="true" />
       <div className="scanline-overlay" aria-hidden="true" />
 
-      <div className="w-full max-w-lg bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-8 fade-in shadow-[12px_12px_0px_0px_rgba(9,9,11,1)] dark:shadow-none text-left">
+      <div className="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-5 sm:p-8 fade-in shadow-[12px_12px_0px_0px_rgba(9,9,11,1)] dark:shadow-none text-left">
         {/* Navigation */}
         <div className="mb-6 flex items-center justify-between">
           <Link
@@ -141,7 +162,7 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
             <ArrowLeft className="w-3.5 h-3.5" /> Back
           </Link>
           <span className="px-2.5 py-1 text-[9px] font-mono font-black uppercase tracking-wider bg-red-50 dark:bg-red-950/20 text-red-600 border border-red-600/40">
-            Duo Wager
+            Sandbox challenge
           </span>
         </div>
 
@@ -154,7 +175,7 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
               Challenge Accepted
             </h2>
             <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300 font-mono mb-6 leading-relaxed">
-              Your stake of {oath ? formatCurrency(oath.stake_amount, region) : (region === "in" ? "₹0" : "$0")} has been locked in escrow. May the most disciplined rival win.
+              Your virtual stake of {formatCurrency(oath.stake_amount, region)} is locked in the sandbox ledger. No cash has moved.
             </p>
             <Link
               href="/"
@@ -193,15 +214,15 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
 
               <div className="grid grid-cols-2 gap-3 border-t-2 border-zinc-200 dark:border-zinc-800 pt-3">
                 <div>
-                  <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Your Stake</span>
+                  <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Your Virtual Stake</span>
                   <span className="text-lg font-mono font-black text-zinc-950 dark:text-zinc-100">
-                    {oath ? formatCurrency(oath.stake_amount, region) : (region === "in" ? "₹0" : "$0")}
+                    {formatCurrency(oath.stake_amount, region)}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Winner Takes</span>
+                  <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Estimated Virtual Payout</span>
                   <span className="text-lg font-mono font-black text-red-600 dark:text-red-500">
-                    {oath ? formatCurrency(oath.stake_amount * 2 * 0.9, region) : (region === "in" ? "₹0" : "$0")}
+                    {formatCurrency(oath.stake_amount * 2 * (1 - (oath.house_cut_percent ?? 10) / 100), region)}
                   </span>
                 </div>
               </div>
@@ -214,9 +235,10 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
 
             {/* Rules */}
             <div className="border border-zinc-300 dark:border-zinc-800 p-4 bg-zinc-100 dark:bg-zinc-900/30 text-xs font-mono space-y-1.5 mb-6 text-zinc-700 dark:text-zinc-400">
-              <p>• Both players lock equal stakes in escrow.</p>
-              <p>• Opponents peer-verify each other&apos;s proof at deadline.</p>
-              <p>• Winner claims the entire pot minus a 10% house fee.</p>
+              <p>• Each player locks an equal virtual stake in the sandbox ledger.</p>
+              <p>• The assigned opponent reviews the submitted proof.</p>
+              <p>• An estimated {oath.house_cut_percent}% platform fee is deducted from the virtual pot if there is a winner.</p>
+              <p>• No cash transfers or real-money payouts are available.</p>
             </div>
 
             {/* Error Message */}
@@ -235,36 +257,39 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
                     <p className="font-bold text-zinc-950 dark:text-zinc-100">You created this challenge.</p>
                     <p className="text-zinc-600 dark:text-zinc-400">Share this link with your opponent so they can lock their stake.</p>
                   </div>
-                ) : oath?.status !== "pending" ? (
-                  <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border-2 border-emerald-600 text-xs font-mono text-center space-y-1">
-                    <p className="font-bold text-emerald-800 dark:text-emerald-300">Challenge is {oath?.status}.</p>
-                    <p className="text-zinc-600 dark:text-zinc-400">Both stakes have already been locked into escrow.</p>
+                ) : oath.status !== "pending" || challengeExpired ? (
+                  <div className="p-4 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-500 text-xs font-mono text-center space-y-1">
+                    <p className="font-bold text-zinc-800 dark:text-zinc-200">{challengeExpired ? "Invitation expired." : `Challenge is ${oath.status}.`}</p>
+                    <p className="text-zinc-600 dark:text-zinc-400">Only a live pending invitation can be accepted.</p>
                   </div>
                 ) : (
                   <>
                     <div className="flex justify-between items-center text-xs font-mono text-zinc-600 dark:text-zinc-400 px-1">
-                      <span>Your Available Balance:</span>
+                      <span>Your Available Virtual Balance:</span>
                       <span className="font-bold text-zinc-950 dark:text-zinc-100">
-                        {wallet ? formatCurrencyPrecise(wallet.balance, region) : (region === "in" ? "₹0.00" : "$0.00")}
+                        {wallet ? formatCurrencyPrecise(wallet.balance, region) : "Loading…"}
                       </span>
                     </div>
                     <button
                       onClick={handleAccept}
-                      disabled={accepting || (wallet ? wallet.balance < (oath?.stake_amount || 0) : false)}
+                      disabled={accepting || !wallet || wallet.balance < oath.stake_amount}
                       className={`w-full py-4 text-sm font-black uppercase tracking-tight transition-all border-2 ${
-                        wallet && wallet.balance < (oath?.stake_amount || 0)
+                        !wallet || wallet.balance < oath.stake_amount
                           ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border-transparent cursor-not-allowed"
                           : "bg-red-600 text-white border-red-600 hover:bg-red-700 shadow-[4px_4px_0px_0px_rgba(220,38,38,1)] dark:shadow-none"
                       }`}
                     >
                       {accepting ? (
                         <span className="flex items-center justify-center gap-2">
-                          <Loader2 className="w-4 h-4 animate-spin" /> Locking Escrow...
+                          <Loader2 className="w-4 h-4 animate-spin" /> Locking virtual stake...
                         </span>
                       ) : (
-                        `Accept & Lock ${oath ? formatCurrency(oath.stake_amount, region) : ""}`
+                        wallet ? `Accept & Lock ${formatCurrency(oath.stake_amount, region)} virtual` : "Loading wallet…"
                       )}
                     </button>
+                    {wallet && wallet.balance < oath.stake_amount && (
+                      <p className="text-center text-xs font-mono text-red-600" role="status">You need {formatCurrency(oath.stake_amount - wallet.balance, region)} more virtual balance to accept.</p>
+                    )}
                   </>
                 )}
               </div>

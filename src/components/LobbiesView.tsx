@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import type { Oath, GroupMember, Wallet } from "@/lib/types";
 import { formatCurrency as utilsFormatCurrency, getTimeRemaining, formatRelativeTime } from "@/lib/utils";
-import { joinSquad, castVote } from "@/lib/data-hooks";
+import { joinSquad, castVote, failSquadMember } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
 import { useRegion } from "@/lib/region-context";
 import { useAuth } from "@/lib/auth-context";
@@ -31,9 +31,9 @@ export default function LobbiesView({ squads, wallet, onJoined }: LobbiesViewPro
   const selectedSquad = squads.find((s) => s.id === selectedSquadId) || null;
 
   return (
-    <div className="flex-1 flex overflow-hidden">
-      {/* Lobby List */}
-      <div className={`${selectedSquad ? "w-96" : "flex-1"} flex flex-col border-r-2 border-zinc-950 dark:border-zinc-800/60 overflow-hidden transition-all bg-white dark:bg-transparent`}>
+    <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-hidden">
+      {/* On phones, opening a lobby replaces the list instead of squeezing both panes. */}
+      <div className={`${selectedSquad ? "hidden sm:flex sm:w-96 sm:flex-none" : "flex flex-1"} min-h-0 w-full flex-col sm:border-r-2 border-zinc-950 dark:border-zinc-800/60 overflow-hidden transition-all bg-white dark:bg-transparent`}>
         <div className="px-5 py-4 border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/50">
           <div className="flex items-center justify-between">
             <div>
@@ -41,7 +41,7 @@ export default function LobbiesView({ squads, wallet, onJoined }: LobbiesViewPro
                 SQUAD POOLS
               </h2>
               <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 tracking-wide mt-0.5 font-bold">
-                Winner takes all. Losers fund the victor.
+                Sandbox stakes stay personal; three peer votes resolve proof.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -179,12 +179,12 @@ function SquadCard({
           )}
         </div>
 
-        {/* Right — Pool total & status */}
+        {/* Right — Combined virtual stakes & status */}
         <div className="flex flex-col items-end shrink-0">
           <span className="text-lg font-black stake-number text-zinc-950 dark:text-zinc-200 tracking-tight">
             {utilsFormatCurrency(poolTotal, region)}
           </span>
-          <span className="text-[9px] font-mono font-bold text-zinc-500 mt-0.5">POOL</span>
+          <span className="text-[9px] font-mono font-bold text-zinc-500 mt-0.5">VIRTUAL TOTAL</span>
           <span
             className={`text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 border mt-2 ${
               squad.status === "pending"
@@ -219,35 +219,59 @@ function SquadDetail({
   const memberCount = squad.members?.length ?? 0;
   const spotsLeft = Math.max(0, squad.max_players - memberCount);
   const poolTotal = memberCount * squad.stake_amount;
+  const deadlineExpired = getTimeRemaining(squad.deadline).isExpired;
 
   const handleJoin = async () => {
     if (wallet.balance < squad.stake_amount) {
-      showToast("Insufficient funds. Deposit more to join.", "error");
+      showToast("Insufficient virtual balance to join this squad.", "error");
       return;
     }
     setLoading(true);
-    const { error } = await joinSquad(squad.id, squad.stake_amount);
-    setLoading(false);
-    if (error) {
-      showToast(error, "error");
-    } else {
-      showToast("Joined squad pool. Stake locked in escrow.", "success");
-      onJoined?.();
+    try {
+      const { error } = await joinSquad(squad.id, squad.stake_amount);
+      if (error) {
+        showToast(error, "error");
+      } else {
+        showToast("Joined squad. Your virtual stake is locked in the sandbox ledger.", "success");
+        onJoined?.();
+      }
+    } catch (cause) {
+      showToast(cause instanceof Error ? cause.message : "Could not join this squad. Try again.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFailMember = async () => {
+    try {
+      const { error } = await failSquadMember(squad.id);
+      if (error) {
+        showToast(error, "error");
+      } else {
+        showToast("No-proof failure recorded; your virtual stake was settled.", "success");
+        onJoined?.();
+      }
+    } catch (cause) {
+      showToast(cause instanceof Error ? cause.message : "Could not resolve this squad entry.", "error");
     }
   };
 
   const handleVote = async (memberId: string, vote: boolean) => {
-    const { error } = await castVote(memberId, squad.id, vote);
-    if (error) {
-      showToast(error, "error");
-    } else {
-      showToast(vote ? "Vote recorded: Proof approved" : "Vote recorded: Proof rejected", "info");
-      onJoined?.();
+    try {
+      const { error } = await castVote(memberId, squad.id, vote);
+      if (error) {
+        showToast(error, "error");
+      } else {
+        showToast(vote ? "Vote recorded: proof approved" : "Vote recorded: proof rejected", "success");
+        onJoined?.();
+      }
+    } catch (cause) {
+      showToast(cause instanceof Error ? cause.message : "Could not record your vote. Try again.", "error");
     }
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden fade-in bg-zinc-50 dark:bg-transparent">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden fade-in bg-zinc-50 dark:bg-transparent">
       {/* Detail Header */}
       <div className="px-5 py-4 border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-white dark:bg-transparent">
         <div className="flex items-center justify-between mb-2">
@@ -273,7 +297,7 @@ function SquadDetail({
       <div className="grid grid-cols-3 border-b-2 border-zinc-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-950/30">
         <div className="px-4 py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center">
           <p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{utilsFormatCurrency(poolTotal, region)}</p>
-          <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Total Pool</p>
+          <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5 leading-tight">Combined Virtual Stakes</p>
         </div>
         <div className="px-4 py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center">
           <p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{utilsFormatCurrency(squad.stake_amount, region)}</p>
@@ -300,6 +324,8 @@ function SquadDetail({
             index={index}
             currentUserId={user?.id}
             onVote={handleVote}
+            canFail={deadlineExpired && member.user_id === user?.id && member.status === "joined" && !member.proof_submitted}
+            onFail={handleFailMember}
           />
         ))}
 
@@ -326,7 +352,7 @@ function SquadDetail({
             className="w-full flex items-center justify-center gap-2 py-3.5 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 text-sm font-black tracking-tight uppercase hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {loading ? "Locking Funds..." : `Join Pool — Lock ${utilsFormatCurrency(squad.stake_amount, region)}`}
+            {loading ? "Locking virtual stake…" : `Join squad — lock ${utilsFormatCurrency(squad.stake_amount, region)} virtual`}
           </button>
         </div>
       )}
@@ -339,20 +365,27 @@ function MemberLogEntry({
   index,
   currentUserId,
   onVote,
+  canFail = false,
+  onFail,
 }: {
   member: GroupMember;
   index: number;
   currentUserId?: string;
-  onVote: (memberId: string, vote: boolean) => void;
+  onVote: (memberId: string, vote: boolean) => Promise<void>;
+  canFail?: boolean;
+  onFail: () => Promise<void>;
 }) {
   const { region } = useRegion();
+  const [voting, setVoting] = useState(false);
+  const [confirmFailure, setConfirmFailure] = useState(false);
+  const [failing, setFailing] = useState(false);
   const isCurrentUser = Boolean(currentUserId && member.user_id === currentUserId);
   const hasVoted = Boolean(currentUserId && member.voted_by?.includes(currentUserId));
   const isConcluded = member.status === "completed" || member.status === "failed";
 
   return (
     <div
-      className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800/25 fade-in bg-white dark:bg-transparent hover:bg-zinc-50 dark:hover:bg-zinc-900/20"
+      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800/25 fade-in bg-white dark:bg-transparent hover:bg-zinc-50 dark:hover:bg-zinc-900/20"
       style={{ animationDelay: `${index * 50}ms` }}
     >
       <div className="flex items-center gap-3">
@@ -376,7 +409,7 @@ function MemberLogEntry({
           </div>
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 stake-number font-bold">
-              {utilsFormatCurrency(member.stake_amount, region)} staked
+              {utilsFormatCurrency(member.stake_amount, region)} virtual
             </span>
             {member.proof_submitted && (
               <span className="text-[9px] font-mono text-zinc-600 dark:text-zinc-400 flex items-center gap-1 font-bold">
@@ -388,7 +421,7 @@ function MemberLogEntry({
       </div>
 
       {/* Voting / Status */}
-      <div className="flex items-center gap-2">
+      <div className="w-full sm:w-auto flex items-center justify-end gap-2">
         {member.proof_submitted && !isConcluded && (
           <div className="flex items-center gap-1.5 mr-2">
             <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
@@ -405,16 +438,28 @@ function MemberLogEntry({
             ) : (
               <>
                 <button
-                  onClick={() => onVote(member.id, true)}
-                  className="p-1.5 border border-zinc-400 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-300 text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors bg-zinc-100 dark:bg-zinc-800"
-                  title="Vote: Approve proof"
+                  type="button"
+                  aria-label={`Approve proof from ${member.user?.username ?? "member"}`}
+                  onClick={async () => {
+                    setVoting(true);
+                    try { await onVote(member.id, true); } finally { setVoting(false); }
+                  }}
+                  disabled={voting}
+                  className="min-h-11 min-w-11 p-2 border border-zinc-400 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-300 text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors bg-zinc-100 dark:bg-zinc-800 disabled:opacity-50"
+                  title="Approve proof"
                 >
                   <ThumbsUp className="w-3.5 h-3.5" />
                 </button>
                 <button
-                  onClick={() => onVote(member.id, false)}
-                  className="p-1.5 border border-zinc-400 dark:border-zinc-700 hover:border-red-600 text-zinc-700 dark:text-zinc-400 hover:text-red-600 transition-colors bg-zinc-100 dark:bg-zinc-800"
-                  title="Vote: Reject proof"
+                  type="button"
+                  aria-label={`Reject proof from ${member.user?.username ?? "member"}`}
+                  onClick={async () => {
+                    setVoting(true);
+                    try { await onVote(member.id, false); } finally { setVoting(false); }
+                  }}
+                  disabled={voting}
+                  className="min-h-11 min-w-11 p-2 border border-zinc-400 dark:border-zinc-700 hover:border-red-600 text-zinc-700 dark:text-zinc-400 hover:text-red-600 transition-colors bg-zinc-100 dark:bg-zinc-800 disabled:opacity-50"
+                  title="Reject proof"
                 >
                   <ThumbsDown className="w-3.5 h-3.5" />
                 </button>
@@ -422,6 +467,18 @@ function MemberLogEntry({
             )}
           </div>
         )}
+        {canFail && (confirmFailure ? (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <span className="w-full text-right text-[10px] font-mono text-red-600">No proof was submitted by the deadline. This cannot be undone.</span>
+            <button type="button" disabled={failing} onClick={() => setConfirmFailure(false)} className="min-h-11 border-2 border-zinc-400 px-3 text-[10px] font-bold uppercase">Keep open</button>
+            <button type="button" disabled={failing} onClick={async () => {
+              setFailing(true);
+              try { await onFail(); } finally { setFailing(false); setConfirmFailure(false); }
+            }} className="min-h-11 border-2 border-red-600 bg-red-600 px-3 text-[10px] font-black uppercase text-white disabled:opacity-50">{failing ? "Recording…" : "Confirm failure"}</button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setConfirmFailure(true)} className="min-h-11 border-2 border-red-600 px-3 text-[10px] font-black uppercase text-red-600">Resolve no-proof failure</button>
+        ))}
         <span
           className={`text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 border ${
             member.status === "joined"

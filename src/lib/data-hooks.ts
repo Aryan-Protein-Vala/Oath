@@ -790,6 +790,45 @@ export async function castVote(targetId: string, oathId: string, vote: boolean) 
   return { error: null };
 }
 
+// ---- failSquadMember — settle a member with no proof after the deadline ----
+export async function failSquadMember(oathId: string) {
+  if (isMockMode()) {
+    const squads = getMockSquads();
+    const squad = squads.find((candidate) => candidate.id === oathId);
+    if (!squad) return { error: "Squad not found." };
+    if (new Date(squad.deadline).getTime() > Date.now()) return { error: "Squad deadline has not passed." };
+    const member = squad.members?.find((candidate) => candidate.user_id === ADMIN_MOCK_USER.id);
+    if (!member || member.status !== "joined") return { error: "No unresolved squad membership found." };
+    if (member.proof_submitted) return { error: "Submitted proof must be resolved by quorum." };
+    const wallet = getInitialMockWallet();
+    if (wallet.escrow_locked < member.stake_amount) return { error: "Member escrow is inconsistent." };
+    setMockWallet({ ...wallet, escrow_locked: wallet.escrow_locked - member.stake_amount, total_lost: (wallet.total_lost ?? 0) + member.stake_amount });
+    setMockSquads(squads.map((candidate) => candidate.id === oathId ? {
+      ...candidate,
+      members: candidate.members?.map((item) => item.id === member.id ? { ...item, status: "failed" as const } : item),
+    } : candidate));
+    const transaction: Transaction = {
+      id: `tx-${Date.now()}`,
+      wallet_id: wallet.id,
+      oath_id: oathId,
+      type: "penalty",
+      amount: member.stake_amount,
+      description: "Squad deadline passed without proof",
+      created_at: new Date().toISOString(),
+    };
+    setMockTransactions([transaction, ...getMockTransactions()]);
+    return { error: null };
+  }
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+  const { error } = await supabase.rpc("fail_squad_member", { p_oath_id: oathId });
+  if (error) return { error: error.message };
+  notifyDataUpdated();
+  return { error: null };
+}
+
 // ---- uploadProofFile ----
 export async function uploadProofFile(file: File, oathId: string): Promise<string | null> {
   if (file.size <= 0 || file.size > 10 * 1024 * 1024) return null;
@@ -819,7 +858,7 @@ export async function createDuoChallenge(data: {
   if (isMockMode()) {
     const currentWallet = getInitialMockWallet();
     if (currentWallet.balance < data.stake_amount) {
-      return { error: "Insufficient funds for duo wager." };
+      return { error: "Insufficient virtual balance for this challenge." };
     }
 
     const newOath: Oath = {
@@ -885,9 +924,32 @@ export async function createDuoChallenge(data: {
   });
   if (error || !oathId) return { error: error?.message ?? "Challenge creation failed" };
   const { data: oath, error: readError } = await supabase.from("oaths").select("*").eq("id", oathId).single();
-  if (readError || !oath) return { error: readError?.message ?? "Challenge created but could not be loaded" };
   notifyDataUpdated();
-  return { oath: oath as Oath, error: null };
+  if (oath && !readError) return { oath: oath as Oath, error: null };
+
+  // The create RPC already committed the invitation and locked the stake. Keep the shareable
+  // id even if the follow-up read is temporarily blocked or the network drops.
+  const createdAt = new Date().toISOString();
+  return {
+    oath: {
+      id: oathId,
+      creator_id: user.id,
+      oath_statement: data.oath_statement,
+      deadline: data.deadline,
+      oath_type: "duo",
+      verification_method: "peer",
+      consequence_type: "bounty_transfer",
+      stake_amount: data.stake_amount,
+      house_cut_percent: 10,
+      status: "pending",
+      min_players: 2,
+      max_players: 2,
+      opponent_id: opponentId ?? undefined,
+      created_at: createdAt,
+      updated_at: createdAt,
+    },
+    error: null,
+  };
 }
 
 // ---- acceptDuoChallenge ----
@@ -1004,19 +1066,20 @@ export async function forfeitOath(oathId: string, excuse?: string) {
     };
     setMockTransactions([newTx, ...getMockTransactions()]);
 
-    // Add to Wall of Shame
-    const shameEntry: WallEntry = {
-      id: `ws-${Date.now()}`,
-      oath_id: oathId,
-      user_id: ADMIN_MOCK_USER.id,
-      wall_type: "shame",
-      oath_statement: oath.oath_statement,
-      stake_amount: oath.stake_amount,
-      excuse: excuse || "I gave up under pressure.",
-      username: "DemoUser",
-      created_at: new Date().toISOString(),
-    };
-    setMockWall("shame", [shameEntry, ...getMockWall("shame")]);
+    if (oath.consequence_type === "public_shame") {
+      const shameEntry: WallEntry = {
+        id: `ws-${Date.now()}`,
+        oath_id: oathId,
+        user_id: ADMIN_MOCK_USER.id,
+        wall_type: "shame",
+        oath_statement: oath.oath_statement,
+        stake_amount: oath.stake_amount,
+        excuse: excuse || "I gave up under pressure.",
+        username: "DemoUser",
+        created_at: new Date().toISOString(),
+      };
+      setMockWall("shame", [shameEntry, ...getMockWall("shame")]);
+    }
 
     return { error: null };
   }
@@ -1071,17 +1134,19 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
       };
       setMockTransactions([newTx, ...getMockTransactions()]);
 
-      const honorEntry: WallEntry = {
-        id: `wh-${Date.now()}`,
-        oath_id: oathId,
-        user_id: ADMIN_MOCK_USER.id,
-        wall_type: "honor",
-        oath_statement: oath.oath_statement,
-        stake_amount: oath.stake_amount,
-        username: "DemoUser",
-        created_at: new Date().toISOString(),
-      };
-      setMockWall("honor", [honorEntry, ...getMockWall("honor")]);
+      if (oath.consequence_type === "public_shame") {
+        const honorEntry: WallEntry = {
+          id: `wh-${Date.now()}`,
+          oath_id: oathId,
+          user_id: ADMIN_MOCK_USER.id,
+          wall_type: "honor",
+          oath_statement: oath.oath_statement,
+          stake_amount: oath.stake_amount,
+          username: "DemoUser",
+          created_at: new Date().toISOString(),
+        };
+        setMockWall("honor", [honorEntry, ...getMockWall("honor")]);
+      }
     } else {
       // Forfeited stake
       const updatedWallet: Wallet = {
@@ -1108,18 +1173,20 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
       };
       setMockTransactions([newTx, ...getMockTransactions()]);
 
-      const shameEntry: WallEntry = {
-        id: `ws-${Date.now()}`,
-        oath_id: oathId,
-        user_id: ADMIN_MOCK_USER.id,
-        wall_type: "shame",
-        oath_statement: oath.oath_statement,
-        stake_amount: oath.stake_amount,
-        excuse: note || (isDuo ? "Lost duo wager challenge." : "Failed to submit sufficient proof before the deadline."),
-        username: "DemoUser",
-        created_at: new Date().toISOString(),
-      };
-      setMockWall("shame", [shameEntry, ...getMockWall("shame")]);
+      if (oath.consequence_type === "public_shame") {
+        const shameEntry: WallEntry = {
+          id: `ws-${Date.now()}`,
+          oath_id: oathId,
+          user_id: ADMIN_MOCK_USER.id,
+          wall_type: "shame",
+          oath_statement: oath.oath_statement,
+          stake_amount: oath.stake_amount,
+          excuse: note || (isDuo ? "Lost duo challenge." : "Failed to complete before the deadline."),
+          username: "DemoUser",
+          created_at: new Date().toISOString(),
+        };
+        setMockWall("shame", [shameEntry, ...getMockWall("shame")]);
+      }
     }
 
     return { error: null };

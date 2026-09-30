@@ -97,42 +97,42 @@ CREATE TABLE oaths (
   -- The oath itself
   oath_statement TEXT NOT NULL,        -- "I swear to..."
   deadline TIMESTAMPTZ NOT NULL,       -- "...by [date]"
-  
+
   -- Type & mechanics
   oath_type oath_type NOT NULL DEFAULT 'solo',
   verification_method verification_method NOT NULL DEFAULT 'solo_lonely',
   consequence_type consequence_type NOT NULL DEFAULT 'fiat',
-  
+
   -- Stakes
   stake_amount NUMERIC(12,2) DEFAULT 0,
   house_cut_percent NUMERIC(4,2) DEFAULT 10.00 CHECK (house_cut_percent >= 5 AND house_cut_percent <= 15),
-  
+
   -- Social ransom & Nominee
   social_ransom_phone TEXT,
   social_ransom_message TEXT,
   nominee_email TEXT,
-  
+
   -- Status
   status oath_status NOT NULL DEFAULT 'pending',
-  
+
   -- Squad config
   min_players INTEGER DEFAULT 1,
   max_players INTEGER DEFAULT 1,
-  
+
   -- Opponent (duo)
   opponent_id UUID REFERENCES profiles(id),
-  
+
   -- Result
   completed_at TIMESTAMPTZ,
   failed_at TIMESTAMPTZ,
   failure_excuse TEXT,
-  
+
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Add FK from transactions to oaths
-ALTER TABLE transactions ADD CONSTRAINT fk_transactions_oath 
+ALTER TABLE transactions ADD CONSTRAINT fk_transactions_oath
   FOREIGN KEY (oath_id) REFERENCES oaths(id) ON DELETE SET NULL;
 
 -- ============================================================
@@ -267,11 +267,11 @@ CREATE POLICY "System can insert wallets"
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view own transactions"
-  ON transactions FOR SELECT 
+  ON transactions FOR SELECT
   USING (wallet_id IN (SELECT id FROM wallets WHERE user_id = auth.uid()));
 
 CREATE POLICY "Users can insert own transactions"
-  ON transactions FOR INSERT 
+  ON transactions FOR INSERT
   WITH CHECK (wallet_id IN (SELECT id FROM wallets WHERE user_id = auth.uid()));
 
 -- Oaths
@@ -279,7 +279,7 @@ ALTER TABLE oaths ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Active oaths are viewable by participants"
   ON oaths FOR SELECT USING (
-    creator_id = auth.uid() 
+    creator_id = auth.uid()
     OR opponent_id = auth.uid()
     OR id IN (SELECT oath_id FROM group_members WHERE user_id = auth.uid())
     OR status IN ('active', 'completed', 'failed')
@@ -290,7 +290,7 @@ CREATE POLICY "Users can create oaths"
 
 CREATE POLICY "Creators and participants can update oaths"
   ON oaths FOR UPDATE USING (
-    auth.uid() = creator_id 
+    auth.uid() = creator_id
     OR auth.uid() = opponent_id
     OR id IN (SELECT oath_id FROM group_members WHERE user_id = auth.uid())
   );
@@ -463,7 +463,7 @@ BEGIN
     IF NEW.oath_type = 'solo' THEN
       SELECT id INTO v_wallet_id FROM wallets WHERE user_id = v_creator_id;
       IF NEW.status = 'completed' THEN
-        UPDATE wallets 
+        UPDATE wallets
         SET balance = balance + v_stake,
             escrow_locked = GREATEST(0, escrow_locked - v_stake),
             total_won = total_won + v_stake
@@ -477,7 +477,7 @@ BEGIN
         INSERT INTO wall_entries (oath_id, user_id, wall_type, oath_statement, stake_amount)
         VALUES (NEW.id, v_creator_id, 'honor', NEW.oath_statement, v_stake);
       ELSE -- failed
-        UPDATE wallets 
+        UPDATE wallets
         SET escrow_locked = GREATEST(0, escrow_locked - v_stake),
             total_lost = total_lost + v_stake
         WHERE user_id = v_creator_id;
@@ -501,14 +501,14 @@ BEGIN
 
       IF NEW.status = 'completed' THEN
         -- Creator won
-        UPDATE wallets 
+        UPDATE wallets
         SET balance = balance + v_winner_payout,
             escrow_locked = GREATEST(0, escrow_locked - v_stake),
             total_won = total_won + (v_winner_payout - v_stake)
         WHERE user_id = v_creator_id;
 
         IF v_opponent_id IS NOT NULL THEN
-          UPDATE wallets 
+          UPDATE wallets
           SET escrow_locked = GREATEST(0, escrow_locked - v_stake),
               total_lost = total_lost + v_stake
           WHERE user_id = v_opponent_id;
@@ -522,13 +522,13 @@ BEGIN
         INSERT INTO wall_entries (oath_id, user_id, wall_type, oath_statement, stake_amount)
         VALUES (NEW.id, v_creator_id, 'honor', NEW.oath_statement, v_stake);
       ELSE -- Creator failed / opponent won
-        UPDATE wallets 
+        UPDATE wallets
         SET escrow_locked = GREATEST(0, escrow_locked - v_stake),
             total_lost = total_lost + v_stake
         WHERE user_id = v_creator_id;
 
         IF v_opponent_id IS NOT NULL THEN
-          UPDATE wallets 
+          UPDATE wallets
           SET balance = balance + v_winner_payout,
               escrow_locked = GREATEST(0, escrow_locked - v_stake),
               total_won = total_won + (v_winner_payout - v_stake)
@@ -692,6 +692,9 @@ BEGIN
   IF p_oath_type = 'squad' AND (p_stake_amount <= 0 OR p_consequence_type <> 'deadweight_tag' OR p_verification_method <> 'quorum') THEN
     RAISE EXCEPTION 'Squad challenges require a positive personal stake and quorum verification';
   END IF;
+  IF p_oath_type = 'squad' AND (coalesce(p_min_players,0) < 4 OR coalesce(p_max_players,0) < coalesce(p_min_players,0) OR p_max_players > 8) THEN
+    RAISE EXCEPTION 'Squad size must be between 4 and 8 players, with minimum no greater than maximum';
+  END IF;
   IF p_oath_type = 'solo' AND (p_verification_method <> 'solo_lonely' OR p_consequence_type NOT IN ('fiat','public_shame')) THEN
     RAISE EXCEPTION 'This solo consequence or verification method is not available';
   END IF;
@@ -725,6 +728,12 @@ BEGIN
     greatest(1, coalesce(p_min_players, 1)), greatest(1, coalesce(p_max_players, 1)), p_opponent_id)
   RETURNING id INTO v_oath_id;
 
+  UPDATE public.profiles SET
+    oaths_created = coalesce(oaths_created, 0) + 1,
+    total_staked = coalesce(total_staked, 0) + p_stake_amount,
+    updated_at = now()
+  WHERE id = v_user;
+
   IF p_social_ransom_phone IS NOT NULL OR p_social_ransom_message IS NOT NULL OR p_nominee_email IS NOT NULL THEN
     INSERT INTO public.oath_private_details (oath_id, social_ransom_phone, social_ransom_message, nominee_email)
     VALUES (v_oath_id, p_social_ransom_phone, p_social_ransom_message, p_nominee_email);
@@ -756,6 +765,7 @@ BEGIN
   WHERE user_id = v_user AND balance >= v_oath.stake_amount RETURNING id INTO v_wallet_id;
   IF v_wallet_id IS NULL THEN RAISE EXCEPTION 'Insufficient available balance'; END IF;
   UPDATE public.oaths SET opponent_id = v_user, status = 'active', updated_at = now() WHERE id = p_oath_id;
+  UPDATE public.profiles SET total_staked=coalesce(total_staked,0)+v_oath.stake_amount, updated_at=now() WHERE id=v_user;
   INSERT INTO public.transactions (wallet_id, oath_id, type, amount, description)
   VALUES (v_wallet_id, p_oath_id, 'escrow_lock', v_oath.stake_amount, 'Duo challenge stake locked');
 END;
@@ -856,6 +866,25 @@ BEGIN
     failed_at = CASE WHEN p_success THEN failed_at ELSE now() END,
     failure_excuse = CASE WHEN p_success THEN NULL ELSE left(coalesce(p_note, 'Failed to complete oath.'), 500) END,
     updated_at = now() WHERE id = p_oath_id;
+
+  IF v_oath.oath_type = 'duo' THEN
+    UPDATE public.profiles SET
+      oaths_completed = coalesce(oaths_completed,0) + CASE WHEN id = v_winner THEN 1 ELSE 0 END,
+      oaths_failed = coalesce(oaths_failed,0) + CASE WHEN id <> v_winner THEN 1 ELSE 0 END,
+      total_won = coalesce(total_won,0) + CASE WHEN id = v_winner THEN v_payout - v_oath.stake_amount ELSE 0 END,
+      total_lost = coalesce(total_lost,0) + CASE WHEN id <> v_winner THEN v_oath.stake_amount ELSE 0 END,
+      updated_at = now()
+    WHERE id IN (v_oath.creator_id,v_oath.opponent_id);
+  ELSE
+    UPDATE public.profiles SET
+      oaths_completed = coalesce(oaths_completed,0) + CASE WHEN p_success THEN 1 ELSE 0 END,
+      oaths_failed = coalesce(oaths_failed,0) + CASE WHEN p_success THEN 0 ELSE 1 END,
+      total_won = coalesce(total_won,0) + CASE WHEN p_success THEN v_oath.stake_amount ELSE 0 END,
+      total_lost = coalesce(total_lost,0) + CASE WHEN p_success THEN 0 ELSE v_oath.stake_amount END,
+      updated_at = now()
+    WHERE id = v_oath.creator_id;
+  END IF;
+
   IF p_verification_token IS NOT NULL THEN
     UPDATE public.nominees SET verified = true, verdict = CASE WHEN p_success THEN 'success' ELSE 'penalty' END,
       verdict_note = left(p_note, 500), responded_at = now()
@@ -877,6 +906,25 @@ CREATE OR REPLACE FUNCTION public.forfeit_oath(p_oath_id UUID, p_note TEXT DEFAU
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $$
   SELECT public.settle_oath_atomically(p_oath_id, FALSE, p_note, NULL, TRUE);
 $$;
+CREATE OR REPLACE FUNCTION public.get_nominee_challenge(p_token TEXT)
+RETURNS TABLE (
+  oath_id UUID,
+  oath_statement TEXT,
+  deadline TIMESTAMPTZ,
+  stake_amount NUMERIC,
+  oath_type public.oath_type,
+  challenge_status public.oath_status,
+  creator_username TEXT
+)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $$
+  SELECT o.id,o.oath_statement,o.deadline,o.stake_amount,o.oath_type,o.status,p.username
+  FROM public.nominees n
+  JOIN public.oaths o ON o.id=n.oath_id
+  JOIN public.profiles p ON p.id=o.creator_id
+  WHERE n.verification_token::text=p_token AND n.verified=false AND o.status='active'
+  LIMIT 1;
+$$;
+
 CREATE OR REPLACE FUNCTION public.verify_nominee(p_token TEXT, p_success BOOLEAN, p_note TEXT DEFAULT NULL) RETURNS VOID
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $$
 DECLARE v_oath_id UUID;
@@ -894,9 +942,9 @@ CREATE OR REPLACE FUNCTION public.submit_oath_proof(
 DECLARE v_user UUID := auth.uid(); v_id UUID;
 BEGIN
   IF v_user IS NULL THEN RAISE EXCEPTION 'Authentication required'; END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.oaths o WHERE o.id = p_oath_id AND o.status = 'active'
+  IF NOT EXISTS (SELECT 1 FROM public.oaths o WHERE o.id = p_oath_id AND o.status = 'active' AND o.deadline > now()
     AND (o.creator_id = v_user OR o.opponent_id = v_user OR EXISTS (SELECT 1 FROM public.group_members gm WHERE gm.oath_id=o.id AND gm.user_id=v_user))) THEN
-    RAISE EXCEPTION 'You are not an active participant in this oath';
+    RAISE EXCEPTION 'Oath is closed, expired, or you are not an active participant';
   END IF;
   IF p_proof_type NOT IN ('photo','video','screenshot','link','text') THEN RAISE EXCEPTION 'Unsupported proof type'; END IF;
   IF p_proof_type IN ('photo','video','screenshot') THEN
@@ -924,15 +972,18 @@ BEGIN
   SELECT * INTO v_member FROM public.group_members WHERE id=p_member_id AND oath_id=p_oath_id FOR UPDATE;
   IF NOT FOUND OR NOT EXISTS (SELECT 1 FROM public.group_members WHERE oath_id=p_oath_id AND user_id=v_user) THEN RAISE EXCEPTION 'Not a member of this squad'; END IF;
   IF v_member.user_id = v_user THEN RAISE EXCEPTION 'You cannot vote on your own proof'; END IF;
+  IF EXISTS (SELECT 1 FROM public.votes WHERE proof_id IN (SELECT id FROM public.proofs WHERE oath_id=p_oath_id AND submitted_by=v_member.user_id) AND voter_id=v_user) THEN
+    RAISE EXCEPTION 'You have already voted on this proof';
+  END IF;
   IF v_member.status <> 'joined' THEN RAISE EXCEPTION 'This member has already been resolved'; END IF;
   IF v_member.proof_submitted IS NOT TRUE THEN RAISE EXCEPTION 'Member has not submitted proof'; END IF;
   SELECT id INTO v_proof FROM public.proofs WHERE oath_id=p_oath_id AND submitted_by=v_member.user_id ORDER BY created_at DESC LIMIT 1;
   IF v_proof IS NULL THEN RAISE EXCEPTION 'No proof to vote on'; END IF;
-  INSERT INTO public.votes (proof_id, voter_id, oath_id, vote) VALUES (v_proof,v_user,p_oath_id,p_approve)
-  ON CONFLICT (proof_id,voter_id) DO UPDATE SET vote=EXCLUDED.vote;
+  INSERT INTO public.votes (proof_id, voter_id, oath_id, vote) VALUES (v_proof,v_user,p_oath_id,p_approve);
   SELECT count(*) FILTER (WHERE vote), count(*) FILTER (WHERE NOT vote) INTO v_yes,v_no FROM public.votes WHERE proof_id=v_proof;
   IF v_yes >= greatest(1,v_member.votes_needed) THEN
     UPDATE public.group_members SET votes_received=v_yes,status='completed',is_winner=true WHERE id=v_member.id;
+    UPDATE public.profiles SET oaths_completed=coalesce(oaths_completed,0)+1,updated_at=now() WHERE id=v_member.user_id;
     IF v_member.stake_amount > 0 THEN
       UPDATE public.wallets SET balance=balance+v_member.stake_amount,escrow_locked=escrow_locked-v_member.stake_amount,updated_at=now()
       WHERE user_id=v_member.user_id AND escrow_locked>=v_member.stake_amount RETURNING id INTO v_wallet;
@@ -942,6 +993,7 @@ BEGIN
     END IF;
   ELSIF v_no >= greatest(1,v_member.votes_needed) THEN
     UPDATE public.group_members SET votes_received=v_yes,status='failed',is_winner=false WHERE id=v_member.id;
+    UPDATE public.profiles SET oaths_failed=coalesce(oaths_failed,0)+1,total_lost=coalesce(total_lost,0)+v_member.stake_amount,updated_at=now() WHERE id=v_member.user_id;
     IF v_member.stake_amount > 0 THEN
       UPDATE public.wallets SET total_lost=total_lost+v_member.stake_amount,escrow_locked=escrow_locked-v_member.stake_amount,updated_at=now()
       WHERE user_id=v_member.user_id AND escrow_locked>=v_member.stake_amount RETURNING id INTO v_wallet;
@@ -963,6 +1015,7 @@ BEGIN
   IF p_stake_amount IS NULL OR p_stake_amount < 0 OR round(p_stake_amount,2) <> p_stake_amount THEN RAISE EXCEPTION 'Invalid stake amount'; END IF;
   SELECT * INTO v_oath FROM public.oaths WHERE id=p_oath_id AND oath_type='squad' AND status IN ('pending','active') FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Squad is not open'; END IF;
+  IF v_oath.deadline <= now() THEN RAISE EXCEPTION 'Squad deadline has passed'; END IF;
   IF p_stake_amount <> v_oath.stake_amount THEN RAISE EXCEPTION 'Stake does not match this squad'; END IF;
   IF EXISTS (SELECT 1 FROM public.group_members WHERE oath_id=p_oath_id AND user_id=v_user) THEN RAISE EXCEPTION 'Already joined'; END IF;
   IF v_oath.max_players > 0 AND (SELECT count(*) FROM public.group_members WHERE oath_id=p_oath_id) >= v_oath.max_players THEN RAISE EXCEPTION 'Squad is full'; END IF;
@@ -972,11 +1025,39 @@ BEGIN
     IF v_wallet IS NULL THEN RAISE EXCEPTION 'Insufficient available balance'; END IF;
   END IF;
   INSERT INTO public.group_members (oath_id,user_id,stake_amount,status,votes_needed) VALUES (p_oath_id,v_user,p_stake_amount,'joined',3) RETURNING id INTO v_member;
+  UPDATE public.profiles SET total_staked=coalesce(total_staked,0)+p_stake_amount,updated_at=now() WHERE id=v_user;
   IF v_wallet IS NOT NULL THEN INSERT INTO public.transactions(wallet_id,oath_id,type,amount,description) VALUES(v_wallet,p_oath_id,'escrow_lock',p_stake_amount,'Squad stake locked'); END IF;
   UPDATE public.oaths SET status='active',updated_at=now()
     WHERE id=p_oath_id AND status='pending'
       AND (SELECT count(*) FROM public.group_members WHERE oath_id=p_oath_id) >= greatest(1,v_oath.min_players);
   RETURN v_member;
+END;
+$$;
+
+-- Fail a squad member who reaches the deadline without submitting any proof.
+CREATE OR REPLACE FUNCTION public.fail_squad_member(p_oath_id UUID) RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $$
+DECLARE v_user UUID := auth.uid(); v_oath public.oaths%ROWTYPE; v_member public.group_members%ROWTYPE; v_wallet UUID;
+BEGIN
+  IF v_user IS NULL THEN RAISE EXCEPTION 'Authentication required'; END IF;
+  SELECT * INTO v_oath FROM public.oaths WHERE id=p_oath_id AND oath_type='squad' FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Squad not found'; END IF;
+  IF v_oath.deadline > now() THEN RAISE EXCEPTION 'Squad deadline has not passed'; END IF;
+  SELECT * INTO v_member FROM public.group_members WHERE oath_id=p_oath_id AND user_id=v_user FOR UPDATE;
+  IF NOT FOUND OR v_member.status <> 'joined' THEN RAISE EXCEPTION 'No unresolved squad membership found'; END IF;
+  IF v_member.proof_submitted IS TRUE OR EXISTS (SELECT 1 FROM public.proofs WHERE oath_id=p_oath_id AND submitted_by=v_user) THEN
+    RAISE EXCEPTION 'A member with submitted proof must be resolved by quorum';
+  END IF;
+  UPDATE public.group_members SET status='failed',is_winner=false WHERE id=v_member.id;
+  UPDATE public.profiles SET oaths_failed=coalesce(oaths_failed,0)+1,total_lost=coalesce(total_lost,0)+v_member.stake_amount,updated_at=now()
+    WHERE id=v_user;
+  IF v_member.stake_amount > 0 THEN
+    UPDATE public.wallets SET total_lost=total_lost+v_member.stake_amount,escrow_locked=escrow_locked-v_member.stake_amount,updated_at=now()
+      WHERE user_id=v_user AND escrow_locked>=v_member.stake_amount RETURNING id INTO v_wallet;
+    IF v_wallet IS NULL THEN RAISE EXCEPTION 'Member escrow is inconsistent'; END IF;
+    INSERT INTO public.transactions(wallet_id,oath_id,type,amount,description)
+      VALUES(v_wallet,p_oath_id,'penalty',v_member.stake_amount,'Squad deadline passed without proof');
+  END IF;
 END;
 $$;
 
@@ -1003,17 +1084,21 @@ REVOKE ALL ON FUNCTION public.settle_oath_atomically(UUID,BOOLEAN,TEXT,TEXT,BOOL
 REVOKE ALL ON FUNCTION public.settle_oath(UUID,BOOLEAN,TEXT) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.forfeit_oath(UUID,TEXT) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.verify_nominee(TEXT,BOOLEAN,TEXT) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.get_nominee_challenge(TEXT) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.submit_oath_proof(UUID,TEXT,TEXT,TEXT) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.cast_squad_vote(UUID,UUID,BOOLEAN) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.join_squad(UUID,NUMERIC) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.fail_squad_member(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.create_oath_with_stake(TEXT,TIMESTAMPTZ,public.oath_type,public.verification_method,public.consequence_type,NUMERIC,TEXT,TEXT,TEXT,INTEGER,INTEGER,UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.accept_duo_challenge(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cancel_duo_challenge(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.settle_oath(UUID,BOOLEAN,TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.forfeit_oath(UUID,TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.verify_nominee(TEXT,BOOLEAN,TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_nominee_challenge(TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.submit_oath_proof(UUID,TEXT,TEXT,TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.cast_squad_vote(UUID,UUID,BOOLEAN) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.join_squad(UUID,NUMERIC) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fail_squad_member(UUID) TO authenticated;
 
 COMMIT;

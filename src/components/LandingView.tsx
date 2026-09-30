@@ -38,7 +38,7 @@ export default function LandingView() {
 
   return (
     <div className="h-screen w-full bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 overflow-y-auto overflow-x-hidden selection:bg-red-500/30 font-sans">
-      
+
       {/* Navbar */}
       <nav className="w-full border-b-2 sm:border-b-4 border-zinc-950 dark:border-zinc-800/80 bg-zinc-50 dark:bg-[#09090b]/90 backdrop-blur-md sticky top-0 z-50 transition-colors duration-300">
         <div className="flex items-center justify-between h-16 sm:h-20 px-6 max-w-7xl mx-auto w-full">
@@ -90,7 +90,7 @@ export default function LandingView() {
           >
             <AlertTriangle className="w-4 h-4" /> Stop running from the grind
           </motion.div>
-          
+
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -107,7 +107,7 @@ export default function LandingView() {
             transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
             className="text-xl sm:text-3xl text-zinc-800 dark:text-zinc-400 font-bold max-w-4xl mx-auto leading-tight mb-12"
           >
-            OATH is a prototype for setting a goal, choosing a deadline, and submitting proof. Try peer review and virtual stakes in the sandbox—no real payments or automated penalties are enabled. 
+            OATH is a prototype for setting a goal, choosing a deadline, and submitting proof. Try peer review and virtual stakes in the sandbox—no real payments or external penalty integrations are enabled.
           </motion.p>
 
           <motion.div
@@ -131,7 +131,7 @@ export default function LandingView() {
       <section className="py-32 px-6 border-t-4 border-zinc-950 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/20 relative overflow-hidden">
         {/* Abstract background shapes for light mode */}
         <div className="absolute top-0 right-0 w-1/2 h-full bg-zinc-100 dark:bg-transparent -skew-x-12 translate-x-32 z-0" />
-        
+
         <div className="max-w-7xl mx-auto w-full relative z-10">
           <div className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-center">
             <motion.div
@@ -155,7 +155,7 @@ export default function LandingView() {
                 Sandbox stakes are virtual. Payments, automated SMS, charitable transfers, and app blocking are not connected in this build.
               </p>
             </motion.div>
-            
+
             <motion.div
               initial={{ opacity: 0, scale: 0.9, rotate: 2 }}
               whileInView={{ opacity: 1, scale: 1, rotate: -2 }}
@@ -223,7 +223,7 @@ export default function LandingView() {
           <div className="grid lg:grid-cols-3 gap-12 lg:gap-8 relative">
             {/* Connecting line for desktop */}
             <div className="hidden lg:block absolute top-16 left-[15%] right-[15%] h-2 bg-zinc-950 dark:bg-zinc-800 z-0" />
-            
+
             {[
               {
                 step: "01",
@@ -321,7 +321,7 @@ export default function LandingView() {
       {/* Modes Section */}
       <section className="py-32 px-6 border-t-4 border-zinc-950 dark:border-zinc-800/60 bg-white dark:bg-[#0a0a0f]">
         <div className="max-w-7xl mx-auto w-full">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}
             className="mb-20 text-center sm:text-left flex flex-col sm:flex-row items-center sm:items-end justify-between gap-6"
           >
@@ -334,9 +334,9 @@ export default function LandingView() {
           </motion.div>
 
           <div className="grid lg:grid-cols-3 gap-8">
-            
+
             {/* Solo */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }}
               className="group border-4 border-zinc-950 dark:border-zinc-800 p-10 bg-zinc-50 dark:bg-[#09090b] hover:bg-zinc-950 dark:hover:bg-zinc-800 transition-colors duration-500 shadow-[8px_8px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
             >
@@ -353,7 +353,7 @@ export default function LandingView() {
             </motion.div>
 
             {/* Duo */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }}
               className="group border-4 border-red-600 p-10 bg-red-50 dark:bg-red-950/10 hover:bg-red-600 transition-colors duration-500 relative overflow-hidden shadow-[12px_12px_0px_0px_rgba(220,38,38,1)] dark:shadow-[0_0_20px_rgba(220,38,38,0.2)]"
             >
@@ -371,7 +371,7 @@ export default function LandingView() {
             </motion.div>
 
             {/* Squad */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.3 }}
               className="group border-4 border-zinc-950 dark:border-zinc-800 p-10 bg-zinc-50 dark:bg-[#09090b] hover:bg-zinc-950 dark:hover:bg-zinc-800 transition-colors duration-500 shadow-[8px_8px_0px_0px_rgba(9,9,11,1)] dark:shadow-none flex flex-col"
             >
@@ -416,7 +416,7 @@ export default function LandingView() {
             </h2>
             <p className="text-xl font-bold text-zinc-600 mt-4">Illustrative flows only—not testimonials or measured outcomes.</p>
           </div>
-          
+
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               { quote: "A solo runner sets a weekly goal, chooses a deadline, and uploads proof for a referee.", author: "Solo oath", result: "FLOW", amt: "VIRTUAL" },
@@ -488,7 +488,7 @@ export default function LandingView() {
             <div className="h-6 w-1 bg-red-600" />
           </div>
           <p className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-500 uppercase tracking-widest text-center md:text-left max-w-md">
-            © {new Date().getFullYear()} OATH SANDBOX BETA. Virtual balances only; no real payments or automated penalties.
+            © {new Date().getFullYear()} OATH SANDBOX BETA. Virtual balances only; no cash transfers or external penalty integrations.
           </p>
           <span className="text-xs font-mono font-bold text-zinc-500 uppercase tracking-widest">Prototype</span>
         </div>

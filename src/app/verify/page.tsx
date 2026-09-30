@@ -6,13 +6,14 @@ import Link from "next/link";
 import { Shield, CheckCircle, XCircle, AlertTriangle, ArrowLeft, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { getMockOaths, verifyNominee } from "@/lib/data-hooks";
-import { createClient } from "@/lib/supabase/client";
+import { isDemoSession } from "@/lib/auth-context";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import type { Oath } from "@/lib/types";
 import { useRegion } from "@/lib/region-context";
 
 function VerifyContent() {
   const searchParams = useSearchParams();
-  const token = searchParams.get("token") || searchParams.get("id") || "demo-token";
+  const token = searchParams.get("token") || searchParams.get("id") || "";
   const { region } = useRegion();
 
   const [verdict, setVerdict] = useState<"success" | "penalty" | null>(null);
@@ -21,47 +22,91 @@ function VerifyContent() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [oath, setOath] = useState<Oath | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchOath = async () => {
       setLoading(true);
-      const mockOaths = getMockOaths();
-      const local = mockOaths.find((o) => o.id === token || o.nominee_email);
-      if (local) {
-        setOath(local);
+      setError(null);
+      setOath(null);
+      if (!token) {
+        setError("This verification link is missing its secure token. Ask the oath creator to send a fresh link.");
         setLoading(false);
         return;
       }
 
-      try {
-        const supabase = createClient();
-        const { data } = await supabase
-          .from("oaths")
-          .select("*, creator:profiles!oaths_creator_id_fkey(*)")
-          .eq("id", token)
-          .single();
-
-        if (data) {
-          setOath(data as Oath);
-        } else {
-          setOath(mockOaths[0] || null);
+      if (isDemoSession()) {
+        const local = getMockOaths().find((candidate) => candidate.id === token);
+        if (!cancelled) {
+          setOath(local ?? null);
+          if (!local) setError("This demo verification link is invalid or has already been used.");
+          setLoading(false);
         }
+        return;
+      }
+
+      if (!isSupabaseConfigured()) {
+        if (!cancelled) {
+          setError("Verification is unavailable because the account backend is not configured.");
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const { data, error: lookupError } = await createClient().rpc("get_nominee_challenge", { p_token: token });
+        if (cancelled) return;
+        const row = Array.isArray(data) ? data[0] : null;
+        if (lookupError || !row) {
+          setError("This verification link is invalid, expired, or has already been used.");
+          return;
+        }
+        const now = new Date().toISOString();
+        setOath({
+          id: row.oath_id,
+          creator_id: "",
+          creator: { username: row.creator_username } as Oath["creator"],
+          oath_statement: row.oath_statement,
+          deadline: row.deadline,
+          oath_type: row.oath_type,
+          verification_method: "nominee",
+          consequence_type: "fiat",
+          stake_amount: Number(row.stake_amount),
+          house_cut_percent: 0,
+          status: row.challenge_status,
+          min_players: 1,
+          max_players: 1,
+          created_at: now,
+          updated_at: now,
+        } as Oath);
       } catch {
-        setOath(mockOaths[0] || null);
+        if (!cancelled) setError("Could not load this verification. Check your connection and try again.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    fetchOath();
+    void fetchOath();
+    return () => { cancelled = true; };
   }, [token]);
 
   const handleSubmit = async () => {
-    if (!verdict) return;
+    if (!verdict || !oath || submitting) return;
     setSubmitting(true);
-    await verifyNominee(token, verdict, note.trim() || undefined);
-    setSubmitting(false);
-    setSubmitted(true);
+    setError(null);
+    try {
+      const result = await verifyNominee(token, verdict, note.trim() || undefined);
+      if (result?.error) {
+        setError(result.error);
+        return;
+      }
+      setSubmitted(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Your verification could not be recorded. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -77,11 +122,24 @@ function VerifyContent() {
     );
   }
 
+  if (!oath) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-[#09090b] px-4 py-8 text-zinc-950 dark:text-zinc-50">
+        <section className="w-full max-w-md border-4 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-[#0a0a0f] p-6 sm:p-8 text-center shadow-[8px_8px_0_0_rgba(0,0,0,1)]">
+          <AlertTriangle className="mx-auto mb-4 h-8 w-8 text-red-600" />
+          <h1 className="text-xl font-black uppercase">Verification unavailable</h1>
+          <p role="alert" className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">{error ?? "This verification link is invalid or expired."}</p>
+          <Link href="/" className="mt-6 inline-flex min-h-11 w-full items-center justify-center bg-zinc-950 px-4 text-xs font-black uppercase text-white dark:bg-zinc-100 dark:text-zinc-950">Back to OATH</Link>
+        </section>
+      </main>
+    );
+  }
+
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-[#09090b] px-6 py-12 transition-colors duration-300">
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-[#09090b] px-4 py-8 sm:px-6 sm:py-12 transition-colors duration-300">
         <div className="noise-overlay" aria-hidden="true" />
-        <div className="w-full max-w-md text-center bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-8 shadow-[12px_12px_0px_0px_rgba(9,9,11,1)] dark:shadow-none fade-in">
+        <div className="w-full max-w-md text-center bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-5 sm:p-8 shadow-[12px_12px_0px_0px_rgba(9,9,11,1)] dark:shadow-none fade-in">
           <div
             className={`w-16 h-16 mx-auto mb-6 flex items-center justify-center border-4 ${
               verdict === "success"
@@ -96,13 +154,14 @@ function VerifyContent() {
             )}
           </div>
           <h1 className="text-2xl font-black uppercase text-zinc-950 dark:text-zinc-50 tracking-tight mb-2">
-            {verdict === "success" ? "VERIFIED SUCCESS" : "PENALTY ENFORCED"}
+            {verdict === "success" ? "SUCCESS VERIFIED" : "FAILURE VERIFIED"}
           </h1>
           <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300 font-mono mb-6 leading-relaxed">
             {verdict === "success"
-              ? `Oath has been verified. ${oath ? formatCurrency(oath.stake_amount, region) : (region === "in" ? "₹0" : "$0")} released from escrow.`
-              : `Oath marked as failed. ${oath ? formatCurrency(oath.stake_amount, region) : (region === "in" ? "₹0" : "$0")} forfeited to penalty ledger.`}
+              ? `The oath has been marked complete. The recorded virtual stake was ${formatCurrency(oath.stake_amount, region)}.`
+              : `The oath has been marked failed. The recorded virtual stake was ${formatCurrency(oath.stake_amount, region)}.`}
           </p>
+          <p className="mb-6 text-[11px] font-mono text-zinc-500">This updates OATH&apos;s virtual sandbox ledger only; no cash transfer is made.</p>
           <Link
             href="/"
             className="inline-block w-full py-4 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 text-sm font-black uppercase tracking-tight hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
@@ -115,9 +174,9 @@ function VerifyContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 px-6 py-12 transition-colors duration-300">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 px-4 py-8 sm:px-6 sm:py-12 transition-colors duration-300">
       <div className="noise-overlay" aria-hidden="true" />
-      <div className="w-full max-w-lg bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-8 shadow-[12px_12px_0px_0px_rgba(9,9,11,1)] dark:shadow-none fade-in text-left">
+      <div className="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-5 sm:p-8 shadow-[12px_12px_0px_0px_rgba(9,9,11,1)] dark:shadow-none fade-in text-left">
         {/* Navigation */}
         <div className="mb-6 flex items-center justify-between">
           <Link
@@ -152,13 +211,13 @@ function VerifyContent() {
             The Oath
           </p>
           <p className="text-lg font-black text-zinc-950 dark:text-zinc-100 leading-snug mb-3">
-            &ldquo;{oath?.oath_statement || "Run 5km every morning for 30 days"}&rdquo;
+            &ldquo;{oath.oath_statement}&rdquo;
           </p>
           <div className="flex items-center gap-3 text-[11px] font-mono text-zinc-600 dark:text-zinc-400 font-bold flex-wrap">
-            <span>Sworn by @{oath?.creator?.username || "user"}</span>
+            <span>Sworn by @{oath.creator?.username ?? "OATH member"}</span>
             <span>·</span>
             <span className="font-black text-red-600 dark:text-red-500 stake-number">
-              {oath ? formatCurrency(oath.stake_amount, region) : (region === "in" ? "₹500" : "$500")} at stake
+              {formatCurrency(oath.stake_amount, region)} virtual stake
             </span>
           </div>
         </div>
@@ -170,6 +229,8 @@ function VerifyContent() {
           </p>
 
           <button
+            type="button"
+            aria-pressed={verdict === "success"}
             onClick={() => setVerdict("success")}
             className={`w-full flex items-center gap-3.5 p-4 border-2 transition-all text-left ${
               verdict === "success"
@@ -185,12 +246,14 @@ function VerifyContent() {
             <div>
               <p className="text-sm font-black text-zinc-950 dark:text-zinc-100">Verify Success</p>
               <p className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400 mt-0.5">
-                They proved completion. Release funds back to them.
+                They proved completion. Record a success and settle the virtual stake now.
               </p>
             </div>
           </button>
 
           <button
+            type="button"
+            aria-pressed={verdict === "penalty"}
             onClick={() => setVerdict("penalty")}
             className={`w-full flex items-center gap-3.5 p-4 border-2 transition-all text-left ${
               verdict === "penalty"
@@ -206,7 +269,7 @@ function VerifyContent() {
             <div>
               <p className="text-sm font-black text-red-600 dark:text-red-400">Enforce Penalty</p>
               <p className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400 mt-0.5">
-                They failed or flaked. Forfeit their stake.
+                They did not complete it. Record failure and settle the virtual stake now.
               </p>
             </div>
           </button>
@@ -226,8 +289,11 @@ function VerifyContent() {
           />
         </div>
 
-        {/* Submit */}
+        {error && <p role="alert" className="mb-4 border-2 border-red-600 bg-red-50 p-3 text-xs font-mono text-red-700 dark:bg-red-950/20 dark:text-red-300">{error}</p>}
+
+        {/* Submission immediately records the selected verdict and settles the sandbox ledger. */}
         <button
+          type="button"
           onClick={handleSubmit}
           disabled={!verdict || submitting}
           className={`w-full py-4 text-sm font-black tracking-tight uppercase transition-all border-2 ${
@@ -243,9 +309,9 @@ function VerifyContent() {
               <Loader2 className="w-4 h-4 animate-spin" /> Submitting Verdict...
             </span>
           ) : verdict === "penalty" ? (
-            "Enforce Penalty"
+            "Record Failure & Settle Virtual Stake"
           ) : (
-            "Verify Success & Release Escrow"
+            "Record Success & Settle Virtual Stake"
           )}
         </button>
 
@@ -253,7 +319,7 @@ function VerifyContent() {
         <div className="flex items-center gap-2 mt-4 text-zinc-500">
           <AlertTriangle className="w-3.5 h-3.5 text-zinc-500" />
           <span className="text-[10px] font-mono">
-            This verification is permanent and cannot be undone.
+            Selecting the button records an irreversible verdict. Virtual ledger only; no cash payout.
           </span>
         </div>
       </div>
