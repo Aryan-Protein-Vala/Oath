@@ -521,9 +521,11 @@ export default function LandingView() {
           <p className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-500 uppercase tracking-widest text-center md:text-left max-w-md">
             © {new Date().getFullYear()} OATH PLATFORM. WE ARE NOT A BANK. WE JUST RUIN YOUR DAY WHEN YOU FAIL.
           </p>
-          <div className="flex gap-6">
-            <Link href="#" className="text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Terms</Link>
-            <Link href="#" className="text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Privacy</Link>
+          <div className="flex flex-wrap justify-center md:justify-end gap-4 sm:gap-6">
+            <Link href="/terms" className="text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Terms</Link>
+            <Link href="/privacy" className="text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Privacy</Link>
+            <Link href="/refund" className="text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Refund Policy</Link>
+            <Link href="/disclaimer" className="text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Disclaimer</Link>
             <Link href="#" className="text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">X / Twitter</Link>
           </div>
         </div>
