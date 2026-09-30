@@ -412,7 +412,7 @@ function OathDetailsModal({ oath, onClose }: { oath: Oath; onClose: () => void }
               <span className="text-sm font-mono font-black text-zinc-900 dark:text-zinc-200">{utilsFormatCurrency(oath.stake_amount, region)}</span>
             </div>
             <div>
-              <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">House Cut</span>
+              <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Oath Fee</span>
             </div>
           </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { createOath } from "@/lib/data-hooks";
+import { useState, useEffect } from "react";
+import { createOath, searchUsersByUsername } from "@/lib/data-hooks";
 import {
   Zap,
   User,
@@ -44,6 +44,8 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   const [socialPhone, setSocialPhone] = useState("");
   const [socialMessage, setSocialMessage] = useState("");
   const [nomineeEmail, setNomineeEmail] = useState("");
+  const [userSuggestions, setUserSuggestions] = useState<{username: string, display_name: string}[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [antiCharityCause, setAntiCharityCause] = useState("Opposing Political Party");
   const [infoModal, setInfoModal] = useState<{ title: string; desc: string } | null>(null);
 
@@ -62,6 +64,25 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   };
 
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (verificationMethod !== "nominee") return;
+    
+    const query = nomineeEmail.replace("@", "").trim();
+    if (query.length < 1) {
+      setUserSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      const results = await searchUsersByUsername(query);
+      setUserSuggestions(results);
+      setShowSuggestions(true);
+    }, 300); // 300ms debounce to prevent spamming DB
+
+    return () => clearTimeout(timer);
+  }, [nomineeEmail, verificationMethod]);
 
   const handleSubmit = async () => {
     if (!oathStatement.trim()) {
@@ -300,11 +321,11 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                   />
                   <TypeButton
                     icon={<PieChart className="w-4 h-4" />}
-                    label="Money Loss"
+                    label="Shared Oath"
                     sublabel="Losers fund winners"
                     isActive={oathType === "squad" && consequenceType === "shared_oath"}
                     onClick={() => setConsequenceType("shared_oath")}
-                    onInfo={() => setInfoModal({ title: "Money Loss", desc: "All losers forfeit their stakes, which are pooled and distributed equally to those who completed the oath." })}
+                    onInfo={() => setInfoModal({ title: "Shared Oath", desc: "All losers forfeit their stakes, which are pooled and distributed equally to those who completed the oath." })}
                   />
                   <TypeButton
                     icon={<Lock className="w-4 h-4" />}
@@ -406,7 +427,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                   </span>
                   {stakeNum > 0 && (
                     <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
-                      House: {formatRegionCurrency(stakeUsd * 0.1)}
+                      Oath Fee: {formatRegionCurrency(stakeUsd * 0.1)}
                     </span>
                   )}
                 </div>
@@ -523,13 +544,36 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                   Nominee @username
                 </span>
               </div>
-              <input
-                type="text"
-                value={nomineeEmail}
-                onChange={(e) => setNomineeEmail(e.target.value.startsWith("@") ? e.target.value : "@" + e.target.value)}
-                placeholder="@username"
-                className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={nomineeEmail}
+                  onChange={(e) => setNomineeEmail(e.target.value.startsWith("@") || e.target.value === "" ? e.target.value : "@" + e.target.value)}
+                  onFocus={() => { if (userSuggestions.length > 0) setShowSuggestions(true); }}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  placeholder="@username"
+                  className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
+                />
+                
+                {showSuggestions && userSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a0f] border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none z-10 max-h-40 overflow-y-auto">
+                    {userSuggestions.map((u) => (
+                      <button
+                        key={u.username}
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 last:border-0 flex items-center justify-between"
+                        onClick={() => {
+                          setNomineeEmail("@" + u.username);
+                          setShowSuggestions(false);
+                        }}
+                      >
+                        <span className="font-bold text-zinc-950 dark:text-zinc-100 text-sm">@{u.username}</span>
+                        <span className="text-[10px] text-zinc-500 font-mono truncate ml-2">{u.display_name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <p className="text-[10px] font-bold text-zinc-500 mt-2.5 font-mono">
                 They will receive a notification in their app to verify your oath.
               </p>

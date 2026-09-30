@@ -392,7 +392,7 @@ export default function LandingView() {
         </div>
       </section>
 
-      {/* The House Cut Banner */}
+      {/* The Oath Fee Banner */}
       <section className="border-y-4 border-zinc-950 dark:border-red-600 bg-red-600 text-white overflow-hidden py-6 flex whitespace-nowrap">
         <motion.div
           animate={{ x: [0, -2000] }}

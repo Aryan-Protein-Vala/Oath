@@ -228,7 +228,7 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
                   <span className="font-bold text-emerald-600 dark:text-emerald-400">
                     {formatCurrency(stakeNum * 2 * 0.9)}
                   </span>{" "}
-                  (10% house cut).
+                  (10% Oath Platform Fee).
                 </p>
               </div>
             )}

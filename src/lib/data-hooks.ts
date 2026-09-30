@@ -1229,3 +1229,13 @@ export async function verifyNominee(token: string, verdict: "success" | "penalty
   notifyDataUpdated();
   return { error: null };
 }
+export async function searchUsersByUsername(query: string): Promise<any[]> {
+  if (isMockMode()) return [];
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("username, display_name")
+    .ilike("username", `${query}%`)
+    .limit(5);
+  return data || [];
+}
