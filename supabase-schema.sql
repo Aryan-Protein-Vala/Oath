@@ -8,6 +8,28 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================
+-- CLEANUP PREVIOUS SCHEMA (prevents "already exists" errors)
+-- ============================================================
+
+DROP TABLE IF EXISTS wall_entries CASCADE;
+DROP TABLE IF EXISTS votes CASCADE;
+DROP TABLE IF EXISTS proofs CASCADE;
+DROP TABLE IF EXISTS group_members CASCADE;
+DROP TABLE IF EXISTS nominees CASCADE;
+DROP TABLE IF EXISTS transactions CASCADE;
+DROP TABLE IF EXISTS oaths CASCADE;
+DROP TABLE IF EXISTS wallets CASCADE;
+DROP TABLE IF EXISTS profiles CASCADE;
+
+DROP TYPE IF EXISTS oath_type CASCADE;
+DROP TYPE IF EXISTS oath_status CASCADE;
+DROP TYPE IF EXISTS verification_method CASCADE;
+DROP TYPE IF EXISTS consequence_type CASCADE;
+DROP TYPE IF EXISTS proof_status CASCADE;
+DROP TYPE IF EXISTS transaction_type CASCADE;
+DROP TYPE IF EXISTS wall_type CASCADE;
+
+-- ============================================================
 -- ENUMS
 -- ============================================================
 
