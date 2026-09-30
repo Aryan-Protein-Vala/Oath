@@ -457,6 +457,7 @@ export async function createOath(data: {
   max_players?: number;
   group_mode?: GroupMode;
   opponent_id?: string;
+  opponent_ids?: string[]; // Multiple invites for squad
 }): Promise<{ oath?: Oath; error: string | null }> {
   const validStake = validateNonNegativeAmount(data.stake_amount);
   if (validStake === null) {
@@ -576,6 +577,17 @@ export async function createOath(data: {
     .select("*, creator:profiles!oaths_creator_id_fkey(*), members:group_members(*, user:profiles(*))")
     .eq("id", oathId)
     .single();
+    
+  if (data.oath_type === "squad" && data.opponent_ids && data.opponent_ids.length > 0) {
+    const notifications = data.opponent_ids.map(id => ({
+      user_id: id,
+      oath_id: oathId,
+      type: "invite",
+      message: `${user.user_metadata?.username || "Someone"} invited you to a squad: "${data.oath_statement}"`,
+    }));
+    await supabase.from("notifications").insert(notifications);
+  }
+  
   if (readError || !oath) return { error: readError?.message ?? "Oath was created but could not be loaded. Refresh to view it." };
   notifyDataUpdated();
   return { oath: oath as Oath, error: null };

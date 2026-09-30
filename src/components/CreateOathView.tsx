@@ -54,6 +54,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   const [opponentSuggestions, setOpponentSuggestions] = useState<{ id?: string; username: string; display_name?: string }[]>([]);
   const [showOpponentSuggestions, setShowOpponentSuggestions] = useState(false);
   const [opponentId, setOpponentId] = useState("");
+  const [squadMembers, setSquadMembers] = useState<{ id: string; username: string; display_name?: string }[]>([]);
   const [infoModal, setInfoModal] = useState<{ title: string; desc: string } | null>(null);
 
   const financialConsequences = ["fiat", "anti_charity", "shared_oath", "mutual_destruction"];
@@ -101,7 +102,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   }, [nomineeEmail, verificationMethod]);
 
   useEffect(() => {
-    if (oathType !== "duo") return;
+    if (oathType !== "duo" && oathType !== "squad") return;
     if (selectedFromDropdownRef.current) {
       selectedFromDropdownRef.current = false;
       return;
@@ -193,6 +194,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
       max_players: oathType === "squad" ? maxPlayers : (oathType === "duo" ? 2 : 1),
       group_mode: oathType === "duo" || oathType === "squad" ? groupMode : undefined,
       opponent_id: oathType === "duo" && finalOpponentId ? finalOpponentId : undefined,
+      opponent_ids: oathType === "squad" && squadMembers.length > 0 ? squadMembers.map(m => m.id) : undefined,
     });
     setSubmitting(false);
     if (error) {
@@ -279,17 +281,6 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 }}
               />
 
-              <TypeButton
-                icon={<Globe className="w-4 h-4" />}
-                label="Lobby"
-                sublabel="Global"
-                isActive={oathType === "lobby"}
-                onClick={() => {
-                  setOathType("lobby");
-                  setVerificationMethod("peer");
-                  setConsequenceType("fiat");
-                }}
-              />
             </div>
           </div>
 
@@ -395,12 +386,12 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
             </div>
           )}
 
-          {oathType === "duo" && (
+          {(oathType === "duo" || oathType === "squad") && (
             <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-950/50 fade-in shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none mt-4">
               <div className="flex items-center gap-2 mb-3">
                 <Users className="w-3.5 h-3.5 text-zinc-500" />
                 <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-500 uppercase tracking-[0.2em]">
-                  Opponent @username
+                  {oathType === "squad" ? "Invite Squad Members" : "Opponent @username"}
                 </span>
               </div>
               <div className="relative">
@@ -413,7 +404,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                   }}
                   onFocus={() => { if (opponentSuggestions.length > 0) setShowOpponentSuggestions(true); }}
                   onBlur={() => setTimeout(() => setShowOpponentSuggestions(false), 200)}
-                  placeholder="@username"
+                  placeholder={oathType === "squad" ? "Search @username to invite" : "@username"}
                   className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
                 />
                 
@@ -428,9 +419,20 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                         type="button"
                         className="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 last:border-0 flex items-center justify-between"
                         onClick={() => {
-                          selectedFromDropdownRef.current = true;
-                          setOpponentUsername("@" + u.username);
-                          setOpponentId(u.id || "");
+                          if (oathType === "squad") {
+                            if (squadMembers.length >= maxPlayers - 1) {
+                              showToast(`Squad full (max ${maxPlayers} including you)`, "error");
+                            } else if (squadMembers.find(m => m.id === u.id)) {
+                              showToast("User already added", "error");
+                            } else {
+                              setSquadMembers([...squadMembers, { id: u.id || "", username: u.username, display_name: u.display_name }]);
+                              setOpponentUsername("");
+                            }
+                          } else {
+                            selectedFromDropdownRef.current = true;
+                            setOpponentUsername("@" + u.username);
+                            setOpponentId(u.id || "");
+                          }
                           setShowOpponentSuggestions(false);
                           setOpponentSuggestions([]);
                         }}
@@ -442,6 +444,24 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                   </div>
                 )}
               </div>
+              
+              {oathType === "squad" && squadMembers.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {squadMembers.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between p-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold">@{member.username}</span>
+                      </div>
+                      <button 
+                        onClick={() => setSquadMembers(squadMembers.filter(m => m.id !== member.id))}
+                        className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded text-red-500 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
