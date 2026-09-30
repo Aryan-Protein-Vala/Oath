@@ -42,6 +42,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [paypalEmail, setPaypalEmail] = useState("");
   const { region, formatCurrency: formatRegionCurrency } = useRegion();
 
   useEffect(() => {
@@ -130,15 +131,43 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
         setLoading(false);
       }
     } else {
-      // Withdrawal
-      const { error } = await withdrawFunds(amountUsd);
-      if (error) {
-        showToast(error, "error");
-      } else {
-        setDone(true);
-        showToast(`${formatRegionCurrency(amountUsd)} withdrawn from your wallet.`, "success");
-        onRefresh();
-        setTimeout(() => { setDone(false); setAmount(""); setTab("overview"); }, 1500);
+      // Withdrawal via PayPal
+      if (!paypalEmail || !paypalEmail.includes("@")) {
+        showToast("Please enter a valid PayPal email address", "error");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // 1. Initiate PayPal Payout
+        const payoutRes = await fetch("/api/paypal/payout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: amountUsd, // Process via USD
+            currency: "USD",
+            receiverEmail: paypalEmail,
+          }),
+        });
+        
+        const payoutData = await payoutRes.json();
+        
+        if (!payoutRes.ok) {
+          throw new Error(payoutData.error || "Failed to process PayPal payout");
+        }
+
+        // 2. Deduct from DB Wallet
+        const { error } = await withdrawFunds(amountUsd);
+        if (error) {
+          showToast(`Payout sent but DB sync failed: ${error}`, "error");
+        } else {
+          setDone(true);
+          showToast(`${formatRegionCurrency(amountUsd)} sent to ${paypalEmail}.`, "success");
+          onRefresh();
+          setTimeout(() => { setDone(false); setAmount(""); setPaypalEmail(""); setTab("overview"); }, 2000);
+        }
+      } catch (err: any) {
+        showToast(err.message || "Failed to process withdrawal", "error");
       }
       setLoading(false);
     }
@@ -183,7 +212,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           {(["overview", "deposit", "withdraw"] as ModalTab[]).map((t) => (
             <button
               key={t}
-              onClick={() => { setTab(t); setAmount(""); setDone(false); }}
+              onClick={() => { setTab(t); setAmount(""); setPaypalEmail(""); setDone(false); }}
               className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-wider transition-all ${
                 tab === t
                   ? t === "withdraw"
@@ -247,6 +276,22 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                       </div>
                     )}
                   </div>
+
+                  {/* PayPal Email for withdrawal */}
+                  {tab === "withdraw" && (
+                    <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-950/50">
+                      <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.2em] mb-2 block">
+                        PayPal Email
+                      </label>
+                      <input
+                        type="email"
+                        value={paypalEmail}
+                        onChange={(e) => setPaypalEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        className="w-full text-sm font-bold text-zinc-950 dark:text-zinc-100 bg-transparent border-b-2 border-zinc-300 dark:border-zinc-700 focus:border-zinc-950 dark:focus:border-zinc-500 p-2 focus:outline-none transition-colors"
+                      />
+                    </div>
+                  )}
 
                   {/* Quick amounts */}
                   <div className="grid grid-cols-6 gap-1.5">
