@@ -117,7 +117,10 @@ export async function POST(request: Request) {
     } catch (payoutError) {
       // Revert wallet deduction if PayPal payout fails
       console.error("PayPal transfer failed, reverting wallet deduction:", payoutError);
-      await supabase.rpc("add_funds", { p_amount: numericAmount });
+      await supabase.rpc("add_funds", { 
+        p_amount: numericAmount, 
+        p_description: "Refund: Failed PayPal withdrawal" 
+      });
       throw payoutError;
     }
 

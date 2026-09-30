@@ -6,6 +6,8 @@ import { useAuth } from "@/lib/auth-context";
 import { Notification } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { formatRelativeTime } from "@/lib/utils";
+import { joinSquad, acceptDuoChallenge } from "@/lib/data-hooks";
+import { showToast } from "./Toast";
 
 interface NotificationsPanelProps {
   onClose: () => void;
@@ -15,6 +17,7 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -51,10 +54,31 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
     setLoading(false);
   };
 
-  const handleAction = async (id: string, status: "accepted" | "rejected") => {
-    await supabase.from("notifications").update({ status }).eq("id", id);
-    // Ideally this also handles the RPC calls to join squad/duo
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, status } : n)));
+  const handleAction = async (notif: Notification, status: "accepted" | "rejected") => {
+    setProcessingId(notif.id);
+    if (status === "accepted" && notif.oath_id) {
+      if (notif.type === "invite_duo") {
+        const { error } = await acceptDuoChallenge(notif.oath_id);
+        if (error) {
+          showToast(error, "error");
+          setProcessingId(null);
+          return;
+        }
+        showToast("Accepted Duo Challenge! Stay accountable.", "success");
+      } else if (notif.type === "invite_squad" || notif.type === "invite_lobby") {
+        const { error } = await joinSquad(notif.oath_id, 0);
+        if (error) {
+          showToast(error, "error");
+          setProcessingId(null);
+          return;
+        }
+        showToast("Joined Accountability Squad!", "success");
+      }
+    }
+
+    await supabase.from("notifications").update({ status }).eq("id", notif.id);
+    setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, status } : n)));
+    setProcessingId(null);
   };
 
   return (
@@ -95,14 +119,16 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
                 {notif.status === "pending" && notif.type.startsWith("invite_") && (
                   <div className="flex items-center gap-2 mt-4">
                     <button
-                      onClick={() => handleAction(notif.id, "accepted")}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-bold uppercase hover:bg-zinc-800 dark:hover:bg-white"
+                      onClick={() => handleAction(notif, "accepted")}
+                      disabled={processingId === notif.id}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-bold uppercase hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-50"
                     >
-                      <Check className="w-3.5 h-3.5" /> Accept
+                      {processingId === notif.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Accept
                     </button>
                     <button
-                      onClick={() => handleAction(notif.id, "rejected")}
-                      className="flex items-center justify-center p-1.5 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-red-600 hover:border-red-600"
+                      onClick={() => handleAction(notif, "rejected")}
+                      disabled={processingId === notif.id}
+                      className="flex items-center justify-center p-1.5 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-red-600 hover:border-red-600 disabled:opacity-50"
                     >
                       <XCircle className="w-4 h-4" />
                     </button>

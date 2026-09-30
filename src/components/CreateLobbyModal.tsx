@@ -58,6 +58,7 @@ export default function CreateLobbyModal({ walletBalance, onClose, onCreated }: 
       stake_amount: stakeUsd,
       min_players: 2,
       max_players: maxPlayers,
+      group_mode: "survival",
     });
     setSubmitting(false);
 
@@ -129,7 +130,7 @@ export default function CreateLobbyModal({ walletBalance, onClose, onCreated }: 
                 onChange={(e) => setMaxPlayers(parseInt(e.target.value))}
                 className="w-full border-b-2 border-zinc-300 dark:border-zinc-800 focus:border-zinc-950 dark:focus:border-zinc-500 bg-transparent text-sm font-bold p-2 focus:outline-none"
               >
-                {[5, 10, 20, 50, 100].map(n => (
+                {[4, 6, 8, 10].map(n => (
                   <option key={n} value={n}>{n} Players</option>
                 ))}
               </select>

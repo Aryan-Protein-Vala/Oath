@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+
+const ALLOWED_CURRENCIES = ["INR", "USD"];
+const MAX_DEPOSIT_INR = 500000;
+const MAX_DEPOSIT_USD = 10000;
 
 export async function POST(request: Request) {
   try {
@@ -14,17 +19,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "A valid positive amount is required" }, { status: 400 });
     }
 
+    if (!ALLOWED_CURRENCIES.includes(currency.toUpperCase())) {
+      return NextResponse.json({ error: "Unsupported currency" }, { status: 400 });
+    }
+
+    const maxLimit = currency.toUpperCase() === "INR" ? MAX_DEPOSIT_INR : MAX_DEPOSIT_USD;
+    if (numericAmount > maxLimit) {
+      return NextResponse.json({ error: `Deposit exceeds maximum limit of ${maxLimit} ${currency}` }, { status: 400 });
+    }
+
     if (!keyId || !keySecret) {
       // Return a simulated mock order for safe testing if keys are missing
       return NextResponse.json({
         id: `order_mock_${Date.now()}`,
         entity: "order",
         amount: Math.round(numericAmount * 100),
-        currency,
+        currency: currency.toUpperCase(),
         receipt: `receipt_${Date.now()}`,
         status: "created",
         is_mock: true,
       });
+    }
+
+    const supabase = await createServerSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized. Sign in to deposit funds." }, { status: 401 });
     }
 
     const razorpay = new Razorpay({

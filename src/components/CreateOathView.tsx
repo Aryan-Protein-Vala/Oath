@@ -26,6 +26,7 @@ import {
 import type { OathType, VerificationMethod, ConsequenceType } from "@/lib/types";
 import { convertToUSD, convertToLocal } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
+import { useAuth } from "@/lib/auth-context";
 import { showToast } from "./Toast";
 
 interface CreateOathViewProps {
@@ -34,6 +35,7 @@ interface CreateOathViewProps {
 }
 
 export default function CreateOathView({ walletBalance, onOathCreated }: CreateOathViewProps) {
+  const { user } = useAuth();
   const { region, formatCurrency: formatRegionCurrency } = useRegion();
   // Form state
   const [oathStatement, setOathStatement] = useState("");
@@ -115,11 +117,45 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
         return;
       }
       const results = await searchUsersByUsername(query);
-      setOpponentSuggestions(results);
-      setShowOpponentSuggestions(results.length > 0);
+      const filtered = results.filter((u) => u.id !== user?.id);
+      setOpponentSuggestions(filtered);
+      setShowOpponentSuggestions(filtered.length > 0);
     }, 300);
     return () => clearTimeout(timer);
-  }, [opponentUsername, oathType]);
+  }, [opponentUsername, oathType, user?.id]);
+
+  const handleAddSquadMember = (u: { id?: string; username: string; display_name?: string }) => {
+    if (u.id === user?.id) {
+      showToast("You cannot invite yourself", "error");
+      return;
+    }
+    if (squadMembers.length >= maxPlayers - 1) {
+      showToast(`Squad full (max ${maxPlayers} including you)`, "error");
+    } else if (squadMembers.find((m) => m.id === u.id || m.username.toLowerCase() === u.username.toLowerCase())) {
+      showToast("User already added", "error");
+    } else {
+      setSquadMembers([...squadMembers, { id: u.id || "", username: u.username, display_name: u.display_name }]);
+      setOpponentUsername("");
+      setShowOpponentSuggestions(false);
+      setOpponentSuggestions([]);
+    }
+  };
+
+  const handleAddFromInput = async () => {
+    if (!opponentUsername.trim()) return;
+    const clean = opponentUsername.replace("@", "").trim();
+    if (clean.toLowerCase() === user?.user_metadata?.username?.toLowerCase()) {
+      showToast("You cannot invite yourself", "error");
+      return;
+    }
+    const results = await searchUsersByUsername(clean);
+    const match = results.find((u) => u.username.toLowerCase() === clean.toLowerCase());
+    if (match) {
+      handleAddSquadMember(match);
+    } else {
+      showToast(`User @${clean} not found`, "error");
+    }
+  };
 
   const handleSubmit = async () => {
     if (!oathStatement.trim()) {
@@ -179,6 +215,18 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
       }
     }
 
+    let finalSquadMembers = [...squadMembers];
+    if (oathType === "squad" && opponentUsername.trim()) {
+      const clean = opponentUsername.replace("@", "").trim();
+      if (!finalSquadMembers.some(m => m.username.toLowerCase() === clean.toLowerCase())) {
+        const results = await searchUsersByUsername(clean);
+        const match = results.find(u => u.username.toLowerCase() === clean.toLowerCase());
+        if (match?.id && match.id !== user?.id) {
+          finalSquadMembers.push({ id: match.id, username: match.username, display_name: match.display_name });
+        }
+      }
+    }
+
     const { error } = await createOath({
       oath_statement: statementWithCause,
       deadline: deadlineDate.toISOString(),
@@ -194,7 +242,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
       max_players: oathType === "squad" ? maxPlayers : (oathType === "duo" ? 2 : 1),
       group_mode: oathType === "duo" || oathType === "squad" ? groupMode : undefined,
       opponent_id: oathType === "duo" && finalOpponentId ? finalOpponentId : undefined,
-      opponent_ids: oathType === "squad" && squadMembers.length > 0 ? squadMembers.map(m => m.id) : undefined,
+      opponent_ids: oathType === "squad" && finalSquadMembers.length > 0 ? finalSquadMembers.map(m => m.id) : undefined,
     });
     setSubmitting(false);
     if (error) {
@@ -394,54 +442,64 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                   {oathType === "squad" ? "Invite Squad Members" : "Opponent @username"}
                 </span>
               </div>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={opponentUsername}
-                  onChange={(e) => {
-                    selectedFromDropdownRef.current = false;
-                    setOpponentUsername(e.target.value);
-                  }}
-                  onFocus={() => { if (opponentSuggestions.length > 0) setShowOpponentSuggestions(true); }}
-                  onBlur={() => setTimeout(() => setShowOpponentSuggestions(false), 200)}
-                  placeholder={oathType === "squad" ? "Search @username to invite" : "@username"}
-                  className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
-                />
-                
-                {showOpponentSuggestions && opponentSuggestions.length > 0 && (
-                  <div
-                    onMouseDown={(e) => e.preventDefault()}
-                    className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a0f] border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none z-10 max-h-40 overflow-y-auto"
-                  >
-                    {opponentSuggestions.map((u) => (
-                      <button
-                        key={u.username}
-                        type="button"
-                        className="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 last:border-0 flex items-center justify-between"
-                        onClick={() => {
-                          if (oathType === "squad") {
-                            if (squadMembers.length >= maxPlayers - 1) {
-                              showToast(`Squad full (max ${maxPlayers} including you)`, "error");
-                            } else if (squadMembers.find(m => m.id === u.id)) {
-                              showToast("User already added", "error");
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={opponentUsername}
+                    onChange={(e) => {
+                      selectedFromDropdownRef.current = false;
+                      setOpponentUsername(e.target.value);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && oathType === "squad") {
+                        e.preventDefault();
+                        handleAddFromInput();
+                      }
+                    }}
+                    onFocus={() => { if (opponentSuggestions.length > 0) setShowOpponentSuggestions(true); }}
+                    onBlur={() => setTimeout(() => setShowOpponentSuggestions(false), 200)}
+                    placeholder={oathType === "squad" ? "Search @username to invite" : "@username"}
+                    className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
+                  />
+                  
+                  {showOpponentSuggestions && opponentSuggestions.length > 0 && (
+                    <div
+                      onMouseDown={(e) => e.preventDefault()}
+                      className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a0f] border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none z-10 max-h-40 overflow-y-auto"
+                    >
+                      {opponentSuggestions.map((u) => (
+                        <button
+                          key={u.username}
+                          type="button"
+                          className="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 last:border-0 flex items-center justify-between"
+                          onClick={() => {
+                            if (oathType === "squad") {
+                              handleAddSquadMember(u);
                             } else {
-                              setSquadMembers([...squadMembers, { id: u.id || "", username: u.username, display_name: u.display_name }]);
-                              setOpponentUsername("");
+                              selectedFromDropdownRef.current = true;
+                              setOpponentUsername("@" + u.username);
+                              setOpponentId(u.id || "");
+                              setShowOpponentSuggestions(false);
+                              setOpponentSuggestions([]);
                             }
-                          } else {
-                            selectedFromDropdownRef.current = true;
-                            setOpponentUsername("@" + u.username);
-                            setOpponentId(u.id || "");
-                          }
-                          setShowOpponentSuggestions(false);
-                          setOpponentSuggestions([]);
-                        }}
-                      >
-                        <span className="font-bold text-zinc-950 dark:text-zinc-100 text-sm">@{u.username}</span>
-                        <span className="text-[10px] text-zinc-500 font-mono truncate ml-2">{u.display_name}</span>
-                      </button>
-                    ))}
-                  </div>
+                          }}
+                        >
+                          <span className="font-bold text-zinc-950 dark:text-zinc-100 text-sm">@{u.username}</span>
+                          <span className="text-[10px] text-zinc-500 font-mono truncate ml-2">{u.display_name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {oathType === "squad" && (
+                  <button
+                    type="button"
+                    onClick={handleAddFromInput}
+                    className="px-4 py-3 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-mono font-black uppercase tracking-wider hover:bg-zinc-800 dark:hover:bg-zinc-200 border-2 border-zinc-950 dark:border-transparent transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none shrink-0"
+                  >
+                    Add
+                  </button>
                 )}
               </div>
               

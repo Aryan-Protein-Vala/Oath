@@ -22,6 +22,7 @@ before(async () => {
     CREATE ROLE anon;
     CREATE ROLE authenticated;
     CREATE SCHEMA auth;
+    CREATE TABLE IF NOT EXISTS auth.users (id uuid primary key, email text);
     CREATE SCHEMA storage;
     CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
       SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
@@ -117,7 +118,9 @@ before(async () => {
     "202609300005_duo_squad_modes.sql",
     "202609300006_squad_settlement_modes.sql",
     "202609300007_chat_notifications_lobby.sql",
-    "202609300008_fix_settlement_and_modes.sql"
+    "202609300008_fix_settlement_and_modes.sql",
+    "202609300009_admin_features.sql",
+    "202609300010_fix_lobby_and_invites.sql"
   ];
 
   for (const file of migrationFiles) {

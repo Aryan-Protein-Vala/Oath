@@ -123,7 +123,8 @@ before(async () => {
     "202609300005_duo_squad_modes.sql",
     "202609300006_squad_settlement_modes.sql",
     "202609300007_chat_notifications_lobby.sql",
-    "202609300008_fix_settlement_and_modes.sql"
+    "202609300008_fix_settlement_and_modes.sql",
+    "202609300009_fix_lobby_and_invites.sql"
   ];
 
   for (const file of migrationFiles) {
@@ -232,3 +233,50 @@ test("Real User Journey 3: Squad Flow (Quorum Approvals & Realtime Chat Integrat
   const member1Mid = (await db.query("SELECT status, votes_received FROM group_members WHERE id=$1", [member1Row.id])).rows[0];
   assert.equal(member1Mid.votes_received, 1);
 });
+
+test("Real User Journey 4: Public Lobby Flow (Individual Buy-In, Member Escrow Isolation & Forfeit)", async () => {
+  // 1. Creator opens a public lobby with $30 individual buy-in
+  const creatorInitial = (await db.query("SELECT balance, escrow_locked FROM wallets WHERE user_id=$1", [ids.creator])).rows[0];
+  const lobbyId = (await asUser(ids.creator, `SELECT public.create_oath_with_stake(
+    'Daily 10k steps challenge', now()+interval '3 days', 'lobby', 'peer', 'fiat', 30, 2, 4, NULL, NULL, NULL, NULL, NULL, 'survival'
+  )`)).rows[0].create_oath_with_stake;
+
+  const creatorAfter = (await db.query("SELECT balance, escrow_locked FROM wallets WHERE user_id=$1", [ids.creator])).rows[0];
+  // Creator only paid their OWN $30 buy-in (not 4x)
+  assert.equal(Number(creatorAfter.balance), Number(creatorInitial.balance) - 30);
+  assert.equal(Number(creatorAfter.escrow_locked), Number(creatorInitial.escrow_locked) + 30);
+
+  // Status is pending until min_players (2) is reached
+  const lobbyRow = (await db.query("SELECT status, min_players, max_players FROM oaths WHERE id=$1", [lobbyId])).rows[0];
+  assert.equal(lobbyRow.status, "pending");
+  assert.equal(lobbyRow.min_players, 2);
+  assert.equal(lobbyRow.max_players, 4);
+
+  // 2. Member 1 joins with their own $30 buy-in
+  const m1Initial = (await db.query("SELECT balance, escrow_locked FROM wallets WHERE user_id=$1", [ids.squadMember1])).rows[0];
+  const m1Id = (await asUser(ids.squadMember1, "SELECT public.join_squad($1, 30)", [lobbyId])).rows[0].join_squad;
+  assert.ok(m1Id);
+
+  const m1AfterJoin = (await db.query("SELECT balance, escrow_locked FROM wallets WHERE user_id=$1", [ids.squadMember1])).rows[0];
+  assert.equal(Number(m1AfterJoin.balance), Number(m1Initial.balance) - 30);
+  assert.equal(Number(m1AfterJoin.escrow_locked), Number(m1Initial.escrow_locked) + 30);
+
+  // Status transitions to active because min_players (2) is reached!
+  const lobbyActive = (await db.query("SELECT status FROM oaths WHERE id=$1", [lobbyId])).rows[0];
+  assert.equal(lobbyActive.status, "active");
+
+  // 3. Member 1 forfeits from the lobby
+  // In a lobby, the penalty is deducted from Member 1's escrow, NOT Creator's escrow!
+  await asUser(ids.squadMember1, "SELECT public.forfeit_squad_member($1)", [lobbyId]);
+
+  const m1AfterForfeit = (await db.query("SELECT balance, escrow_locked, total_lost FROM wallets WHERE user_id=$1", [ids.squadMember1])).rows[0];
+  assert.equal(Number(m1AfterForfeit.balance), Number(m1AfterJoin.balance)); // Balance remains deducted
+  assert.equal(Number(m1AfterForfeit.escrow_locked), Number(m1Initial.escrow_locked)); // Escrow unlocked
+  assert.equal(Number(m1AfterForfeit.total_lost), 30); // Penalty recorded against member 1!
+
+  // Creator's escrow is completely UNTOUCHED by Member 1's forfeit!
+  const creatorAfterForfeit = (await db.query("SELECT balance, escrow_locked FROM wallets WHERE user_id=$1", [ids.creator])).rows[0];
+  assert.equal(Number(creatorAfterForfeit.escrow_locked), Number(creatorAfter.escrow_locked));
+  assert.equal(Number(creatorAfterForfeit.balance), Number(creatorAfter.balance));
+});
+

@@ -190,7 +190,7 @@ export function useSquadLobbies() {
           creator:profiles!oaths_creator_id_fkey(*),
           members:group_members(*, user:profiles(*))
         `)
-        .eq("oath_type", "squad")
+        .in("oath_type", ["squad", "lobby"])
         .in("status", ["pending", "active"])
         .order("created_at", { ascending: false });
 
@@ -482,7 +482,7 @@ export async function createOath(data: {
       return { error: `Insufficient funds. Deposit more or lower the stake (${totalStake} required).` };
     }
 
-    const initialStatus = (data.oath_type === "squad" || data.oath_type === "duo") ? "pending" : "active";
+    const initialStatus = (data.oath_type === "squad" || data.oath_type === "duo" || data.oath_type === "lobby") ? "pending" : "active";
     const demoOathId = `oath-${Date.now()}`;
 
     const newOath: Oath = {
@@ -499,13 +499,13 @@ export async function createOath(data: {
       social_ransom_message: data.social_ransom_message,
       nominee_email: data.nominee_email,
       status: initialStatus,
-      min_players: data.min_players ?? (data.oath_type === "squad" ? 4 : data.oath_type === "duo" ? 2 : 1),
-      max_players: data.max_players ?? (data.oath_type === "squad" ? 8 : data.oath_type === "duo" ? 2 : 1),
+      min_players: data.min_players ?? (data.oath_type === "squad" ? 4 : data.oath_type === "lobby" ? 2 : data.oath_type === "duo" ? 2 : 1),
+      max_players: data.max_players ?? (data.oath_type === "squad" ? 8 : data.oath_type === "lobby" ? 10 : data.oath_type === "duo" ? 2 : 1),
       group_mode: data.group_mode,
       opponent_id: data.opponent_id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      members: data.oath_type === "squad" ? [
+      members: (data.oath_type === "squad" || data.oath_type === "lobby" || data.oath_type === "duo") ? [
         {
           id: `gm-${Date.now()}`,
           oath_id: demoOathId,
@@ -515,7 +515,7 @@ export async function createOath(data: {
           status: "joined",
           proof_submitted: false,
           votes_received: 0,
-          votes_needed: 3,
+          votes_needed: data.oath_type === "duo" ? 1 : 3,
           is_active_participant: false,
         }
       ] : undefined,
@@ -542,7 +542,7 @@ export async function createOath(data: {
     setMockTransactions([newTx, ...getMockTransactions()]);
 
     // Save oath
-    if (data.oath_type === "squad") {
+    if (data.oath_type === "squad" || data.oath_type === "lobby") {
       setMockSquads([newOath, ...getMockSquads()]);
     }
     setMockOaths([newOath, ...getMockOaths()]);
@@ -582,10 +582,23 @@ export async function createOath(data: {
     const notifications = data.opponent_ids.map(id => ({
       user_id: id,
       oath_id: oathId,
-      type: "invite",
+      type: "invite_squad",
+      title: "Squad Invitation",
+      actor_id: user.id,
       message: `${user.user_metadata?.username || "Someone"} invited you to a squad: "${data.oath_statement}"`,
     }));
     await supabase.from("notifications").insert(notifications);
+  }
+
+  if (data.oath_type === "duo" && data.opponent_id) {
+    await supabase.from("notifications").insert({
+      user_id: data.opponent_id,
+      oath_id: oathId,
+      type: "invite_duo",
+      title: "Duo Challenge",
+      actor_id: user.id,
+      message: `${user.user_metadata?.username || "Someone"} challenged you to a duo oath: "${data.oath_statement}"`,
+    });
   }
   
   if (readError || !oath) return { error: readError?.message ?? "Oath was created but could not be loaded. Refresh to view it." };
@@ -746,6 +759,29 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
       return { error: "You have already joined this squad pool." };
     }
 
+    if (target.oath_type === "lobby" && target.stake_amount > 0) {
+      const currentWallet = getInitialMockWallet();
+      if (currentWallet.balance < target.stake_amount) {
+        return { error: `Insufficient funds. You need ${target.stake_amount} to join this lobby.` };
+      }
+      const updatedWallet: Wallet = {
+        ...currentWallet,
+        balance: currentWallet.balance - target.stake_amount,
+        escrow_locked: currentWallet.escrow_locked + target.stake_amount,
+      };
+      setMockWallet(updatedWallet);
+      const newTx: Transaction = {
+        id: `tx-${Date.now()}`,
+        wallet_id: currentWallet.id,
+        oath_id: oathId,
+        type: "escrow_lock",
+        amount: target.stake_amount,
+        description: `Joined lobby: ${target.oath_statement}`,
+        created_at: new Date().toISOString(),
+      };
+      setMockTransactions([newTx, ...getMockTransactions()]);
+    }
+
     const newMember: GroupMember = {
       id: `gm-${Date.now()}`,
       oath_id: oathId,
@@ -772,8 +808,16 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
       return s;
     });
     setMockSquads(updatedSquads);
-    notifyDataUpdated();
 
+    const allOaths = getMockOaths();
+    const updatedOaths = allOaths.map(o => o.id === oathId ? {
+      ...o,
+      status: (o.members?.length ?? 0) + 1 >= (o.min_players ?? 2) ? ("active" as const) : o.status,
+      members: [...(o.members ?? []), newMember],
+    } : o);
+    setMockOaths(updatedOaths);
+
+    notifyDataUpdated();
     return { error: null };
   }
 

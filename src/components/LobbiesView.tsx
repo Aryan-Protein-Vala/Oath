@@ -282,7 +282,7 @@ function SquadDetail({
     if (error) {
       showToast(error, "error");
     } else {
-      showToast("Joined accountability squad! Stake covered by squad leader.", "success");
+      showToast(squad.oath_type === "lobby" ? "Joined Lobby! Stake locked in escrow." : "Joined accountability squad! Stake covered by squad leader.", "success");
       onJoined?.();
     }
   };
@@ -378,7 +378,7 @@ function SquadDetail({
             className="w-full flex items-center justify-center gap-2 py-3.5 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 text-sm font-black tracking-tight uppercase hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {loading ? "Joining Squad..." : "Join Squad (Free — Covered by Leader)"}
+            {loading ? "Joining..." : squad.oath_type === "lobby" ? `Join Lobby (${utilsFormatCurrency(squad.stake_amount, region)})` : "Join Squad (Free — Covered by Leader)"}
           </button>
         </div>
       )}
