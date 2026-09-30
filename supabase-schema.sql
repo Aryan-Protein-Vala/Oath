@@ -11,6 +11,12 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- CLEANUP PREVIOUS SCHEMA (prevents "already exists" errors)
 -- ============================================================
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS handle_new_user() CASCADE;
+DROP FUNCTION IF EXISTS create_wallet_for_user() CASCADE;
+DROP FUNCTION IF EXISTS update_updated_at() CASCADE;
+DROP FUNCTION IF EXISTS on_oath_status_settle() CASCADE;
+
 DROP TABLE IF EXISTS wall_entries CASCADE;
 DROP TABLE IF EXISTS votes CASCADE;
 DROP TABLE IF EXISTS proofs CASCADE;
