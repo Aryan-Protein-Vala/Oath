@@ -120,9 +120,9 @@ export function useOaths() {
     try {
       const { data: memberships } = await supabase.from("group_members").select("oath_id").eq("user_id", user.id);
       const membershipFilter = (memberships ?? []).map((member) => member.oath_id).filter(Boolean);
-      const filters = [`creator_id.eq.${user.id}`, `opponent_id.eq.${user.id}`, `nominee_email.eq.${user.email}`];
+      const filters = [`creator_id.eq.${user.id}`, `opponent_id.eq.${user.id}`, `nominee_email.eq."${user.email}"`];
       if (profile?.username) {
-        filters.push(`nominee_email.eq.@${profile.username}`);
+        filters.push(`nominee_email.eq."@${profile.username}"`);
       }
       if (membershipFilter.length) filters.push(`id.in.(${membershipFilter.join(",")})`);
       const { data, error } = await supabase
