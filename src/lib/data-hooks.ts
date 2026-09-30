@@ -124,7 +124,9 @@ export function useOaths() {
       if (profile?.username) {
         filters.push(`nominee_email.eq."@${profile.username}"`);
       }
-      if (membershipFilter.length) filters.push(`id.in.(${membershipFilter.join(",")})`);
+      if (membershipFilter.length) {
+        membershipFilter.forEach((id) => filters.push(`id.eq.${id}`));
+      }
       const { data, error } = await supabase
         .from("oaths")
         .select(`*, creator:profiles!oaths_creator_id_fkey(*), opponent:profiles!oaths_opponent_id_fkey(*), members:group_members(*, user:profiles(*)), proofs(*)`)
