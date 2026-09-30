@@ -21,7 +21,8 @@ import {
   PieChart,
   Info,
   X,
-  Globe
+  Globe,
+  Target
 } from "lucide-react";
 import type { OathType, VerificationMethod, ConsequenceType } from "@/lib/types";
 import { convertToUSD, convertToLocal } from "@/lib/utils";
@@ -874,7 +875,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
 
             {multiplier > 1 && isFinancial && (
               <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 mb-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
-                💡 <strong>Leader Pays All:</strong> You are locking the stake for all {multiplier} players ({multiplier} × {formatRegionCurrency(stakeUsd)} = <strong>{formatRegionCurrency(totalStakeUsd)}</strong>). {oathType === "duo" ? "Opponent joins for free." : "Squad members join for free."}
+                💡 <strong>Fair Share:</strong> Every player locks {formatRegionCurrency(stakeUsd)}. The total pool will be {multiplier} × {formatRegionCurrency(stakeUsd)} = <strong>{formatRegionCurrency(totalStakeUsd)}</strong>.
               </div>
             )}
 
@@ -892,7 +893,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 {submitting
                   ? "Locking Escrow..."
                   : isFinancial
-                  ? `Lock ${formatRegionCurrency(totalStakeUsd)} & Create Oath${multiplier > 1 ? ` (${multiplier}x Leader Pays All)` : ""}`
+                  ? `Lock ${formatRegionCurrency(stakeUsd)} & Create Oath`
                   : "Create Oath"}
               </button>
             </div>

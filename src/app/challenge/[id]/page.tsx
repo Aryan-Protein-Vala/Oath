@@ -231,8 +231,7 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
 
             {/* Rules */}
             <div className="border border-zinc-300 dark:border-zinc-800 p-4 bg-zinc-100 dark:bg-zinc-900/30 text-xs font-mono space-y-1.5 mb-6 text-zinc-700 dark:text-zinc-400">
-              <p>• <strong>Leader Pays All:</strong> The challenger (@{oath?.creator?.username || "creator"}) has locked the entire stake upfront.</p>
-              <p>• Joining this challenge is 100% free for you.</p>
+              <p>• <strong>Fair Share:</strong> Every joining member must match the {formatCurrency(oath?.stake_amount || 0, region)} stake to participate.</p>
               <p>• Submit your proof before deadline to win your share.</p>
             </div>
 
