@@ -9,7 +9,8 @@ export function convertToLocal(usdAmount: number, region: "global" | "in" = "glo
 }
 
 export function convertToUSD(localAmount: number, region: "global" | "in" = "global"): number {
-  return region === "in" ? localAmount / EXCHANGE_RATE_USD_TO_INR : localAmount;
+  const usd = region === "in" ? localAmount / EXCHANGE_RATE_USD_TO_INR : localAmount;
+  return Math.round(usd * 100) / 100;
 }
 
 /**
