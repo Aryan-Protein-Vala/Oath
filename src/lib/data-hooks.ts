@@ -470,7 +470,7 @@ export async function createOath(data: {
   if (!Number.isFinite(deadlineMs) || deadlineMs <= Date.now()) {
     return { error: "Deadline must be a valid future date." };
   }
-  if ((data.oath_type === "duo" || data.oath_type === "squad" || data.consequence_type === "fiat") && validStake <= 0) {
+  if ((data.consequence_type === "fiat" || data.consequence_type === "anti_charity") && validStake <= 0) {
     return { error: "This oath requires a positive stake." };
   }
 
@@ -569,6 +569,7 @@ export async function createOath(data: {
     p_max_players: data.max_players ?? 1,
     p_group_mode: data.group_mode ?? null,
     p_opponent_id: data.opponent_id ?? null,
+    p_opponent_ids: data.opponent_ids ?? null,
   });
   if (error || !oathId) return { error: error?.message ?? "Oath creation failed" };
 

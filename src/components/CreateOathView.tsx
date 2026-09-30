@@ -59,7 +59,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   const [squadMembers, setSquadMembers] = useState<{ id: string; username: string; display_name?: string }[]>([]);
   const [infoModal, setInfoModal] = useState<{ title: string; desc: string } | null>(null);
 
-  const financialConsequences = ["fiat", "anti_charity", "shared_oath", "mutual_destruction"];
+  const financialConsequences = ["fiat", "anti_charity"];
   const isFinancial = financialConsequences.includes(consequenceType);
 
   const stakeNum = parseFloat(stakeAmount) || 0;
@@ -140,6 +140,16 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
       setOpponentSuggestions([]);
     }
   };
+
+  useEffect(() => {
+    if (oathType === "solo" && (consequenceType === "shared_oath" || consequenceType === "deadweight_tag")) {
+      setConsequenceType("fiat");
+    } else if (oathType === "duo" && consequenceType === "deadweight_tag") {
+      setConsequenceType("fiat");
+    } else if (oathType === "squad" && consequenceType === "shared_oath") {
+      setConsequenceType("fiat");
+    }
+  }, [oathType, consequenceType]);
 
   const handleAddFromInput = async () => {
     if (!opponentUsername.trim()) return;
@@ -347,6 +357,26 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                     onClick={() => setConsequenceType("fiat")}
                     onInfo={() => setInfoModal({ title: "Fiat Consequence", desc: "If you fail, the house takes a 10% cut of your locked stake, and the remaining 90% is burned forever. Hard financial loss." })}
                   />
+                  {oathType === "duo" && (
+                    <TypeButton
+                      icon={<Users className="w-4 h-4" />}
+                      label="Slave Contract"
+                      sublabel="Shared Oath"
+                      isActive={consequenceType === "shared_oath"}
+                      onClick={() => setConsequenceType("shared_oath")}
+                      onInfo={() => setInfoModal({ title: "Slave Contract (Shared Oath)", desc: "If you lose, you become the other person's servant for a day, or pay for their dinner." })}
+                    />
+                  )}
+                  {oathType === "squad" && (
+                    <TypeButton
+                      icon={<Target className="w-4 h-4" />}
+                      label="Deadweight Tag"
+                      sublabel="Squad burden"
+                      isActive={consequenceType === "deadweight_tag"}
+                      onClick={() => setConsequenceType("deadweight_tag")}
+                      onInfo={() => setInfoModal({ title: "Deadweight Tag", desc: "If you fail, you get tagged as the 'Deadweight' of the squad, publicly humiliating you." })}
+                    />
+                  )}
                   <TypeButton
                     icon={<MessageSquare className="w-4 h-4" />}
                     label="Social Ransom"
