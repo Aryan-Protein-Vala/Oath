@@ -589,7 +589,7 @@ export async function depositFunds(amount: number) {
 }
 
 // ---- withdrawFunds ----
-export async function withdrawFunds(amount: number) {
+export async function withdrawFunds(amount: number, destination: string = "Unknown") {
   const validAmount = validatePositiveAmount(amount);
   if (validAmount === null) return { error: "Withdrawal amount must be a positive number." };
 
@@ -597,7 +597,10 @@ export async function withdrawFunds(amount: number) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  const { error } = await supabase.rpc("withdraw_funds", { p_amount: validAmount });
+  const { error } = await supabase.rpc("withdraw_funds", { 
+    p_amount: validAmount,
+    p_destination: destination 
+  });
   if (error) return { error: error.message };
   
   notifyDataUpdated();

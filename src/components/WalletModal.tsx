@@ -131,12 +131,32 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
         setLoading(false);
       }
     } else {
-      // Withdrawal via PayPal
-      if (!paypalEmail || !paypalEmail.includes("@")) {
-        showToast("Please enter a valid PayPal email address", "error");
+      // Withdrawal
+      if (region === "in") {
+        if (!paypalEmail || paypalEmail.length < 3) {
+          showToast("Please enter a valid UPI ID", "error");
+          setLoading(false);
+          return;
+        }
+
+        // Manual UPI Withdrawal Request
+        const { error } = await withdrawFunds(amountUsd, paypalEmail); // paypalEmail state used for UPI ID here
+        if (error) {
+          showToast(`Withdrawal failed: ${error}`, "error");
+        } else {
+          setDone(true);
+          showToast(`${formatRegionCurrency(amountUsd)} withdrawal requested to ${paypalEmail}.`, "success");
+          onRefresh();
+          setTimeout(() => { setDone(false); setAmount(""); setPaypalEmail(""); setTab("overview"); }, 2000);
+        }
         setLoading(false);
-        return;
-      }
+      } else {
+        // Withdrawal via PayPal for global users
+        if (!paypalEmail || !paypalEmail.includes("@")) {
+          showToast("Please enter a valid PayPal email address", "error");
+          setLoading(false);
+          return;
+        }
 
       try {
         // 1. Initiate PayPal Payout
@@ -157,7 +177,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
         }
 
         // 2. Deduct from DB Wallet
-        const { error } = await withdrawFunds(amountUsd);
+        const { error } = await withdrawFunds(amountUsd, paypalEmail);
         if (error) {
           showToast(`Payout sent but DB sync failed: ${error}`, "error");
         } else {
@@ -171,7 +191,8 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
       }
       setLoading(false);
     }
-  };
+  }
+};
 
   return (
     <div
@@ -277,17 +298,17 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                     )}
                   </div>
 
-                  {/* PayPal Email for withdrawal */}
+                  {/* Payout Destination for withdrawal */}
                   {tab === "withdraw" && (
                     <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-950/50">
                       <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.2em] mb-2 block">
-                        PayPal Email
+                        {region === "in" ? "UPI ID" : "PayPal Email"}
                       </label>
                       <input
-                        type="email"
+                        type={region === "in" ? "text" : "email"}
                         value={paypalEmail}
                         onChange={(e) => setPaypalEmail(e.target.value)}
-                        placeholder="you@example.com"
+                        placeholder={region === "in" ? "yourname@upi" : "you@example.com"}
                         className="w-full text-sm font-bold text-zinc-950 dark:text-zinc-100 bg-transparent border-b-2 border-zinc-300 dark:border-zinc-700 focus:border-zinc-950 dark:focus:border-zinc-500 p-2 focus:outline-none transition-colors"
                       />
                     </div>
@@ -344,7 +365,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                   </button>
 
                   <p className="text-[10px] font-mono text-zinc-500 text-center mt-2">
-                    {tab === "deposit" ? "Processed securely by Razorpay." : "Withdrawals sent to your PayPal email."}
+                    {tab === "deposit" ? "Processed securely by Razorpay." : region === "in" ? "Withdrawals processed manually to your UPI ID." : "Withdrawals sent to your PayPal email."}
                   </p>
                 </>
               )}
