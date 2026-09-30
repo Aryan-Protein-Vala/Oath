@@ -24,21 +24,29 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    // Detect IP location
     const detectRegion = async () => {
       try {
+        // 1. Instant Timezone Check (Zero latency, no rate limits)
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (tz === "Asia/Kolkata" || tz === "Asia/Calcutta") {
+          setRegion("in");
+          return;
+        }
+        
+        // 2. Fallback to IP check if timezone isn't strictly India but they might be
         const res = await fetch("https://ipapi.co/json/");
         const data = await res.json();
-        if (data.country_code === "IN") {
+        if (data.country_code === "IN" || data.country === "IN") {
           setRegion("in");
         } else {
           setRegion("global");
         }
       } catch (err) {
         console.error("Failed to detect region:", err);
+        // Fallback to global if everything fails
+        setRegion("global");
       } finally {
-        // Add a slight artificial delay for the brutalist loader animation
-        setTimeout(() => setIsInitializing(false), 1500);
+        setTimeout(() => setIsInitializing(false), 500);
       }
     };
 
