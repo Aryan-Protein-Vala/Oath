@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Image from "next/image";
 import {
   Users,
   Clock,
@@ -17,7 +18,8 @@ import { formatCurrency as utilsFormatCurrency, getTimeRemaining, formatRelative
 import { joinSquad, castVote, failSquadMember, acknowledgeSquadRecovery, completeSquadRecovery } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
 import { useRegion } from "@/lib/region-context";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth, isDemoSession } from "@/lib/auth-context";
+import type { Proof } from "@/lib/types";
 
 interface LobbiesViewProps {
   squads: Oath[];
@@ -27,11 +29,14 @@ interface LobbiesViewProps {
 
 export default function LobbiesView({ squads, wallet, onJoined }: LobbiesViewProps) {
   const [selectedSquadId, setSelectedSquadId] = useState<string | null>(null);
+  const [demoBanner, setDemoBanner] = useState(false);
+  useEffect(() => { const frame = requestAnimationFrame(() => setDemoBanner(isDemoSession())); return () => cancelAnimationFrame(frame); }, []);
 
   const selectedSquad = squads.find((s) => s.id === selectedSquadId) || null;
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-hidden">
+    <div className={`relative flex-1 min-h-0 flex flex-col sm:flex-row overflow-hidden ${demoBanner ? "pt-12" : ""}`}>
+      {demoBanner && <div className="absolute z-20 top-2 left-2 right-2 border-2 border-amber-600 bg-amber-50 dark:bg-amber-950/90 px-3 py-2 text-[10px] font-mono font-bold text-amber-950 dark:text-amber-200">DEMO · local-only sample lobbies. They are not shared with other accounts or devices.</div>}
       {/* On phones, opening a lobby replaces the list instead of squeezing both panes. */}
       <div className={`${selectedSquad ? "hidden sm:flex sm:w-96 sm:flex-none" : "flex flex-1"} min-h-0 w-full flex-col sm:border-r-2 border-zinc-950 dark:border-zinc-800/60 overflow-hidden transition-all bg-white dark:bg-transparent`}>
         <div className="px-5 py-4 border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/50">
@@ -102,7 +107,7 @@ function SquadCard({
   const time = getTimeRemaining(squad.deadline);
   const memberCount = squad.members?.length ?? 0;
   const spotsLeft = Math.max(0, squad.max_players - memberCount);
-  const financial = squad.consequence_type === "fiat" || squad.stake_amount > 0;
+  const financial = squad.consequence_type === "fiat";
 
   return (
     <button
@@ -210,21 +215,22 @@ function SquadDetail({
   const [loading, setLoading] = useState(false);
   const memberCount = squad.members?.length ?? 0;
   const spotsLeft = Math.max(0, squad.max_players - memberCount);
-  const financial = squad.consequence_type === "fiat" || squad.stake_amount > 0;
+  const financial = squad.consequence_type === "fiat";
+  const personalStake = financial ? squad.stake_amount : 0;
   const deadlineExpired = getTimeRemaining(squad.deadline).isExpired;
 
   const handleJoin = async () => {
-    if (squad.stake_amount > 0 && wallet.balance < squad.stake_amount) {
+    if (personalStake > 0 && wallet.balance < personalStake) {
       showToast("Insufficient virtual balance to join this squad.", "error");
       return;
     }
     setLoading(true);
     try {
-      const { error } = await joinSquad(squad.id, squad.stake_amount);
+      const { error } = await joinSquad(squad.id, personalStake);
       if (error) {
         showToast(error, "error");
       } else {
-        showToast(squad.stake_amount > 0 ? "Joined squad. Your virtual stake is locked in the sandbox ledger." : "Joined the no-stake recovery quest.", "success");
+        showToast(personalStake > 0 ? "Joined squad. Your virtual stake is locked in the sandbox ledger." : "Joined the no-stake recovery quest.", "success");
         onJoined?.();
       }
     } catch (cause) {
@@ -240,7 +246,7 @@ function SquadDetail({
       if (error) {
         showToast(error, "error");
       } else {
-        showToast(squad.stake_amount > 0 ? "No-proof failure recorded; your individual virtual stake was settled." : "No-proof failure recorded. No monetary stake was involved.", "success");
+        showToast(personalStake > 0 ? "No-proof failure recorded; your individual virtual stake was settled." : "No-proof failure recorded. No monetary stake was involved.", "success");
         onJoined?.();
       }
     } catch (cause) {
@@ -325,6 +331,7 @@ function SquadDetail({
             showStake={financial}
             onRecoveryReflection={handleRecoveryReflection}
             onRecoveryCheckin={handleRecoveryCheckin}
+            proof={squad.proofs?.filter((proof) => proof.submitted_by === member.user_id).sort((a,b) => b.created_at.localeCompare(a.created_at))[0]}
           />
         ))}
 
@@ -351,7 +358,7 @@ function SquadDetail({
             className="w-full flex items-center justify-center gap-2 py-3.5 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 text-sm font-black tracking-tight uppercase hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {loading ? "Joining…" : squad.stake_amount > 0 ? `Join squad — lock ${utilsFormatCurrency(squad.stake_amount, region)} virtual` : "Join recovery quest — no stake"}
+            {loading ? "Joining…" : personalStake > 0 ? `Join squad — lock ${utilsFormatCurrency(personalStake, region)} virtual` : "Join recovery quest — no stake"}
           </button>
         </div>
       )}
@@ -369,8 +376,10 @@ function MemberLogEntry({
   showStake,
   onRecoveryReflection,
   onRecoveryCheckin,
+  proof,
 }: {
   member: GroupMember;
+  proof?: Proof;
   index: number;
   currentUserId?: string;
   onVote: (memberId: string, vote: boolean) => Promise<void>;
@@ -390,6 +399,7 @@ function MemberLogEntry({
   const isCurrentUser = Boolean(currentUserId && member.user_id === currentUserId);
   const hasVoted = Boolean(currentUserId && member.voted_by?.includes(currentUserId));
   const isConcluded = member.status === "completed" || member.status === "failed";
+  const proofIsVisible = Boolean(proof && (proof.proof_text || proof.proof_url));
 
   return (
     <div
@@ -425,6 +435,13 @@ function MemberLogEntry({
           </div>
         </div>
       </div>
+      {proof && <div className="w-full border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 p-3">
+        <p className="mb-1 text-[9px] font-mono font-black uppercase text-zinc-500">Submitted proof · {proof.proof_type}</p>
+        {proof.proof_text && <p className="whitespace-pre-wrap break-words text-xs text-zinc-800 dark:text-zinc-200">{proof.proof_text}</p>}
+        {proof.proof_url && proof.proof_type === "link" && <a href={proof.proof_url} target="_blank" rel="noreferrer" className="break-all text-xs font-bold text-blue-700 underline">Open proof link</a>}
+        {proof.proof_url && (proof.proof_type === "photo" || proof.proof_type === "screenshot") && <a href={proof.proof_url} target="_blank" rel="noreferrer"><Image src={proof.proof_url} alt="Squad member proof" width={640} height={480} unoptimized className="max-h-52 max-w-full object-contain" /></a>}
+        {proof.proof_url && proof.proof_type === "video" && <video src={proof.proof_url} controls className="max-h-52 max-w-full" />}
+      </div>}
 
       {isCurrentUser && member.status === "failed" && !member.recovered_at && (
         <div className="w-full border border-amber-500/40 bg-amber-50/50 dark:bg-amber-950/10 p-3">
@@ -444,7 +461,8 @@ function MemberLogEntry({
 
       {/* Voting / Status */}
       <div className="w-full sm:w-auto flex items-center justify-end gap-2">
-        {member.proof_submitted && !isConcluded && (
+        {member.proof_submitted && !proofIsVisible && !isCurrentUser && !isConcluded && <span className="text-[9px] font-mono text-amber-700">Proof not available; refresh before reviewing</span>}
+        {member.proof_submitted && proofIsVisible && !isConcluded && (
           <div className="flex items-center gap-1.5 mr-2">
             <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
               {member.votes_received}/{member.votes_needed}

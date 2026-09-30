@@ -5,9 +5,11 @@ import { PGlite } from "@electric-sql/pglite";
 
 const migration = await readFile(new URL("../supabase/migrations/202609290001_harden_oath_flows.sql", import.meta.url), "utf8");
 const flowMigration = await readFile(new URL("../supabase/migrations/202609300001_registered_nominee_and_squad_recovery.sql", import.meta.url), "utf8");
+const duoMigration = await readFile(new URL("../supabase/migrations/202610010001_collaborative_duo_flows.sql", import.meta.url), "utf8");
 const schemaSnapshot = await readFile(new URL("../supabase-schema.sql", import.meta.url), "utf8");
 let db;
 let legacySquadId;
+let legacyDuoId;
 const ids = {
   alice: "11111111-1111-4111-8111-111111111111",
   bob: "22222222-2222-4222-8222-222222222222",
@@ -114,6 +116,9 @@ before(async () => {
     legacySquadId = (await db.query(`INSERT INTO public.oaths (creator_id,oath_statement,deadline,oath_type,verification_method,consequence_type,stake_amount,status,min_players,max_players)
       VALUES ($1,'Legacy squad with personal stake',now()+interval '3 days','squad','quorum','deadweight_tag',7,'pending',4,8) RETURNING id`, [ids.alice])).rows[0].id;
     await db.exec(flowMigration);
+    legacyDuoId = (await db.query(`INSERT INTO public.oaths (creator_id,opponent_id,oath_statement,deadline,oath_type,verification_method,consequence_type,stake_amount,status,min_players,max_players)
+      VALUES ($1,$2,'Legacy head-to-head invite',now()+interval '2 days','duo','peer','bounty_transfer',30,'active',2,2) RETURNING id`, [ids.alice,ids.bob])).rows[0].id;
+    await db.exec(duoMigration);
   } catch (error) {
     console.error("Migration parse error position:", error.position, error.message);
     if (error.position) console.error(flowMigration.slice(Math.max(0, Number(error.position)-160), Number(error.position)+160));
@@ -163,37 +168,37 @@ test("public-shame zero-stake oath creates a public failure entry without touchi
   assert.equal(Number(wallet.escrow_locked), 0);
 });
 
-test("duo acceptance locks both stakes atomically and settlement is verifier-only", async () => {
+test("duo acceptance requires consent and peer review returns each successful participant's own stake", async () => {
+  const before = (await db.query("SELECT user_id,balance,escrow_locked FROM wallets WHERE user_id IN ($1,$2) ORDER BY user_id", [ids.alice,ids.bob])).rows;
   const profileBefore = await db.query("SELECT id,oaths_completed,oaths_failed,total_won,total_lost FROM profiles WHERE id = ANY($1::uuid[])", [[ids.alice, ids.bob]]);
   const oathId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
-    'Train 4 times weekly', now()+interval '3 days', 'duo','peer','bounty_transfer',100)`)).rows[0].create_oath_with_stake;
+    'Train 4 times weekly together', now()+interval '3 days', 'duo','peer','fiat',100,NULL,NULL,NULL,2,2,$1)`, [ids.bob])).rows[0].create_oath_with_stake;
   await assert.rejects(asUser(ids.alice, "SELECT public.accept_duo_challenge($1)", [oathId]), /not addressed/i);
+  assert.equal(Number((await db.query("SELECT balance FROM wallets WHERE user_id=$1", [ids.bob])).rows[0].balance), Number(before.find((row) => row.user_id === ids.bob).balance), "naming Bob does not debit his account");
   await asUser(ids.bob, "SELECT public.accept_duo_challenge($1)", [oathId]);
-  await assert.rejects(asUser(ids.cara, "SELECT public.settle_oath($1,true,NULL)", [oathId]), /assigned verifier/i);
-  await asUser(ids.bob, "SELECT public.settle_oath($1,true,NULL)", [oathId]);
-  const creatorWallet = (await db.query("SELECT balance,escrow_locked,total_won FROM wallets WHERE user_id=$1", [ids.alice])).rows[0];
-  const opponentWallet = (await db.query("SELECT balance,escrow_locked,total_lost FROM wallets WHERE user_id=$1", [ids.bob])).rows[0];
+  await assert.rejects(asUser(ids.cara, "SELECT public.settle_oath($1,true,NULL)", [oathId]), /individually by peer review/i);
+  const aliceMember = (await db.query("SELECT id FROM group_members WHERE oath_id=$1 AND user_id=$2", [oathId, ids.alice])).rows[0];
+  const bobMember = (await db.query("SELECT id FROM group_members WHERE oath_id=$1 AND user_id=$2", [oathId, ids.bob])).rows[0];
+  await asUser(ids.alice, "SELECT public.submit_oath_proof($1,'text',NULL,'I completed four training sessions with my friend.')", [oathId]);
+  await asUser(ids.bob, "SELECT public.submit_oath_proof($1,'text',NULL,'I completed the same four training sessions.')", [oathId]);
+  await asUser(ids.bob, "SELECT public.cast_squad_vote($1,$2,true)", [oathId, aliceMember.id]);
+  await asUser(ids.alice, "SELECT public.cast_squad_vote($1,$2,true)", [oathId, bobMember.id]);
+  const after = (await db.query("SELECT user_id,balance,escrow_locked FROM wallets WHERE user_id IN ($1,$2) ORDER BY user_id", [ids.alice,ids.bob])).rows;
+  assert.deepEqual(after.map((row) => [row.user_id,Number(row.balance),Number(row.escrow_locked)]), before.map((row) => [row.user_id,Number(row.balance),Number(row.escrow_locked)]));
   const profileAfter = await db.query("SELECT id,oaths_completed,oaths_failed,total_won,total_lost FROM profiles WHERE id = ANY($1::uuid[])", [[ids.alice, ids.bob]]);
   const beforeById = new Map(profileBefore.rows.map((row) => [row.id, row]));
   const afterById = new Map(profileAfter.rows.map((row) => [row.id, row]));
   assert.equal(afterById.get(ids.alice).oaths_completed, beforeById.get(ids.alice).oaths_completed + 1);
-  assert.equal(afterById.get(ids.bob).oaths_failed, beforeById.get(ids.bob).oaths_failed + 1);
-  assert.equal(Number(afterById.get(ids.alice).total_won - beforeById.get(ids.alice).total_won), 80);
-  assert.equal(Number(afterById.get(ids.bob).total_lost - beforeById.get(ids.bob).total_lost), 100);
-  assert.equal(Number(creatorWallet.balance), 480, "winner receives the $200 pot less 10% fee after the initial $100 stake lock");
-  assert.equal(Number(creatorWallet.escrow_locked), 0);
-  assert.equal(Number(creatorWallet.total_won), 80);
-  assert.equal(Number(opponentWallet.balance), 400);
-  assert.equal(Number(opponentWallet.escrow_locked), 0);
-  assert.equal(Number(opponentWallet.total_lost), 100);
-  assert.equal((await db.query("SELECT count(*)::int AS n FROM transactions WHERE oath_id=$1", [oathId])).rows[0].n, 5);
-  await assert.rejects(asUser(ids.bob, "SELECT public.settle_oath($1,false,NULL)", [oathId]), /not active or already settled/i);
+  assert.equal(afterById.get(ids.bob).oaths_completed, beforeById.get(ids.bob).oaths_completed + 1);
+  assert.equal(Number(afterById.get(ids.alice).total_won - beforeById.get(ids.alice).total_won), 0);
+  assert.equal(Number(afterById.get(ids.bob).total_lost - beforeById.get(ids.bob).total_lost), 0);
+  assert.equal((await db.query("SELECT count(*)::int AS n FROM transactions WHERE oath_id=$1 AND type='house_cut'", [oathId])).rows[0].n, 0);
 });
 
 test("creator can cancel a pending duo invite and recover escrow exactly once", async () => {
   const before = (await db.query("SELECT balance,escrow_locked FROM wallets WHERE user_id=$1", [ids.alice])).rows[0];
   const oathId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
-    'Do a study session', now()+interval '3 days', 'duo','peer','bounty_transfer',50)`)).rows[0].create_oath_with_stake;
+    'Do a study session', now()+interval '3 days', 'duo','peer','fiat',50)`)).rows[0].create_oath_with_stake;
   await asUser(ids.alice, "SELECT public.cancel_duo_challenge($1)", [oathId]);
   await assert.rejects(asUser(ids.alice, "SELECT public.cancel_duo_challenge($1)", [oathId]), /pending duo/i);
   await assert.rejects(asUser(ids.bob, "SELECT public.accept_duo_challenge($1)", [oathId]), /unavailable/i);
@@ -203,6 +208,7 @@ test("creator can cancel a pending duo invite and recover escrow exactly once", 
 });
 
 test("squad proof requires membership; three approvals release only the member's escrow", async () => {
+  const walletBefore = Number((await db.query("SELECT balance FROM wallets WHERE user_id=$1", [ids.alice])).rows[0].balance);
   const oathId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
     'Finish a 5k', now()+interval '4 days', 'squad','quorum','fiat',25, NULL,NULL,NULL,4,4)`)).rows[0].create_oath_with_stake;
   await asUser(ids.bob, "SELECT public.join_squad($1,25)", [oathId]);
@@ -222,7 +228,7 @@ test("squad proof requires membership; three approvals release only the member's
   const profile = (await db.query("SELECT oaths_completed FROM profiles WHERE id=$1", [ids.alice])).rows[0];
   assert.equal(profile.oaths_completed, 2, "squad quorum updates the participant profile once");
   const wallet = (await db.query("SELECT balance,escrow_locked FROM wallets WHERE user_id=$1", [ids.alice])).rows[0];
-  assert.equal(Number(wallet.balance), 480, "stake is refunded after quorum approval");
+  assert.equal(Number(wallet.balance), walletBefore, "only the member's own stake is returned after quorum approval");
   assert.equal(Number(wallet.escrow_locked), 0);
 });
 
@@ -270,9 +276,9 @@ test("private proof storage requires oath participation and validates uploaded o
   const objectPath = `${oathId}/${ids.alice}/proof.png`;
   await db.exec("SET ROLE authenticated");
   await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [ids.alice]);
+  await assert.rejects(db.query("SELECT public.submit_oath_proof($1,'photo',$2,NULL)", [oathId, `${oathId}/${ids.alice}/missing.png`]), /not uploaded/i);
   await db.query("INSERT INTO storage.objects(bucket_id,name) VALUES('oath-proofs',$1)", [objectPath]);
   await db.query("SELECT public.submit_oath_proof($1,'photo',$2,NULL)", [oathId, objectPath]);
-  await assert.rejects(db.query("SELECT public.submit_oath_proof($1,'photo',$2,NULL)", [oathId, `${oathId}/${ids.alice}/missing.png`]), /not uploaded/i);
   const aliceFile = await db.query("SELECT name FROM storage.objects WHERE bucket_id='oath-proofs'");
   assert.equal(aliceFile.rows.length, 1);
   await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [ids.bob]);
@@ -327,7 +333,7 @@ test("expired squad members without proof can settle only their own personal sta
   const beforeProfile = (await db.query("SELECT oaths_failed,total_lost FROM profiles WHERE id=$1", [ids.alice])).rows[0];
   await db.query("UPDATE public.oaths SET deadline=now()-interval '1 second' WHERE id=$1", [oathId]);
   await asUser(ids.alice, "SELECT public.fail_squad_member($1)", [oathId]);
-  await assert.rejects(asUser(ids.alice, "SELECT public.fail_squad_member($1)", [oathId]), /no unresolved squad membership/i);
+  await assert.rejects(asUser(ids.alice, "SELECT public.fail_squad_member($1)", [oathId]), /no unresolved participant/i);
 
   const member = (await db.query("SELECT status FROM group_members WHERE oath_id=$1 AND user_id=$2", [oathId, ids.alice])).rows[0];
   assert.equal(member.status, "failed");
@@ -339,17 +345,30 @@ test("expired squad members without proof can settle only their own personal sta
   assert.equal(Number(profile.total_lost), Number(beforeProfile.total_lost) + 15);
 });
 
-test("unsupported nominee and social delivery fail closed", async () => {
+test("manual Social Ransom stores user-supplied details without a stake or automated send", async () => {
+  const before = (await db.query("SELECT balance,escrow_locked FROM wallets WHERE user_id=$1", [ids.alice])).rows[0];
+  const oathId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
+    'Send the apology myself', now()+interval '1 day', 'solo','solo_lonely','social_ransom',0,'+919876543210','I missed the goal; this is my own manual message.')`)).rows[0].create_oath_with_stake;
+  const details = (await db.query("SELECT social_ransom_phone,social_ransom_message FROM public.oath_private_details WHERE oath_id=$1", [oathId])).rows[0];
+  assert.equal(details.social_ransom_phone, "+919876543210");
+  assert.equal(details.social_ransom_message, "I missed the goal; this is my own manual message.");
+  assert.deepEqual((await db.query("SELECT balance,escrow_locked FROM wallets WHERE user_id=$1", [ids.alice])).rows[0], before);
+  assert.equal((await asUser(ids.bob, "SELECT * FROM public.get_my_oath_private_details($1)", [oathId])).rows.length, 0, "private contact data is visible only to its creator");
+  const charityId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
+    'Follow through on my goal', now()+interval '1 day', 'solo','solo_lonely','anti_charity',0,NULL,'A cause I choose outside the app')`)).rows[0].create_oath_with_stake;
+  assert.equal((await db.query("SELECT anti_charity_destination,stake_amount FROM public.oaths WHERE id=$1", [charityId])).rows[0].anti_charity_destination, "A cause I choose outside the app");
   await assert.rejects(asUser(ids.alice, `SELECT public.create_oath_with_stake(
-    'Nominee test', now()+interval '1 day', 'solo','nominee','fiat',1)`), /not available|not configured/i);
-  await assert.rejects(asUser(ids.alice, `SELECT public.create_oath_with_stake(
-    'Social test', now()+interval '1 day', 'solo','solo_lonely','social_ransom',1,'+15550000000','hello')`), /not available|not configured/i);
+    'No accidental stake', now()+interval '1 day', 'solo','solo_lonely','public_shame',10)`), /Only financial consequences/i);
 });
 
 test("legacy financial squads are reclassified without changing their personal stake", async () => {
   const migrated = (await db.query("SELECT consequence_type,stake_amount FROM public.oaths WHERE id=$1", [legacySquadId])).rows[0];
   assert.equal(migrated.consequence_type, "fiat");
   assert.equal(Number(migrated.stake_amount), 7);
+  const legacyDuo = (await db.query("SELECT consequence_type,stake_amount FROM public.oaths WHERE id=$1", [legacyDuoId])).rows[0];
+  assert.equal(legacyDuo.consequence_type, "fiat", "legacy bounty payouts are reclassified as individual financial stakes");
+  assert.equal(Number(legacyDuo.stake_amount), 30);
+  assert.equal((await db.query("SELECT count(*)::int AS n FROM public.group_members WHERE oath_id=$1 AND votes_needed=1", [legacyDuoId])).rows[0].n, 2, "active legacy Duo has one peer-review member record per participant");
 });
 
 test("registered nominee inbox is account-scoped and resolves without exposing nominee tokens", async () => {
@@ -389,6 +408,62 @@ test("squad recovery requires reflection then a future check-in and preserves fa
   assert.equal((await db.query("SELECT next_checkin_at IS NOT NULL AS has_checkin FROM public.squad_recoveries WHERE group_member_id=$1", [memberId])).rows[0].has_checkin, true);
 });
 
+test("Duo is one shared goal with explicit per-person stakes and successful returns", async () => {
+  const walletBefore = (await db.query("SELECT user_id,balance,escrow_locked FROM public.wallets WHERE user_id IN ($1,$2) ORDER BY user_id", [ids.alice,ids.bob])).rows;
+  const oathId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
+    'Go to the gym three times this week', now()+interval '4 days', 'duo','peer','fiat',40,NULL,NULL,NULL,2,2,$1)`, [ids.bob])).rows[0].create_oath_with_stake;
+  const creatorMember = (await db.query("SELECT id,stake_amount,votes_needed FROM public.group_members WHERE oath_id=$1 AND user_id=$2", [oathId, ids.alice])).rows[0];
+  assert.equal(Number(creatorMember.stake_amount), 40);
+  assert.equal(creatorMember.votes_needed, 1);
+  assert.equal(Number((await db.query("SELECT balance FROM public.wallets WHERE user_id=$1", [ids.alice])).rows[0].balance), Number(walletBefore.find((row) => row.user_id === ids.alice).balance) - 40);
+
+  // Merely being named in the invite does not charge Bob. Only Bob's explicit accept locks his own amount.
+  assert.equal(Number((await db.query("SELECT balance FROM public.wallets WHERE user_id=$1", [ids.bob])).rows[0].balance), Number(walletBefore.find((row) => row.user_id === ids.bob).balance));
+  await asUser(ids.bob, "SELECT public.accept_duo_challenge($1)", [oathId]);
+  const opponentMember = (await db.query("SELECT id,stake_amount,votes_needed FROM public.group_members WHERE oath_id=$1 AND user_id=$2", [oathId, ids.bob])).rows[0];
+  assert.equal(Number(opponentMember.stake_amount), 40);
+  assert.equal(opponentMember.votes_needed, 1);
+  assert.equal(Number((await db.query("SELECT balance FROM public.wallets WHERE user_id=$1", [ids.bob])).rows[0].balance), Number(walletBefore.find((row) => row.user_id === ids.bob).balance) - 40);
+
+  await asUser(ids.alice, "SELECT public.submit_oath_proof($1,'text',NULL,'I went to the gym three times this week.')", [oathId]);
+  await assert.rejects(asUser(ids.alice, "SELECT public.submit_oath_proof($1,'text',NULL,'Trying to replace the proof after submitting.')", [oathId]), /Proof already submitted/i);
+  await asUser(ids.bob, "SELECT public.submit_oath_proof($1,'text',NULL,'I went to the gym three times this week too.')", [oathId]);
+  await asUser(ids.bob, "SELECT public.cast_squad_vote($1,$2,true)", [oathId, creatorMember.id]);
+  assert.equal((await db.query("SELECT status FROM public.oaths WHERE id=$1", [oathId])).rows[0].status, "active");
+  await asUser(ids.alice, "SELECT public.cast_squad_vote($1,$2,true)", [oathId, opponentMember.id]);
+  assert.equal((await db.query("SELECT status FROM public.oaths WHERE id=$1", [oathId])).rows[0].status, "completed");
+  const settledWallets = (await db.query("SELECT user_id,balance,escrow_locked FROM public.wallets WHERE user_id IN ($1,$2) ORDER BY user_id", [ids.alice,ids.bob])).rows;
+  assert.deepEqual(settledWallets.map((row) => [row.user_id, Number(row.balance), Number(row.escrow_locked)]), walletBefore.map((row) => [row.user_id, Number(row.balance), Number(row.escrow_locked)]));
+  assert.equal((await db.query("SELECT count(*)::int AS n FROM public.transactions WHERE oath_id=$1 AND type='house_cut'", [oathId])).rows[0].n, 0);
+});
+
+test("nonfinancial Duo can be created and accepted without touching either wallet", async () => {
+  const before = (await db.query("SELECT user_id,balance,escrow_locked FROM public.wallets WHERE user_id IN ($1,$2) ORDER BY user_id", [ids.alice,ids.bob])).rows;
+  const oathId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
+    'Take an evening walk together', now()+interval '2 days', 'duo','peer','mutual_destruction',0,NULL,NULL,NULL,2,2,$1)`, [ids.bob])).rows[0].create_oath_with_stake;
+  await asUser(ids.bob, "SELECT public.accept_duo_challenge($1)", [oathId]);
+  const after = (await db.query("SELECT user_id,balance,escrow_locked FROM public.wallets WHERE user_id IN ($1,$2) ORDER BY user_id", [ids.alice,ids.bob])).rows;
+  assert.deepEqual(after, before);
+  assert.equal((await db.query("SELECT count(*)::int AS n FROM public.transactions WHERE oath_id=$1", [oathId])).rows[0].n, 0);
+});
+
+test("Duo no-proof failure is self-only and keeps the other participant's stake isolated", async () => {
+  const before = (await db.query("SELECT user_id,balance,escrow_locked FROM public.wallets WHERE user_id IN ($1,$2) ORDER BY user_id", [ids.alice,ids.bob])).rows;
+  const oathId = (await asUser(ids.alice, `SELECT public.create_oath_with_stake(
+    'Attend one class together', now()+interval '3 days', 'duo','peer','fiat',20,NULL,NULL,NULL,2,2,$1)`, [ids.bob])).rows[0].create_oath_with_stake;
+  await asUser(ids.bob, "SELECT public.accept_duo_challenge($1)", [oathId]);
+  await db.query("UPDATE public.oaths SET deadline=now()-interval '1 second' WHERE id=$1", [oathId]);
+  await asUser(ids.alice, "SELECT public.fail_squad_member($1)", [oathId]);
+  const afterAlice = (await db.query("SELECT user_id,balance,escrow_locked FROM public.wallets WHERE user_id IN ($1,$2) ORDER BY user_id", [ids.alice,ids.bob])).rows;
+  assert.equal(Number(afterAlice[0].balance), Number(before[0].balance)-20);
+  assert.equal(Number(afterAlice[0].escrow_locked), Number(before[0].escrow_locked));
+  assert.equal(Number(afterAlice[1].balance), Number(before[1].balance)-20);
+  assert.equal(Number(afterAlice[1].escrow_locked), Number(before[1].escrow_locked)+20);
+  assert.equal((await db.query("SELECT status FROM public.oaths WHERE id=$1", [oathId])).rows[0].status, "active");
+  await asUser(ids.bob, "SELECT public.fail_squad_member($1)", [oathId]);
+  assert.equal((await db.query("SELECT status FROM public.oaths WHERE id=$1", [oathId])).rows[0].status, "failed");
+});
+
 test("fresh-install schema snapshot matches the deployed hardening migration", () => {
   const marker = "-- Apply the hardening layer to fresh installs too.";
   const markerIndex = schemaSnapshot.indexOf(marker);
@@ -398,5 +473,9 @@ test("fresh-install schema snapshot matches the deployed hardening migration", (
   const flowMarker = "-- Apply the registered nominee and squad recovery flows.";
   const flowMarkerIndex = schemaSnapshot.indexOf(flowMarker);
   assert.notEqual(flowMarkerIndex, -1, "snapshot must include the new accountability flow marker");
-  assert.equal(schemaSnapshot.slice(flowMarkerIndex + flowMarker.length).trim(), flowMigration.trim());
+  const duoMarker = "-- Apply the collaborative Duo completion flow.";
+  const duoMarkerIndex = schemaSnapshot.indexOf(duoMarker);
+  assert.notEqual(duoMarkerIndex, -1, "schema snapshot must include the collaborative Duo flow marker");
+  assert.equal(schemaSnapshot.slice(flowMarkerIndex + flowMarker.length, duoMarkerIndex).trim(), flowMigration.trim());
+  assert.equal(schemaSnapshot.slice(duoMarkerIndex + duoMarker.length).trim(), duoMigration.trim());
 });

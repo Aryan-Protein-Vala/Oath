@@ -73,7 +73,7 @@ export default function NomineeInboxView({ requests, loading, onResolved }: Nomi
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-mono text-zinc-500">
-                    {request.stake_amount > 0 && <span>Virtual stake: {formatCurrency(request.stake_amount, region)}</span>}
+                    {request.consequence_type === "fiat" && request.stake_amount > 0 && <span>Virtual stake: {formatCurrency(request.stake_amount, region)}</span>}
                     <span>Consequence: {request.consequence_type === "fiat" ? "sandbox stake" : "public shame"}</span>
                     <span>Due {new Date(request.deadline).toLocaleDateString()}</span>
                   </div>

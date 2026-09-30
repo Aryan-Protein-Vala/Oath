@@ -297,7 +297,7 @@ export default function LandingView() {
               },
               {
                 title: "Not Connected",
-                desc: "Real payments, donations, app blocking, and physical-task enforcement are not available in this beta.",
+                desc: "Automated payments or donations, app blocking, and physical-task enforcement are not available in this beta.",
                 icon: <Shield className="w-8 h-8 text-zinc-950 dark:text-zinc-50" />
               }
             ].map((c, i) => (
@@ -347,8 +347,9 @@ export default function LandingView() {
               </p>
               <ul className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-500 space-y-3 group-hover:text-zinc-400 transition-colors border-t-2 border-zinc-200 dark:border-zinc-700 pt-6 mt-auto">
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Absolute control</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Use Social Ransom</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Nominate a referee</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Social Ransom: save a recipient and message to send yourself</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Choose a manual Anti-Charity destination</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Nominate a referee in Reviews</li>
               </ul>
             </motion.div>
 
@@ -357,16 +358,16 @@ export default function LandingView() {
               initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }}
               className="group border-4 border-red-600 p-10 bg-red-50 dark:bg-red-950/10 hover:bg-red-600 transition-colors duration-500 relative overflow-hidden shadow-[12px_12px_0px_0px_rgba(220,38,38,1)] dark:shadow-[0_0_20px_rgba(220,38,38,0.2)]"
             >
-              <div className="absolute top-0 right-0 bg-red-600 text-white text-sm font-black uppercase px-6 py-2 border-b-4 border-l-4 border-red-800 group-hover:border-red-950 group-hover:bg-red-950 transition-colors">Peer Duel</div>
+              <div className="absolute top-0 right-0 bg-red-600 text-white text-sm font-black uppercase px-6 py-2 border-b-4 border-l-4 border-red-800 group-hover:border-red-950 group-hover:bg-red-950 transition-colors">Shared Goal</div>
               <Swords className="w-16 h-16 text-red-600 dark:text-red-500 mb-8 group-hover:text-white transition-colors" />
               <h3 className="text-4xl font-black tracking-tight mb-4 uppercase text-zinc-950 dark:text-zinc-100 group-hover:text-white transition-colors">Duo Challenge</h3>
               <p className="text-lg text-zinc-800 dark:text-zinc-300 mb-8 font-bold group-hover:text-red-100 transition-colors leading-snug">
-                Create an invite challenge. Each player locks an equal virtual stake; the assigned opponent reviews the proof. This is a sandbox ledger, not real escrow.
+                Work on the same goal together. Each person submits separate proof for the other to review. Any stake is individual, virtual, and sandbox-only; a no-stake option is available.
               </p>
               <ul className="text-sm font-mono font-bold text-red-700 dark:text-red-400 space-y-3 group-hover:text-red-200 transition-colors border-t-2 border-red-200 dark:border-red-800 pt-6 mt-auto">
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Two virtual stakes, locked on acceptance</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Cancel pending invite to return your stake</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Opponent reviews submitted proof</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Creator locks at creation; invitee opts in before their own stake is locked</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> If opted in, each successful person gets their own stake back</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> No winner-takes-pot or real-money payout</li>
               </ul>
             </motion.div>
 
@@ -378,7 +379,7 @@ export default function LandingView() {
               <Users className="w-16 h-16 text-zinc-950 dark:text-zinc-400 mb-8 group-hover:text-zinc-50 transition-colors" />
               <h3 className="text-4xl font-black tracking-tight mb-4 uppercase text-zinc-950 dark:text-zinc-100 group-hover:text-zinc-50 transition-colors">Squad Pool</h3>
               <p className="text-lg text-zinc-700 dark:text-zinc-400 mb-8 font-bold group-hover:text-zinc-300 transition-colors leading-snug">
-                A squad joins the same goal, submits proof, and votes. Quorum marks each participant complete or failed; stakes stay virtual and personal.
+                Squad members work on the same goal, submit their own proof, and review by quorum. Any stake is each member’s own virtual sandbox stake; recovery actions are available after a failure.
               </p>
               <ul className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-500 space-y-3 group-hover:text-zinc-400 transition-colors border-t-2 border-zinc-200 dark:border-zinc-700 pt-6 mt-auto">
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4"/> Three-vote quorum with approve/reject</li>
@@ -391,7 +392,7 @@ export default function LandingView() {
         </div>
       </section>
 
-      {/* The House Cut Banner */}
+      {/* Sandbox accountability banner */}
       <section className="border-y-4 border-zinc-950 dark:border-red-600 bg-red-600 text-white overflow-hidden py-6 flex whitespace-nowrap">
         <motion.div
           animate={{ x: [0, -2000] }}
@@ -420,8 +421,8 @@ export default function LandingView() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               { quote: "A solo runner sets a weekly goal, chooses a deadline, and uploads proof for a referee.", author: "Solo oath", result: "FLOW", amt: "VIRTUAL" },
-              { quote: "Two friends accept an invite, lock equal virtual stakes, and review each other's proof.", author: "Duo challenge", result: "FLOW", amt: "VIRTUAL" },
-              { quote: "A squad reaches its minimum size, submits proof, and resolves it through peer votes.", author: "Squad review", result: "FLOW", amt: "VIRTUAL" },
+              { quote: "Two people share one goal; each opts into their own virtual stake, submits separate proof, and reviews their peer. Success returns each person’s own stake.", author: "Duo challenge", result: "FLOW", amt: "VIRTUAL" },
+              { quote: "Squad members share a goal, submit separate proof, and review by quorum; each person's virtual stake stays personal.", author: "Squad review", result: "FLOW", amt: "VIRTUAL" },
               { quote: "A creator cancels a pending duo invitation and receives their sandbox stake back.", author: "Invite cancellation", result: "FLOW", amt: "VIRTUAL" },
               { quote: "A member opts in to a public shame wall entry when creating an oath.", author: "Opt-in wall", result: "FLOW", amt: "OPT-IN" },
               { quote: "A user checks the wallet ledger; this beta cannot deposit, withdraw, or pay real money.", author: "Sandbox wallet", result: "FLOW", amt: "NO CASH" }

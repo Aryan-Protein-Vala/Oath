@@ -26,6 +26,7 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
   const [clockNow, setClockNow] = useState<number | null>(null);
   const challengeDeadline = oath ? new Date(oath.deadline).getTime() : Number.POSITIVE_INFINITY;
   const challengeExpired = Boolean(oath && (!Number.isFinite(challengeDeadline) || (clockNow !== null && challengeDeadline <= clockNow)));
+  const hasFinancialStake = oath?.consequence_type === "fiat" && oath.stake_amount > 0;
 
   useEffect(() => {
     const updateClock = () => setClockNow(Date.now());
@@ -95,11 +96,11 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
       router.push(`/auth?redirect=/challenge/${oathId}`);
       return;
     }
-    if (!wallet) {
+    if (hasFinancialStake && !wallet) {
       setError("Your sandbox wallet is still loading. Refresh the page and try again.");
       return;
     }
-    if (wallet.balance < oath.stake_amount) {
+    if (hasFinancialStake && (wallet?.balance ?? 0) < oath.stake_amount) {
       setError("Insufficient virtual balance to accept this challenge.");
       return;
     }
@@ -175,7 +176,7 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
               Challenge Accepted
             </h2>
             <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300 font-mono mb-6 leading-relaxed">
-              Your virtual stake of {formatCurrency(oath.stake_amount, region)} is locked in the sandbox ledger. No cash has moved.
+              {hasFinancialStake ? `Your virtual stake of ${formatCurrency(oath.stake_amount, region)} is locked in the sandbox ledger. No cash has moved.` : "No virtual stake was used for this shared goal."}
             </p>
             <Link
               href="/"
@@ -193,7 +194,7 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
               </div>
               <div>
                 <h1 className="text-xl font-black uppercase tracking-tight text-zinc-950 dark:text-zinc-50">
-                  Head-to-Head Challenge
+                  Shared Duo Challenge
                 </h1>
                 <p className="text-xs font-mono font-bold text-zinc-500">
                   Invited by @{oath?.creator?.username ?? "challenger"}
@@ -205,7 +206,7 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
             <div className="border-2 border-zinc-950 dark:border-zinc-800 p-5 bg-zinc-50 dark:bg-zinc-950/60 mb-6 space-y-4">
               <div>
                 <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500 block mb-1">
-                  The Oath You Must Fulfill
+                  The shared goal you will both work on
                 </span>
                 <p className="text-xl font-black text-zinc-950 dark:text-zinc-50 leading-snug">
                   &ldquo;{oath?.oath_statement}&rdquo;
@@ -214,16 +215,14 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
 
               <div className="grid grid-cols-2 gap-3 border-t-2 border-zinc-200 dark:border-zinc-800 pt-3">
                 <div>
-                  <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Your Virtual Stake</span>
+                  <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Stake</span>
                   <span className="text-lg font-mono font-black text-zinc-950 dark:text-zinc-100">
-                    {formatCurrency(oath.stake_amount, region)}
+                    {hasFinancialStake ? formatCurrency(oath.stake_amount, region) : "No stake"}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Estimated Virtual Payout</span>
-                  <span className="text-lg font-mono font-black text-red-600 dark:text-red-500">
-                    {formatCurrency(oath.stake_amount * 2 * (1 - (oath.house_cut_percent ?? 10) / 100), region)}
-                  </span>
+                  <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Shared goal</span>
+                  <span className="text-sm font-mono font-black text-zinc-950 dark:text-zinc-100">Same challenge; separate proof</span>
                 </div>
               </div>
 
@@ -235,10 +234,10 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
 
             {/* Rules */}
             <div className="border border-zinc-300 dark:border-zinc-800 p-4 bg-zinc-100 dark:bg-zinc-900/30 text-xs font-mono space-y-1.5 mb-6 text-zinc-700 dark:text-zinc-400">
-              <p>• Each player locks an equal virtual stake in the sandbox ledger.</p>
-              <p>• The assigned opponent reviews the submitted proof.</p>
-              <p>• An estimated {oath.house_cut_percent}% platform fee is deducted from the virtual pot if there is a winner.</p>
-              <p>• No cash transfers or real-money payouts are available.</p>
+              <p>• You both work on the same goal and submit your own proof.</p>
+              <p>• The other participant reviews your proof; each outcome is separate.</p>
+              <p>• {hasFinancialStake ? "Your own virtual stake is locked only after you explicitly accept; successful completion returns your own stake." : "This no-money version does not lock any balance."}</p>
+              <p>• This is a sandbox ledger only; no real payments move.</p>
             </div>
 
             {/* Error Message */}
@@ -255,7 +254,7 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
                 {user.id === oath?.creator_id ? (
                   <div className="p-4 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 text-xs font-mono text-center space-y-1">
                     <p className="font-bold text-zinc-950 dark:text-zinc-100">You created this challenge.</p>
-                    <p className="text-zinc-600 dark:text-zinc-400">Share this link with your opponent so they can lock their stake.</p>
+                    <p className="text-zinc-600 dark:text-zinc-400">Share the invitation link. The other participant must explicitly accept before their own virtual stake is locked.</p>
                   </div>
                 ) : oath.status !== "pending" || challengeExpired ? (
                   <div className="p-4 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-500 text-xs font-mono text-center space-y-1">
@@ -264,32 +263,31 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
                   </div>
                 ) : (
                   <>
-                    <div className="flex justify-between items-center text-xs font-mono text-zinc-600 dark:text-zinc-400 px-1">
-                      <span>Your Available Virtual Balance:</span>
-                      <span className="font-bold text-zinc-950 dark:text-zinc-100">
-                        {wallet ? formatCurrencyPrecise(wallet.balance, region) : "Loading…"}
-                      </span>
-                    </div>
+                    {hasFinancialStake && <div className="flex justify-between items-center text-xs font-mono text-zinc-600 dark:text-zinc-400 px-1">
+                      <span>Your available virtual balance:</span>
+                      <span className="font-bold text-zinc-950 dark:text-zinc-100">{wallet ? formatCurrencyPrecise(wallet.balance, region) : "Loading…"}</span>
+                    </div>}
                     <button
                       onClick={handleAccept}
-                      disabled={accepting || !wallet || wallet.balance < oath.stake_amount}
+                      disabled={accepting || (hasFinancialStake && (!wallet || wallet.balance < oath.stake_amount))}
                       className={`w-full py-4 text-sm font-black uppercase tracking-tight transition-all border-2 ${
-                        !wallet || wallet.balance < oath.stake_amount
+                        hasFinancialStake && (!wallet || wallet.balance < oath.stake_amount)
                           ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border-transparent cursor-not-allowed"
                           : "bg-red-600 text-white border-red-600 hover:bg-red-700 shadow-[4px_4px_0px_0px_rgba(220,38,38,1)] dark:shadow-none"
                       }`}
                     >
                       {accepting ? (
                         <span className="flex items-center justify-center gap-2">
-                          <Loader2 className="w-4 h-4 animate-spin" /> Locking virtual stake...
+                          <Loader2 className="w-4 h-4 animate-spin" /> Accepting challenge...
                         </span>
                       ) : (
-                        wallet ? `Accept & Lock ${formatCurrency(oath.stake_amount, region)} virtual` : "Loading wallet…"
+                        hasFinancialStake ? wallet ? `Accept & lock my ${formatCurrency(oath.stake_amount, region)} virtual stake` : "Loading wallet…" : "Accept shared goal (no stake)"
                       )}
                     </button>
-                    {wallet && wallet.balance < oath.stake_amount && (
+                    {hasFinancialStake && wallet && wallet.balance < oath.stake_amount && (
                       <p className="text-center text-xs font-mono text-red-600" role="status">You need {formatCurrency(oath.stake_amount - wallet.balance, region)} more virtual balance to accept.</p>
                     )}
+                    <p className="text-center text-[10px] font-mono text-zinc-500">By clicking accept, you authorize locking only your own virtual sandbox balance as shown above. You can decline by leaving this page.</p>
                   </>
                 )}
               </div>

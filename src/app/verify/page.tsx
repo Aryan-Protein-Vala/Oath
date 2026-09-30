@@ -158,8 +158,8 @@ function VerifyContent() {
           </h1>
           <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300 font-mono mb-6 leading-relaxed">
             {verdict === "success"
-              ? `The oath has been marked complete. The recorded virtual stake was ${formatCurrency(oath.stake_amount, region)}.`
-              : `The oath has been marked failed. The recorded virtual stake was ${formatCurrency(oath.stake_amount, region)}.`}
+              ? `The oath has been marked complete. ${oath.consequence_type === "fiat" && oath.stake_amount > 0 ? `The recorded virtual stake was ${formatCurrency(oath.stake_amount, region)}.` : "No financial stake was involved."}`
+              : `The oath has been marked failed. ${oath.consequence_type === "fiat" && oath.stake_amount > 0 ? `The recorded virtual stake was ${formatCurrency(oath.stake_amount, region)}.` : "No financial stake was involved."}`}
           </p>
           <p className="mb-6 text-[11px] font-mono text-zinc-500">This updates OATH&apos;s virtual sandbox ledger only; no cash transfer is made.</p>
           <Link
@@ -217,7 +217,7 @@ function VerifyContent() {
             <span>Sworn by @{oath.creator?.username ?? "OATH member"}</span>
             <span>·</span>
             <span className="font-black text-red-600 dark:text-red-500 stake-number">
-              {formatCurrency(oath.stake_amount, region)} virtual stake
+              {oath.consequence_type === "fiat" && oath.stake_amount > 0 ? `${formatCurrency(oath.stake_amount, region)} virtual stake` : "No financial stake"}
             </span>
           </div>
         </div>

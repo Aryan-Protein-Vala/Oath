@@ -29,7 +29,7 @@ export default function Home() {
 
   // Real data hooks (only fire when user is logged in)
   const { oaths, refresh: refreshOaths } = useOaths();
-  const { lobbies } = useSquadLobbies();
+  const { lobbies, refresh: refreshLobbies } = useSquadLobbies();
   const { entries: shameEntries } = useWall("shame");
   const { entries: honorEntries } = useWall("honor");
   const { transactions } = useTransactions();
@@ -92,10 +92,11 @@ export default function Home() {
           <CreateOathView
             walletBalance={activeWallet.balance}
             onOathCreated={() => { setCurrentView("active"); refreshOaths(); refreshWallet(); }}
+            onCreateDuo={() => setShowDuoModal(true)}
           />
         )}
         {currentView === "lobbies" && (
-          <LobbiesView squads={activeLobbies} wallet={activeWallet} onJoined={() => { refreshOaths(); refreshWallet(); }} />
+          <LobbiesView squads={activeLobbies} wallet={activeWallet} onJoined={() => { refreshOaths(); refreshLobbies(); refreshWallet(); }} />
         )}
         {currentView === "reviews" && (
           <NomineeInboxView requests={nomineeRequests} loading={nomineeRequestsLoading} onResolved={() => { refreshNomineeRequests(); refreshOaths(); refreshWallet(); }} />

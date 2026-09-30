@@ -125,7 +125,7 @@ export function useOaths() {
       if (membershipFilter.length) filters.push(`id.in.(${membershipFilter.join(",")})`);
       const { data, error } = await supabase
         .from("oaths")
-        .select(`*, creator:profiles!oaths_creator_id_fkey(*), opponent:profiles!oaths_opponent_id_fkey(*), members:group_members(*, user:profiles(*)), proofs(*)`)
+        .select(`*, creator:profiles!oaths_creator_id_fkey(*), opponent:profiles!oaths_opponent_id_fkey(*), members:group_members(*, user:profiles(*)), proofs(*), votes(*)`)
         .or(filters.join(","))
         .in("status", ["pending", "active", "disputed"])
         .order("created_at", { ascending: false });
@@ -133,7 +133,15 @@ export function useOaths() {
       if (error || !data) {
         setOaths([]);
       } else {
-        setOaths(data as Oath[]);
+        const rows = data as (Oath & { votes?: { proof_id: string; voter_id: string; vote: boolean }[] })[];
+        setOaths(rows.map((oath) => ({
+          ...oath,
+          members: oath.members?.map((member) => {
+            const proof = oath.proofs?.filter((row) => row.submitted_by === member.user_id).sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+            const memberVotes = proof ? (oath.votes ?? []).filter((vote) => vote.proof_id === proof.id) : [];
+            return { ...member, proof_submitted: Boolean(proof) || member.proof_submitted, votes_received: memberVotes.filter((vote) => vote.vote).length, voted_by: memberVotes.map((vote) => vote.voter_id) };
+          }),
+        })));
       }
     } catch {
       setOaths([]);
@@ -153,8 +161,13 @@ export function useOaths() {
       if (isMounted) loadData();
     };
     window.addEventListener("oath_data_updated", handleUpdate);
+    const timer = window.setInterval(() => { if (isMounted && document.visibilityState === "visible") void loadData(); }, 15000);
+    const onVisibility = () => { if (document.visibilityState === "visible") void loadData(); };
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       isMounted = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("oath_data_updated", handleUpdate);
     };
   }, [loadData]);
@@ -226,14 +239,19 @@ export function useSquadLobbies() {
       } else {
         const oathRows = data as Oath[];
         const oathIds = oathRows.map((oath) => oath.id);
-        const [{ data: proofs }, { data: votes }] = oathIds.length ? await Promise.all([
-          supabase.from("proofs").select("id,oath_id,submitted_by").in("oath_id", oathIds),
+        const [{ data: rawProofs }, { data: votes }] = oathIds.length ? await Promise.all([
+          supabase.from("proofs").select("id,oath_id,submitted_by,proof_type,proof_url,proof_text,created_at").in("oath_id", oathIds),
           supabase.from("votes").select("proof_id,oath_id,voter_id,vote").in("oath_id", oathIds),
         ]) : [{ data: [] }, { data: [] }];
-        const proofRows = proofs ?? [];
+        const proofRows = await Promise.all((rawProofs ?? []).map(async (proof) => {
+          if (!proof.proof_url || /^https?:|^blob:|^data:/i.test(proof.proof_url)) return proof;
+          const { data: signed, error: signedError } = await supabase.storage.from("oath-proofs").createSignedUrl(proof.proof_url, 60 * 60);
+          return { ...proof, proof_url: signedError ? undefined : signed?.signedUrl };
+        }));
         const voteRows = votes ?? [];
         setLobbies(oathRows.map((oath) => ({
           ...oath,
+          proofs: proofRows.filter((proof) => proof.oath_id === oath.id) as Proof[],
           members: oath.members?.map((member) => {
             const proof = proofRows.find((row) => row.oath_id === oath.id && row.submitted_by === member.user_id);
             const memberVotes = proof ? voteRows.filter((row) => row.proof_id === proof.id) : [];
@@ -264,8 +282,13 @@ export function useSquadLobbies() {
       if (isMounted) loadData();
     };
     window.addEventListener("oath_data_updated", handleUpdate);
+    const timer = window.setInterval(() => { if (isMounted && document.visibilityState === "visible") void loadData(); }, 15000);
+    const onVisibility = () => { if (document.visibilityState === "visible") void loadData(); };
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       isMounted = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("oath_data_updated", handleUpdate);
     };
   }, [loadData]);
@@ -439,8 +462,13 @@ export function useProofs(oathId: string) {
       if (isMounted) loadData();
     };
     window.addEventListener("oath_data_updated", handleUpdate);
+    const timer = window.setInterval(() => { if (isMounted && document.visibilityState === "visible") void loadData(); }, 15000);
+    const onVisibility = () => { if (document.visibilityState === "visible") void loadData(); };
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       isMounted = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("oath_data_updated", handleUpdate);
     };
   }, [loadData]);
@@ -480,6 +508,7 @@ export async function createOath(data: {
   social_ransom_message?: string;
   nominee_email?: string;
   nominee_user_id?: string;
+  anti_charity_destination?: string;
   min_players?: number;
   max_players?: number;
 }): Promise<{ oath?: Oath; error: string | null }> {
@@ -494,8 +523,20 @@ export async function createOath(data: {
   if (!Number.isFinite(deadlineMs) || deadlineMs <= Date.now()) {
     return { error: "Deadline must be a valid future date." };
   }
-  if ((data.oath_type === "duo" || data.consequence_type === "fiat") && validStake <= 0) {
-    return { error: "This financial consequence requires a positive virtual stake." };
+  if (data.consequence_type === "fiat" && validStake <= 0) {
+    return { error: "Financial consequences require a positive virtual stake." };
+  }
+  if (data.consequence_type !== "fiat" && validStake !== 0) {
+    return { error: "Only financial consequences may use a positive virtual stake." };
+  }
+  if (data.consequence_type === "social_ransom" && (!data.social_ransom_phone?.trim() || !data.social_ransom_message?.trim())) {
+    return { error: "Add a recipient email or phone number and the message you will send manually." };
+  }
+  if (data.consequence_type === "anti_charity" && !data.anti_charity_destination?.trim()) {
+    return { error: "Choose an anti-charity destination." };
+  }
+  if (data.nominee_user_id && (data.consequence_type === "social_ransom" || data.consequence_type === "anti_charity")) {
+    return { error: "Manual consequences use self-verification in this build." };
   }
   if (data.oath_type === "squad" && data.consequence_type === "deadweight_tag" && validStake !== 0) {
     return { error: "Recovery-quest squads do not use a monetary stake." };
@@ -521,7 +562,7 @@ export async function createOath(data: {
       id: demoOathId,
       creator_id: ADMIN_MOCK_USER.id,
       creator: { ...mockProfile, username: "DemoUser" },
-      oath_statement: data.oath_statement,
+      oath_statement: data.oath_statement.trim(),
       deadline: data.deadline,
       oath_type: data.oath_type,
       verification_method: data.verification_method,
@@ -531,6 +572,7 @@ export async function createOath(data: {
       social_ransom_phone: data.social_ransom_phone,
       social_ransom_message: data.social_ransom_message,
       nominee_email: data.nominee_email,
+      anti_charity_destination: data.anti_charity_destination,
       status: initialStatus,
       min_players: data.min_players ?? 1,
       max_players: data.max_players ?? 1,
@@ -603,7 +645,7 @@ export async function createOath(data: {
       p_consequence_type: data.consequence_type,
       p_stake_amount: validStake,
       p_social_ransom_phone: data.social_ransom_phone ?? null,
-      p_social_ransom_message: data.social_ransom_message ?? null,
+      p_social_ransom_message: data.consequence_type === "anti_charity" ? data.anti_charity_destination ?? null : data.social_ransom_message ?? null,
       p_nominee_email: data.nominee_email ?? null,
       p_min_players: data.min_players ?? 1,
       p_max_players: data.max_players ?? 1,
@@ -611,14 +653,35 @@ export async function createOath(data: {
     });
   if (error || !oathId) return { error: error?.message ?? "Oath creation failed" };
 
-  const { data: oath, error: readError } = await supabase
+  // The create RPC has committed. Refresh immediately and return a minimal record if the
+  // follow-up SELECT races RLS/cache propagation; never report a successful create as failed.
+  notifyDataUpdated();
+  const { data: oath } = await supabase
     .from("oaths")
     .select("*, creator:profiles!oaths_creator_id_fkey(*), members:group_members(*, user:profiles(*))")
     .eq("id", oathId)
     .single();
-  if (readError || !oath) return { error: readError?.message ?? "Oath was created but could not be loaded. Refresh to view it." };
-  notifyDataUpdated();
-  return { oath: oath as Oath, error: null };
+  if (oath) return { oath: oath as Oath, error: null };
+  return {
+    oath: {
+      id: oathId,
+      creator_id: user.id,
+      oath_statement: data.oath_statement.trim(),
+      deadline: data.deadline,
+      oath_type: data.oath_type,
+      verification_method: data.verification_method,
+      consequence_type: data.consequence_type,
+      stake_amount: validStake,
+      anti_charity_destination: data.anti_charity_destination,
+      house_cut_percent: 10,
+      status: data.oath_type === "squad" ? "pending" : data.oath_type === "duo" ? "pending" : "active",
+      min_players: data.min_players ?? 1,
+      max_players: data.max_players ?? 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    error: null,
+  };
 }
 
 // ---- depositFunds ----
@@ -842,6 +905,17 @@ export async function castVote(targetId: string, oathId: string, vote: boolean) 
   return { error: null };
 }
 
+export async function getMyPrivateConsequenceDetails(oathId: string): Promise<{ phone: string | null; message: string | null } | null> {
+  if (isMockMode()) {
+    const oath = getMockOaths().find((item) => item.id === oathId);
+    return oath?.consequence_type === "social_ransom" ? { phone: oath.social_ransom_phone ?? null, message: oath.social_ransom_message ?? null } : null;
+  }
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("get_my_oath_private_details", { p_oath_id: oathId });
+  if (error || !data?.length) return null;
+  return { phone: data[0].social_ransom_phone ?? null, message: data[0].social_ransom_message ?? null };
+}
+
 // ---- failSquadMember — settle a member with no proof after the deadline ----
 export async function failSquadMember(oathId: string) {
   if (isMockMode()) {
@@ -906,12 +980,21 @@ export async function createDuoChallenge(data: {
   oath_statement: string;
   deadline: string;
   stake_amount: number;
+  consequence_type: "fiat" | "mutual_destruction";
   opponent_email?: string;
   opponent_username?: string;
 }): Promise<{ oath?: Oath; error: string | null }> {
+  const validStake = validateNonNegativeAmount(data.stake_amount);
+  if (validStake === null) return { error: "Stake must be a non-negative amount with at most two decimals." };
+  if (!data.oath_statement.trim() || data.oath_statement.trim().length > 500) return { error: "Oath statement must be 1–500 characters." };
+  const deadlineMs = new Date(data.deadline).getTime();
+  if (!Number.isFinite(deadlineMs) || deadlineMs <= Date.now()) return { error: "Deadline must be a valid future date." };
+  if (data.consequence_type === "fiat" && validStake <= 0) return { error: "Financial consequences require a positive virtual stake." };
+  if (data.consequence_type === "mutual_destruction" && validStake !== 0) return { error: "No-money shared challenges must have a zero stake." };
+  const normalizedUsername = data.opponent_username?.trim().replace(/^@+/, "") || undefined;
   if (isMockMode()) {
     const currentWallet = getInitialMockWallet();
-    if (currentWallet.balance < data.stake_amount) {
+    if (currentWallet.balance < validStake) {
       return { error: "Insufficient virtual balance for this challenge." };
     }
 
@@ -919,18 +1002,18 @@ export async function createDuoChallenge(data: {
       id: `duo-${Date.now()}`,
       creator_id: ADMIN_MOCK_USER.id,
       creator: { ...mockProfile, username: "DemoUser" },
-      oath_statement: data.oath_statement,
+      oath_statement: data.oath_statement.trim(),
       deadline: data.deadline,
       oath_type: "duo",
       verification_method: "peer",
-      consequence_type: "bounty_transfer",
-      stake_amount: data.stake_amount,
+      consequence_type: data.consequence_type,
+      stake_amount: validStake,
       house_cut_percent: 10,
       status: "pending",
       min_players: 2,
       max_players: 2,
-      opponent_id: data.opponent_username ? `user-${data.opponent_username}` : undefined,
-      opponent: data.opponent_username ? { ...mockProfile, username: data.opponent_username, display_name: data.opponent_username } : undefined,
+      opponent_id: normalizedUsername ? `user-${normalizedUsername}` : undefined,
+      opponent: normalizedUsername ? { ...mockProfile, username: normalizedUsername, display_name: normalizedUsername } : undefined,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -938,8 +1021,8 @@ export async function createDuoChallenge(data: {
     // Lock funds
     const updatedWallet: Wallet = {
       ...currentWallet,
-      balance: currentWallet.balance - data.stake_amount,
-      escrow_locked: currentWallet.escrow_locked + data.stake_amount,
+      balance: currentWallet.balance - validStake,
+      escrow_locked: currentWallet.escrow_locked + validStake,
     };
     setMockWallet(updatedWallet);
 
@@ -948,11 +1031,11 @@ export async function createDuoChallenge(data: {
       wallet_id: currentWallet.id,
       oath_id: newOath.id,
       type: "escrow_lock",
-      amount: data.stake_amount,
-      description: `Wager locked for Duo: ${data.oath_statement}`,
+      amount: validStake,
+      description: `Individual virtual stake locked for Duo: ${data.oath_statement.trim()}`,
       created_at: new Date().toISOString(),
     };
-    setMockTransactions([newTx, ...getMockTransactions()]);
+    if (validStake > 0) setMockTransactions([newTx, ...getMockTransactions()]);
     setMockOaths([newOath, ...getMockOaths()]);
 
     return { oath: newOath, error: null };
@@ -962,18 +1045,20 @@ export async function createDuoChallenge(data: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
   let opponentId: string | null = null;
-  if (data.opponent_username) {
-    const { data: opponent, error: lookupError } = await supabase.from("profiles").select("id").eq("username", data.opponent_username).single();
+  if (normalizedUsername) {
+    const { data: opponent, error: lookupError } = await supabase.from("profiles").select("id").eq("username", normalizedUsername).single();
     if (lookupError || !opponent) return { error: "No user found for that username" };
     opponentId = opponent.id;
   }
   const { data: oathId, error } = await supabase.rpc("create_oath_with_stake", {
-    p_oath_statement: data.oath_statement,
+    p_oath_statement: data.oath_statement.trim(),
     p_deadline: data.deadline,
     p_oath_type: "duo",
     p_verification_method: "peer",
-    p_consequence_type: "bounty_transfer",
-    p_stake_amount: data.stake_amount,
+    p_consequence_type: data.consequence_type,
+    p_stake_amount: validStake,
+    p_min_players: 2,
+    p_max_players: 2,
     p_opponent_id: opponentId,
   });
   if (error || !oathId) return { error: error?.message ?? "Challenge creation failed" };
@@ -988,12 +1073,12 @@ export async function createDuoChallenge(data: {
     oath: {
       id: oathId,
       creator_id: user.id,
-      oath_statement: data.oath_statement,
+      oath_statement: data.oath_statement.trim(),
       deadline: data.deadline,
       oath_type: "duo",
       verification_method: "peer",
-      consequence_type: "bounty_transfer",
-      stake_amount: data.stake_amount,
+      consequence_type: data.consequence_type,
+      stake_amount: validStake,
       house_cut_percent: 10,
       status: "pending",
       min_players: 2,
@@ -1012,6 +1097,7 @@ export async function acceptDuoChallenge(oathId: string) {
     const oaths = getMockOaths();
     const target = oaths.find((o) => o.id === oathId);
     if (!target) return { error: "Challenge not found" };
+    if (target.creator_id === ADMIN_MOCK_USER.id || target.opponent_id !== ADMIN_MOCK_USER.id) return { error: "Demo mode is local-only and cannot accept an invitation as a second account." };
 
     const currentWallet = getInitialMockWallet();
     if (currentWallet.balance < target.stake_amount) {
@@ -1048,7 +1134,7 @@ export async function acceptDuoChallenge(oathId: string) {
       description: `Accepted Duo Challenge: ${target.oath_statement}`,
       created_at: new Date().toISOString(),
     };
-    setMockTransactions([newTx, ...getMockTransactions()]);
+    if (target.stake_amount > 0) setMockTransactions([newTx, ...getMockTransactions()]);
     return { error: null };
   }
 
@@ -1072,7 +1158,7 @@ export async function cancelDuoChallenge(oathId: string) {
     if (wallet.escrow_locked < oath.stake_amount) return { error: "Creator escrow is inconsistent." };
     setMockWallet({ ...wallet, balance: wallet.balance + oath.stake_amount, escrow_locked: wallet.escrow_locked - oath.stake_amount });
     setMockOaths(oaths.map((item) => item.id === oathId ? { ...item, status: "cancelled" as const } : item));
-    setMockTransactions([{ id: `tx-${Date.now()}`, wallet_id: wallet.id, oath_id: oathId, type: "escrow_release", amount: oath.stake_amount, description: "Cancelled duo invite; stake returned", created_at: new Date().toISOString() }, ...getMockTransactions()]);
+    if (oath.stake_amount > 0) setMockTransactions([{ id: `tx-${Date.now()}`, wallet_id: wallet.id, oath_id: oathId, type: "escrow_release", amount: oath.stake_amount, description: "Cancelled duo invite; stake returned", created_at: new Date().toISOString() }, ...getMockTransactions()]);
     return { error: null };
   }
   const supabase = createClient();
@@ -1090,6 +1176,7 @@ export async function forfeitOath(oathId: string, excuse?: string) {
     const oaths = getMockOaths();
     const oath = oaths.find((o) => o.id === oathId);
     if (!oath) return { error: "Oath not found." };
+    if (oath.oath_type === "duo") return { error: "Duo outcomes are resolved per participant by peer review." };
     if (oath.status !== "active") return { error: "Oath is not active or already settled." };
 
     const currentWallet = getInitialMockWallet();
@@ -1155,13 +1242,11 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
     const oaths = getMockOaths();
     const oath = oaths.find((o) => o.id === oathId);
     if (!oath) return { error: "Oath not found." };
+    if (oath.oath_type === "duo") return { error: "Duo participants must be resolved individually by peer review." };
     if (oath.status !== "active") return { error: "Oath is not active or already settled." };
 
     const currentWallet = getInitialMockWallet();
-    const isDuo = oath.oath_type === "duo";
-    const pot = isDuo ? oath.stake_amount * 2 : oath.stake_amount;
-    const houseCut = isDuo ? pot * ((oath.house_cut_percent ?? 10) / 100) : 0;
-    const winnerPayout = isDuo ? pot - houseCut : oath.stake_amount;
+    const winnerPayout = oath.stake_amount;
 
     if (verdict === "success") {
       // Release escrow back to balance and credit winnings
@@ -1183,12 +1268,10 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
         oath_id: oathId,
         type: "escrow_release",
         amount: winnerPayout,
-        description: isDuo
-          ? `Won Duo Challenge ($${winnerPayout.toFixed(2)} after $${houseCut.toFixed(2)} fee): ${oath.oath_statement}`
-          : `Completed: ${oath.oath_statement}`,
+        description: `Completed: ${oath.oath_statement}`,
         created_at: new Date().toISOString(),
       };
-      setMockTransactions([newTx, ...getMockTransactions()]);
+      if (oath.stake_amount > 0) setMockTransactions([newTx, ...getMockTransactions()]);
 
       if (oath.consequence_type === "public_shame") {
         const honorEntry: WallEntry = {
@@ -1225,7 +1308,7 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
           oath_id: oathId,
           type: "penalty",
           amount: oath.stake_amount,
-          description: isDuo ? `Lost Duo Challenge: ${oath.oath_statement}` : `Failed: ${oath.oath_statement}`,
+          description: `Failed: ${oath.oath_statement}`,
           created_at: new Date().toISOString(),
         };
         setMockTransactions([newTx, ...getMockTransactions()]);
@@ -1239,7 +1322,7 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
           wall_type: "shame",
           oath_statement: oath.oath_statement,
           stake_amount: oath.stake_amount,
-          excuse: note || (isDuo ? "Lost duo challenge." : "Failed to complete before the deadline."),
+          excuse: note || "Failed to complete before the deadline.",
           username: "DemoUser",
           created_at: new Date().toISOString(),
         };
