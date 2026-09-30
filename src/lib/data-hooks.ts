@@ -428,7 +428,7 @@ export function useProofs(oathId: string) {
 function parseAmount(amount: unknown): number | null {
   if (typeof amount === "string" && !/^\d+(?:\.\d{1,2})?$/.test(amount.trim())) return null;
   const n = typeof amount === "number" ? amount : Number(amount);
-  if (!Number.isFinite(n) || n < 0 || Math.abs(n * 100 - Math.round(n * 100)) > 1e-7) return null;
+  if (!Number.isFinite(n) || n < 0) return null;
   return Math.round(n * 100) / 100;
 }
 
