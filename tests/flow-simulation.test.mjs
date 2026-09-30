@@ -126,7 +126,8 @@ before(async () => {
     "202609300007_chat_notifications_lobby.sql",
     "202609300008_fix_settlement_and_modes.sql",
     "202609300009_admin_features.sql",
-    "202609300010_fix_lobby_and_invites.sql"
+    "202609300010_fix_lobby_and_invites.sql",
+    "202609300015_fix_rls_and_duo_lobby_flows.sql"
   ];
 
   for (const file of migrationFiles) {

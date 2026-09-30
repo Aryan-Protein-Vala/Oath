@@ -120,13 +120,21 @@ export function useOaths() {
     try {
       const { data: memberships } = await supabase.from("group_members").select("oath_id").eq("user_id", user.id);
       const membershipFilter = (memberships ?? []).map((member) => member.oath_id).filter(Boolean);
-      const filters = [`creator_id.eq.${user.id}`, `opponent_id.eq.${user.id}`, `nominee_email.eq."${user.email}"`];
-      if (profile?.username) {
-        filters.push(`nominee_email.eq."@${profile.username}"`);
+
+      // Check if user is referee/nominee for any oath
+      const nomineeFilters = [`nominee_user_id.eq.${user.id}`];
+      if (user.email) nomineeFilters.push(`email.eq."${user.email}"`);
+      if (profile?.username) nomineeFilters.push(`email.eq."@${profile.username}"`);
+      const { data: nomineeRows } = await supabase.from("nominees").select("oath_id").or(nomineeFilters.join(","));
+      const nomineeOathIds = (nomineeRows ?? []).map((r) => r.oath_id).filter(Boolean);
+
+      const allAssociatedIds = Array.from(new Set([...membershipFilter, ...nomineeOathIds]));
+
+      const filters = [`creator_id.eq.${user.id}`, `opponent_id.eq.${user.id}`];
+      if (allAssociatedIds.length) {
+        allAssociatedIds.forEach((id) => filters.push(`id.eq.${id}`));
       }
-      if (membershipFilter.length) {
-        membershipFilter.forEach((id) => filters.push(`id.eq.${id}`));
-      }
+
       const { data, error } = await supabase
         .from("oaths")
         .select(`*, creator:profiles!oaths_creator_id_fkey(*), opponent:profiles!oaths_opponent_id_fkey(*), members:group_members(*, user:profiles(*)), proofs(*)`)
@@ -134,12 +142,16 @@ export function useOaths() {
         .in("status", ["pending", "active", "disputed"])
         .order("created_at", { ascending: false });
 
-      if (error || !data) {
+      if (error) {
+        console.error("useOaths fetch error:", error);
+        setOaths([]);
+      } else if (!data) {
         setOaths([]);
       } else {
         setOaths(data as Oath[]);
       }
-    } catch {
+    } catch (err) {
+      console.error("useOaths unexpected error:", err);
       setOaths([]);
     } finally {
       setLoading(false);
@@ -196,7 +208,10 @@ export function useSquadLobbies() {
         .in("status", ["pending", "active"])
         .order("created_at", { ascending: false });
 
-      if (error || !data) {
+      if (error) {
+        console.error("useSquadLobbies fetch error:", error);
+        setLobbies([]);
+      } else if (!data) {
         setLobbies([]);
       } else {
         const oathRows = data as Oath[];
@@ -221,7 +236,8 @@ export function useSquadLobbies() {
           }),
         })));
       }
-    } catch {
+    } catch (err) {
+      console.error("useSquadLobbies unexpected error:", err);
       setLobbies([]);
     } finally {
       setLoading(false);

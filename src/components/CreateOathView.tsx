@@ -875,7 +875,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
 
             {multiplier > 1 && isFinancial && (
               <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 mb-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
-                💡 <strong>Fair Share:</strong> Every player locks {formatRegionCurrency(stakeUsd)}. The total pool will be {multiplier} × {formatRegionCurrency(stakeUsd)} = <strong>{formatRegionCurrency(totalStakeUsd)}</strong>.
+                💡 <strong>Leader Covers Pot:</strong> You lock the full pot upfront ({multiplier} × {formatRegionCurrency(stakeUsd)} = <strong>{formatRegionCurrency(totalStakeUsd)}</strong>). Your {oathType === "duo" ? "opponent joins" : "squad members join"} 100% free!
               </div>
             )}
 
@@ -893,7 +893,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 {submitting
                   ? "Locking Escrow..."
                   : isFinancial
-                  ? `Lock ${formatRegionCurrency(stakeUsd)} & Create Oath`
+                  ? `Lock ${formatRegionCurrency(totalStakeUsd)} & Create Oath`
                   : "Create Oath"}
               </button>
             </div>

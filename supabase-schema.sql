@@ -634,20 +634,23 @@ CREATE POLICY "Participants and open squads can read safe oath rows" ON public.o
     creator_id = auth.uid()
     OR opponent_id = auth.uid()
     OR public.is_oath_member(oaths.id)
-    OR (oath_type = 'squad' AND status IN ('pending', 'active'))
+    OR (oath_type IN ('squad', 'lobby') AND status IN ('pending', 'active'))
   );
 DROP POLICY IF EXISTS "Pending duo invitations are readable" ON public.oaths;
 CREATE POLICY "Pending duo invitations are readable" ON public.oaths
-  FOR SELECT TO anon, authenticated USING (oath_type = 'duo' AND status = 'pending');
+  FOR SELECT TO anon, authenticated USING (
+    (oath_type = 'duo' AND status IN ('pending', 'active'))
+    OR (oath_type IN ('squad', 'lobby') AND status IN ('pending', 'active'))
+  );
 
 DROP POLICY IF EXISTS "Profiles are public identity only" ON public.profiles;
 CREATE POLICY "Profiles are public identity only" ON public.profiles
   FOR SELECT TO anon, authenticated USING (true);
 DROP POLICY IF EXISTS "Group participants can read members" ON public.group_members;
 CREATE POLICY "Group participants can read members" ON public.group_members
-  FOR SELECT TO authenticated USING (
+  FOR SELECT TO anon, authenticated USING (
     public.is_oath_member(group_members.oath_id)
-    OR EXISTS (SELECT 1 FROM public.oaths o WHERE o.id=group_members.oath_id AND o.oath_type='squad' AND o.status IN ('pending','active'))
+    OR EXISTS (SELECT 1 FROM public.oaths o WHERE o.id=group_members.oath_id AND o.oath_type IN ('squad', 'lobby') AND o.status IN ('pending','active'))
   );
 DROP POLICY IF EXISTS "Oath participants can read proofs" ON public.proofs;
 CREATE POLICY "Oath participants can read proofs" ON public.proofs

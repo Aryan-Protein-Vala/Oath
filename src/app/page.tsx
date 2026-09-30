@@ -13,7 +13,7 @@ import WalletModal from "@/components/WalletModal";
 import NotificationsPanel from "@/components/NotificationsPanel";
 import { ToastContainer } from "@/components/Toast";
 import { useAuth } from "@/lib/auth-context";
-import { useOaths, useSquadLobbies, useWall, useTransactions } from "@/lib/data-hooks";
+import { useOaths, useSquadLobbies, useWall, useTransactions, isMockMode } from "@/lib/data-hooks";
 import {
   mockProfile,
   mockWallet,
@@ -57,14 +57,14 @@ export default function Home() {
     return <LandingView />;
   }
 
-  // Use real data if available, fall back to mock data for UI dev
+  // Use real data when Supabase is configured; fallback to mock data only in demo mock mode
   const activeProfile = profile ?? mockProfile;
   const activeWallet = wallet ?? mockWallet;
   const activeOaths = oaths;
-  const activeLobbies = lobbies.length > 0 ? lobbies : mockSquadOaths;
-  const activeShame = shameEntries.length > 0 ? shameEntries : mockWallOfShame;
-  const activeHonor = honorEntries.length > 0 ? honorEntries : mockWallOfHonor;
-  const activeTx = transactions.length > 0 ? transactions : mockTransactions;
+  const activeLobbies = isMockMode() ? (lobbies.length > 0 ? lobbies : mockSquadOaths) : lobbies;
+  const activeShame = isMockMode() ? (shameEntries.length > 0 ? shameEntries : mockWallOfShame) : shameEntries;
+  const activeHonor = isMockMode() ? (honorEntries.length > 0 ? honorEntries : mockWallOfHonor) : honorEntries;
+  const activeTx = isMockMode() ? (transactions.length > 0 ? transactions : mockTransactions) : transactions;
 
   const handleSignOut = async () => {
     await signOut();
