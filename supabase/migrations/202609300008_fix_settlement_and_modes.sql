@@ -48,8 +48,8 @@ BEGIN
   IF v_user IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
   IF length(trim(p_oath_statement)) NOT BETWEEN 1 AND 500 THEN RAISE EXCEPTION 'Statement must be 1–500 chars'; END IF;
   IF p_deadline IS NULL OR p_deadline <= now() THEN RAISE EXCEPTION 'Deadline must be future'; END IF;
-  IF p_stake_amount < 0 OR round(p_stake_amount, 2) <> p_stake_amount THEN
-    RAISE EXCEPTION 'Stake must be non-negative with at most 2 decimal places';
+  IF p_stake_amount < 0 THEN
+    RAISE EXCEPTION 'Stake must be non-negative';
   END IF;
   
   IF p_oath_type = 'duo' AND p_opponent_id IS NOT NULL AND p_opponent_id = v_user THEN
