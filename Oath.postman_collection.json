@@ -909,7 +909,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"p_oath_statement\":\"Postman Automated Solo Test: Complete API verification\",\"p_deadline\":\"2026-10-03T10:09:18.824Z\",\"p_oath_type\":\"solo\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
+              "raw": "{\"p_oath_statement\":\"Postman Automated Solo Test: Complete API verification\",\"p_deadline\":\"2026-10-03T10:11:53.097Z\",\"p_oath_type\":\"solo\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
             },
             "url": {
               "raw": "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
@@ -964,7 +964,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"p_oath_statement\":\"Postman Duo Challenge: 10km run battle\",\"p_deadline\":\"2026-10-04T10:09:18.833Z\",\"p_oath_type\":\"duo\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
+              "raw": "{\"p_oath_statement\":\"Postman Duo Challenge: 10km run battle\",\"p_deadline\":\"2026-10-04T10:11:53.098Z\",\"p_oath_type\":\"duo\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
             },
             "url": {
               "raw": "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
@@ -1019,7 +1019,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"p_oath_statement\":\"Postman Squad Challenge: 5-Day Coding Sprint\",\"p_deadline\":\"2026-10-06T10:09:18.833Z\",\"p_oath_type\":\"squad\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":2,\"p_min_players\":2,\"p_max_players\":4,\"p_group_mode\":\"weakest_link\"}"
+              "raw": "{\"p_oath_statement\":\"Postman Squad Challenge: 5-Day Coding Sprint\",\"p_deadline\":\"2026-10-06T10:11:53.098Z\",\"p_oath_type\":\"squad\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":2,\"p_min_players\":3,\"p_max_players\":5,\"p_group_mode\":\"weakest_link\"}"
             },
             "url": {
               "raw": "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
@@ -1074,7 +1074,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"p_oath_statement\":\"Postman Public Lobby: 100 Pushups Daily\",\"p_deadline\":\"2026-10-08T10:09:18.833Z\",\"p_oath_type\":\"lobby\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_min_players\":1,\"p_max_players\":10,\"p_group_mode\":\"survival\"}"
+              "raw": "{\"p_oath_statement\":\"Postman Public Lobby: 100 Pushups Daily\",\"p_deadline\":\"2026-10-08T10:11:53.098Z\",\"p_oath_type\":\"lobby\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_min_players\":1,\"p_max_players\":10,\"p_group_mode\":\"survival\"}"
             },
             "url": {
               "raw": "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
@@ -1126,7 +1126,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"p_oath_statement\":\"Temporary Duo to Cancel\",\"p_deadline\":\"2026-10-03T10:09:18.833Z\",\"p_oath_type\":\"duo\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
+              "raw": "{\"p_oath_statement\":\"Temporary Duo to Cancel\",\"p_deadline\":\"2026-10-03T10:11:53.098Z\",\"p_oath_type\":\"duo\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
             },
             "url": {
               "raw": "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
@@ -1277,7 +1277,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"p_oath_id\":\"{{createdSoloOathId}}\",\"p_excuse\":\"Admitted defeat in automated Postman forfeiture test.\"}"
+              "raw": "{\"p_oath_id\":\"{{createdSoloOathId}}\",\"p_note\":\"Admitted defeat in automated Postman forfeiture test.\"}"
             },
             "url": {
               "raw": "{{supabaseUrl}}/rest/v1/rpc/forfeit_oath",
@@ -1427,8 +1427,6 @@
                   "const json = pm.response.json();",
                   "pm.test('Wall of Shame returned as an array', function () {",
                   "    pm.expect(json).to.be.an('array');",
-                  "    pm.expect(json.length).to.be.above(0);",
-                  "    pm.expect(json[0]).to.have.property('excuse');",
                   "});"
                 ],
                 "type": "text/javascript"

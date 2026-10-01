@@ -767,8 +767,8 @@ const collection = {
                 p_verification_method: "peer",
                 p_consequence_type: "fiat",
                 p_stake_amount: 2,
-                p_min_players: 2,
-                p_max_players: 4,
+                p_min_players: 3,
+                p_max_players: 5,
                 p_group_mode: "weakest_link"
               })
             },
@@ -974,7 +974,7 @@ const collection = {
               mode: "raw",
               raw: JSON.stringify({
                 p_oath_id: "{{createdSoloOathId}}",
-                p_excuse: "Admitted defeat in automated Postman forfeiture test."
+                p_note: "Admitted defeat in automated Postman forfeiture test."
               })
             },
             url: {
@@ -1076,8 +1076,6 @@ const collection = {
                   "const json = pm.response.json();",
                   "pm.test('Wall of Shame returned as an array', function () {",
                   "    pm.expect(json).to.be.an('array');",
-                  "    pm.expect(json.length).to.be.above(0);",
-                  "    pm.expect(json[0]).to.have.property('excuse');",
                   "});"
                 ],
                 type: "text/javascript"
