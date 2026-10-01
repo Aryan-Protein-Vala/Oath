@@ -31,6 +31,8 @@ export default function Home() {
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const { user, profile, wallet, loading, signOut, refreshWallet } = useAuth();
   const router = useRouter();
 
@@ -40,6 +42,36 @@ export default function Home() {
   const { entries: shameEntries } = useWall("shame");
   const { entries: honorEntries } = useWall("honor");
   const { transactions } = useTransactions();
+
+  useEffect(() => {
+    if (!user || isMockMode()) {
+      setUnreadCount(0);
+      return;
+    }
+    const supabase = createClient();
+    const fetchUnread = async () => {
+      const { count } = await supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("status", "pending");
+      setUnreadCount(count ?? 0);
+    };
+    fetchUnread();
+
+    const channel = supabase
+      .channel(`notifs_badge:${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        () => fetchUnread()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   // Show loading state while auth resolves
   if (loading) {
@@ -66,35 +98,6 @@ export default function Home() {
   const activeShame = isMockMode() ? (shameEntries.length > 0 ? shameEntries : mockWallOfShame) : shameEntries;
   const activeHonor = isMockMode() ? (honorEntries.length > 0 ? honorEntries : mockWallOfHonor) : honorEntries;
   const activeTx = isMockMode() ? (transactions.length > 0 ? transactions : mockTransactions) : transactions;
-
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    if (!user || isMockMode()) return;
-    const supabase = createClient();
-    const fetchUnread = async () => {
-      const { count } = await supabase
-        .from("notifications")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("status", "pending");
-      setUnreadCount(count ?? 0);
-    };
-    fetchUnread();
-
-    const channel = supabase
-      .channel(`notifs_badge:${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
-        () => fetchUnread()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
 
   const handleSignOut = async () => {
     await signOut();

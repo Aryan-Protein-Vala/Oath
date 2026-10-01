@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { X, Check, XCircle, Bell, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Notification } from "@/lib/types";
@@ -18,7 +18,21 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      setNotifications(data);
+    }
+    setLoading(false);
+  }, [user, supabase]);
 
   useEffect(() => {
     if (!user) return;
@@ -38,21 +52,7 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
-
-  const fetchNotifications = async () => {
-    if (!user) return;
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
-      setNotifications(data);
-    }
-    setLoading(false);
-  };
+  }, [user, fetchNotifications, supabase]);
 
   const handleAction = async (notif: Notification, status: "accepted" | "rejected" | "read") => {
     setProcessingId(notif.id);
