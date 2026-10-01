@@ -909,7 +909,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"p_oath_statement\":\"Postman Automated Solo Test: Complete API verification\",\"p_deadline\":\"2026-10-03T08:35:57.771Z\",\"p_oath_type\":\"solo\",\"p_verification_method\":\"ai_vision\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
+              "raw": "{\"p_oath_statement\":\"Postman Automated Solo Test: Complete API verification\",\"p_deadline\":\"2026-10-03T10:09:18.824Z\",\"p_oath_type\":\"solo\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
             },
             "url": {
               "raw": "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
@@ -964,7 +964,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"p_oath_statement\":\"Postman Duo Challenge: 10km run battle\",\"p_deadline\":\"2026-10-04T08:35:57.772Z\",\"p_oath_type\":\"duo\",\"p_verification_method\":\"peer_vote\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
+              "raw": "{\"p_oath_statement\":\"Postman Duo Challenge: 10km run battle\",\"p_deadline\":\"2026-10-04T10:09:18.833Z\",\"p_oath_type\":\"duo\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
             },
             "url": {
               "raw": "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
@@ -1019,7 +1019,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"p_oath_statement\":\"Postman Squad Challenge: 5-Day Coding Sprint\",\"p_deadline\":\"2026-10-06T08:35:57.772Z\",\"p_oath_type\":\"squad\",\"p_verification_method\":\"peer_vote\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":2,\"p_min_players\":2,\"p_max_players\":4,\"p_group_mode\":\"weakest_link\"}"
+              "raw": "{\"p_oath_statement\":\"Postman Squad Challenge: 5-Day Coding Sprint\",\"p_deadline\":\"2026-10-06T10:09:18.833Z\",\"p_oath_type\":\"squad\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":2,\"p_min_players\":2,\"p_max_players\":4,\"p_group_mode\":\"weakest_link\"}"
             },
             "url": {
               "raw": "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
@@ -1074,7 +1074,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"p_oath_statement\":\"Postman Public Lobby: 100 Pushups Daily\",\"p_deadline\":\"2026-10-08T08:35:57.772Z\",\"p_oath_type\":\"lobby\",\"p_verification_method\":\"peer_vote\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_min_players\":1,\"p_max_players\":10,\"p_group_mode\":\"survival\"}"
+              "raw": "{\"p_oath_statement\":\"Postman Public Lobby: 100 Pushups Daily\",\"p_deadline\":\"2026-10-08T10:09:18.833Z\",\"p_oath_type\":\"lobby\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_min_players\":1,\"p_max_players\":10,\"p_group_mode\":\"survival\"}"
             },
             "url": {
               "raw": "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
@@ -1126,7 +1126,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"p_oath_statement\":\"Temporary Duo to Cancel\",\"p_deadline\":\"2026-10-03T08:35:57.772Z\",\"p_oath_type\":\"duo\",\"p_verification_method\":\"peer_vote\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
+              "raw": "{\"p_oath_statement\":\"Temporary Duo to Cancel\",\"p_deadline\":\"2026-10-03T10:09:18.833Z\",\"p_oath_type\":\"duo\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
             },
             "url": {
               "raw": "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
@@ -1330,7 +1330,7 @@
               }
             ],
             "url": {
-              "raw": "{{supabaseUrl}}/rest/v1/oaths?oath_type=eq.lobby&select=*,creator:profiles(*),members:group_members(*,user:profiles(*))",
+              "raw": "{{supabaseUrl}}/rest/v1/oaths?oath_type=eq.lobby&select=*,creator:profiles!oaths_creator_id_fkey(*),members:group_members(*,user:profiles(*))",
               "host": [
                 "{{supabaseUrl}}"
               ],
@@ -1346,7 +1346,7 @@
                 },
                 {
                   "key": "select",
-                  "value": "*,creator:profiles(*),members:group_members(*,user:profiles(*))"
+                  "value": "*,creator:profiles!oaths_creator_id_fkey(*),members:group_members(*,user:profiles(*))"
                 }
               ]
             }

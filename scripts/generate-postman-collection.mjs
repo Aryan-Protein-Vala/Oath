@@ -670,7 +670,7 @@ const collection = {
                 p_oath_statement: "Postman Automated Solo Test: Complete API verification",
                 p_deadline: new Date(Date.now() + 86400000 * 2).toISOString(),
                 p_oath_type: "solo",
-                p_verification_method: "ai_vision",
+                p_verification_method: "peer",
                 p_consequence_type: "fiat",
                 p_stake_amount: 5,
                 p_group_mode: "survival"
@@ -717,7 +717,7 @@ const collection = {
                 p_oath_statement: "Postman Duo Challenge: 10km run battle",
                 p_deadline: new Date(Date.now() + 86400000 * 3).toISOString(),
                 p_oath_type: "duo",
-                p_verification_method: "peer_vote",
+                p_verification_method: "peer",
                 p_consequence_type: "fiat",
                 p_stake_amount: 5,
                 p_group_mode: "survival"
@@ -764,7 +764,7 @@ const collection = {
                 p_oath_statement: "Postman Squad Challenge: 5-Day Coding Sprint",
                 p_deadline: new Date(Date.now() + 86400000 * 5).toISOString(),
                 p_oath_type: "squad",
-                p_verification_method: "peer_vote",
+                p_verification_method: "peer",
                 p_consequence_type: "fiat",
                 p_stake_amount: 2,
                 p_min_players: 2,
@@ -813,7 +813,7 @@ const collection = {
                 p_oath_statement: "Postman Public Lobby: 100 Pushups Daily",
                 p_deadline: new Date(Date.now() + 86400000 * 7).toISOString(),
                 p_oath_type: "lobby",
-                p_verification_method: "peer_vote",
+                p_verification_method: "peer",
                 p_consequence_type: "fiat",
                 p_stake_amount: 5,
                 p_min_players: 1,
@@ -859,7 +859,7 @@ const collection = {
                 p_oath_statement: "Temporary Duo to Cancel",
                 p_deadline: new Date(Date.now() + 86400000 * 2).toISOString(),
                 p_oath_type: "duo",
-                p_verification_method: "peer_vote",
+                p_verification_method: "peer",
                 p_consequence_type: "fiat",
                 p_stake_amount: 5,
                 p_group_mode: "survival"
@@ -1015,12 +1015,12 @@ const collection = {
               { key: "Authorization", value: "Bearer {{accessToken}}" }
             ],
             url: {
-              raw: "{{supabaseUrl}}/rest/v1/oaths?oath_type=eq.lobby&select=*,creator:profiles(*),members:group_members(*,user:profiles(*))",
+              raw: "{{supabaseUrl}}/rest/v1/oaths?oath_type=eq.lobby&select=*,creator:profiles!oaths_creator_id_fkey(*),members:group_members(*,user:profiles(*))",
               host: ["{{supabaseUrl}}"],
               path: ["rest", "v1", "oaths"],
               query: [
                 { key: "oath_type", value: "eq.lobby" },
-                { key: "select", value: "*,creator:profiles(*),members:group_members(*,user:profiles(*))" }
+                { key: "select", value: "*,creator:profiles!oaths_creator_id_fkey(*),members:group_members(*,user:profiles(*))" }
               ]
             }
           }

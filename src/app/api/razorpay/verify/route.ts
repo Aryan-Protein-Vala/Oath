@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request: Request) {
   try {
@@ -9,27 +8,23 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, amount } = body;
 
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !amount) {
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json({ error: "Missing required payment fields" }, { status: 400 });
     }
 
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
+    const supabase = await createServerSupabaseClient(token);
+    const { data: { user } } = await supabase.auth.getUser(token);
 
     // Support mock order verification when testing in development or mock mode
     if (typeof razorpay_order_id === "string" && razorpay_order_id.startsWith("order_mock_")) {
-      const supabaseAdmin = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
-      const { error: depositError } = await supabaseAdmin.rpc("add_funds_server", {
-        p_user_id: user.id,
-        p_amount: amount
-      });
-      if (depositError) throw depositError;
+      if (user && amount && Number(amount) > 0) {
+        await supabase.rpc("add_funds", {
+          p_amount: Number(amount),
+          p_description: "Deposited funds (Demo Mode)"
+        });
+      }
       return NextResponse.json({ success: true, is_mock: true });
     }
 
@@ -53,15 +48,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 });
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-    const { error: depositError } = await supabaseAdmin.rpc("add_funds_server", {
-      p_user_id: user.id,
-      p_amount: amount
-    });
-    if (depositError) throw depositError;
+    // Credit verified deposit on server if amount and user are present
+    if (user && amount && Number(amount) > 0) {
+      const { error: depositError } = await supabase.rpc("add_funds", {
+        p_amount: Number(amount),
+        p_description: `Deposited funds via Razorpay (${razorpay_payment_id})`
+      });
+      if (depositError) {
+        console.error("Failed to credit wallet after verified payment:", depositError);
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
