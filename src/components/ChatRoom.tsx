@@ -32,8 +32,33 @@ export default function ChatRoom({ oath, onClose }: ChatRoomProps) {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `oath_id=eq.${oath.id}` },
-        (payload: { new: Message }) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
+        async (payload: { new: Message }) => {
+          let incoming = payload.new as Message;
+          if (!incoming.sender && incoming.sender_id) {
+            if (incoming.sender_id === user.id) {
+              incoming = {
+                ...incoming,
+                sender: {
+                  id: user.id,
+                  username: user.user_metadata?.username || "You",
+                  display_name: user.user_metadata?.display_name || "You",
+                } as any,
+              };
+            } else {
+              const { data: profile } = await supabase
+                .from("profiles")
+                .select("id, username, display_name, avatar_url")
+                .eq("id", incoming.sender_id)
+                .maybeSingle();
+              if (profile) {
+                incoming = { ...incoming, sender: profile as any };
+              }
+            }
+          }
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === incoming.id)) return prev;
+            return [...prev, incoming];
+          });
           scrollToBottom();
         }
       )
@@ -98,7 +123,7 @@ export default function ChatRoom({ oath, onClose }: ChatRoomProps) {
     setUploading(true);
     try {
       const ext = file.name.split('.').pop();
-      const path = `${oath.id}/${user.id}_${Date.now()}.${ext}`;
+      const path = `${oath.id}/${user.id}/${Date.now()}.${ext}`;
       
       const { error: uploadError } = await supabase.storage.from("oath-proofs").upload(path, file, { contentType: file.type });
       if (uploadError) throw uploadError;

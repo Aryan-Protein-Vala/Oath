@@ -13,6 +13,7 @@ import {
   Loader2,
   Eye,
   X,
+  MessageSquare,
 } from "lucide-react";
 import type { Oath, GroupMember, Wallet } from "@/lib/types";
 import { formatCurrency as utilsFormatCurrency, getTimeRemaining, formatRelativeTime } from "@/lib/utils";
@@ -21,6 +22,7 @@ import { showToast } from "./Toast";
 import { useRegion } from "@/lib/region-context";
 import { useAuth } from "@/lib/auth-context";
 import CreateLobbyModal from "./CreateLobbyModal";
+import ChatRoom from "./ChatRoom";
 
 interface LobbiesViewProps {
   squads: Oath[];
@@ -270,10 +272,12 @@ function SquadDetail({
   const { user } = useAuth();
   const { region } = useRegion();
   const [loading, setLoading] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [inspectingMember, setInspectingMember] = useState<GroupMember | null>(null);
   const memberCount = squad.members?.length ?? 0;
   const spotsLeft = Math.max(0, squad.max_players - memberCount);
   const poolTotal = memberCount * squad.stake_amount;
+  const isUserMember = squad.members?.some((m) => m.user_id === user?.id) || squad.creator_id === user?.id;
 
   const handleJoin = async () => {
     setLoading(true);
@@ -369,8 +373,27 @@ function SquadDetail({
         ))}
       </div>
 
+      {/* Joined Action Bar / Open Chat */}
+      {isUserMember && (
+        <div className="px-5 py-3 border-t-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/60 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[11px] font-mono font-bold text-zinc-900 dark:text-zinc-200 uppercase">
+              You are in this {squad.oath_type === "lobby" ? "lobby" : "squad"}
+            </span>
+          </div>
+          <button
+            onClick={() => setShowChat(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-mono font-black uppercase tracking-wider hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors border-2 border-zinc-950 dark:border-transparent shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            Open Chat
+          </button>
+        </div>
+      )}
+
       {/* Join Button */}
-      {spotsLeft > 0 && (squad.status === "pending" || squad.status === "active") && !squad.members?.some((m) => m.user_id === user?.id) && (
+      {spotsLeft > 0 && (squad.status === "pending" || squad.status === "active") && !isUserMember && (
         <div className="px-5 py-4 border-t-2 border-zinc-950 dark:border-zinc-800/40 bg-white dark:bg-transparent">
           <button
             onClick={handleJoin}
@@ -433,6 +456,13 @@ function SquadDetail({
             </div>
           </div>
         </div>
+      )}
+
+      {showChat && (
+        <ChatRoom
+          oath={squad}
+          onClose={() => setShowChat(false)}
+        />
       )}
     </div>
   );

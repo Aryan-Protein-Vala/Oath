@@ -9,6 +9,7 @@ const ids = {
   opponent: "22222222-2222-4222-8222-222222222222",
   squadMember1: "33333333-3333-4333-8333-333333333333",
   squadMember2: "44444444-4444-4444-8444-444444444444",
+  outsider: "55555555-5555-4555-8555-555555555555",
 };
 
 async function asUser(userId, sql, params = []) {
@@ -106,12 +107,14 @@ before(async () => {
       ('${ids.creator}','creator','Aryan'),
       ('${ids.opponent}','opponent','Sam'),
       ('${ids.squadMember1}','member1','Rohan'),
-      ('${ids.squadMember2}','member2','Priya');
+      ('${ids.squadMember2}','member2','Priya'),
+      ('${ids.outsider}','outsider','Eve');
     INSERT INTO public.wallets(user_id,balance) VALUES
       ('${ids.creator}',1000),
       ('${ids.opponent}',500),
       ('${ids.squadMember1}',200),
-      ('${ids.squadMember2}',100);
+      ('${ids.squadMember2}',100),
+      ('${ids.outsider}',100);
   `);
 
   const migrationFiles = [
@@ -130,7 +133,11 @@ before(async () => {
     "202609300015_fix_rls_and_duo_lobby_flows.sql",
     "202609300016_referee_tokens_and_cancellation.sql",
     "202610010001_complete_readiness.sql",
-    "202610010002_apply_readiness_fixes.sql"
+    "202610010002_apply_readiness_fixes.sql",
+    "202610010004_restore_add_funds.sql",
+    "202610010005_fix_messages_rls_participant.sql",
+    "202610010006_ensure_storage_bucket.sql",
+    "202610010007_dynamic_quorum_votes_needed.sql"
   ];
 
   for (const file of migrationFiles) {
@@ -318,6 +325,75 @@ test("Real User Journey 5: Pending Cancellation & Unfilled Slot Refunds", async 
   const m1PostCancel = (await db.query("SELECT balance, escrow_locked FROM wallets WHERE user_id=$1", [ids.squadMember1])).rows[0];
   assert.equal(Number(m1PostCancel.balance), Number(m1PreCancel.balance) + 40);
   assert.equal(Number(m1PostCancel.escrow_locked), Number(m1PreCancel.escrow_locked) - 40);
+});
+
+test("Real User Journey 6: Multi-User Chat with Attachments, RLS Protection & Quorum Proof Verification", async () => {
+  // 1. Creator establishes a Squad Oath with Leader-Pays-All ($50 x 3 = $150 locked)
+  const oathId = (await asUser(ids.creator, `SELECT public.create_oath_with_stake(
+    'Ship v2 Production Release', now()+interval '10 days', 'squad', 'quorum', 'fiat', 50, 3, 3, NULL, NULL, NULL, NULL, NULL, 'survival'
+  )`)).rows[0].create_oath_with_stake;
+
+  // Member 1 and Member 2 join for free
+  await asUser(ids.squadMember1, "SELECT public.join_squad($1, 50)", [oathId]);
+  await asUser(ids.squadMember2, "SELECT public.join_squad($1, 50)", [oathId]);
+
+  // 2. Chat Conversation: Creator posts a motivation message
+  await asUser(ids.creator, `INSERT INTO public.messages (oath_id, sender_id, content, type) VALUES ($1, $2, 'Sprint starts today team!', 'text')`, [oathId, ids.creator]);
+
+  // Member 1 posts a reply
+  await asUser(ids.squadMember1, `INSERT INTO public.messages (oath_id, sender_id, content, type) VALUES ($1, $2, 'Working on the storage bucket and chat hooks.', 'text')`, [oathId, ids.squadMember1]);
+
+  // Member 1 simulates uploading a proof photo to storage and sharing the public URL in chat
+  const proofPath = `${oathId}/${ids.squadMember1}/1727768000.jpg`;
+  await db.query("INSERT INTO storage.objects (bucket_id, name) VALUES ('oath-proofs', $1)", [proofPath]);
+  const proofUrl = `https://qvgurpvacaubiqyvclzc.supabase.co/storage/v1/object/public/oath-proofs/${proofPath}`;
+  await asUser(ids.squadMember1, `INSERT INTO public.messages (oath_id, sender_id, content, type) VALUES ($1, $2, $3, 'proof')`, [oathId, ids.squadMember1, proofUrl]);
+
+  // 3. Verify chat messages can be read by participants with sender profiles joined
+  const messages = (await asUser(ids.creator, `
+    SELECT m.id, m.content, m.type, p.username AS sender_username
+    FROM public.messages m
+    JOIN public.profiles p ON p.id = m.sender_id
+    WHERE m.oath_id = $1
+    ORDER BY m.created_at ASC
+  `, [oathId])).rows;
+
+  assert.equal(messages.length, 3);
+  assert.equal(messages[0].sender_username, "creator");
+  assert.equal(messages[0].content, "Sprint starts today team!");
+  assert.equal(messages[1].sender_username, "member1");
+  assert.equal(messages[2].type, "proof");
+  assert.equal(messages[2].content, proofUrl);
+
+  // 4. RLS Security: An outsider who is NOT in this squad attempts to post or read messages
+  await db.exec("SET ROLE authenticated");
+  await db.query("SELECT set_config('request.jwt.claim.sub', $1, false)", [ids.outsider]);
+  await assert.rejects(
+    db.query(`INSERT INTO public.messages (oath_id, sender_id, content, type) VALUES ($1, $2, 'I am snooping', 'text')`, [oathId, ids.outsider]),
+    /violates row-level security policy|permission denied/i
+  );
+  await db.exec("RESET ROLE");
+
+  // 5. Official Proof Submission & Quorum Settlement
+  const proofId = (await asUser(ids.squadMember1, "SELECT public.submit_oath_proof($1, 'photo', $2, 'All test suites passing at 100%')", [oathId, proofPath])).rows[0].submit_oath_proof;
+  assert.ok(proofId);
+
+  // Creator votes YES on Member 1's proof
+  const member1Row = (await db.query("SELECT id FROM group_members WHERE oath_id=$1 AND user_id=$2", [oathId, ids.squadMember1])).rows[0];
+  await asUser(ids.creator, "SELECT public.cast_squad_vote($1, $2, true)", [oathId, member1Row.id]);
+
+  // Member 2 votes YES on Member 1's proof (reaching 2/2 quorum approvals)
+  await asUser(ids.squadMember2, "SELECT public.cast_squad_vote($1, $2, true)", [oathId, member1Row.id]);
+
+  // Verify Member 1 has succeeded and their stake portion ($50 - 10% platform fee = $45) is released
+  const member1Final = (await db.query("SELECT status, votes_received, is_winner FROM group_members WHERE id=$1", [member1Row.id])).rows[0];
+  assert.equal(member1Final.status, "completed");
+  assert.equal(member1Final.is_winner, true);
+
+  // 6. Member 2 fails/forfeits with an excuse
+  await asUser(ids.squadMember2, "SELECT public.forfeit_squad_member($1)", [oathId]);
+  const member2Final = (await db.query("SELECT status FROM group_members WHERE oath_id=$1 AND user_id=$2", [oathId, ids.squadMember2])).rows[0];
+  assert.equal(member2Final.status, "failed");
 });
 
 

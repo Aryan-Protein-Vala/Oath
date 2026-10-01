@@ -65,7 +65,7 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
           return;
         }
         showToast("Accepted Duo Challenge! Stay accountable.", "success");
-      } else if (notif.type === "invite_squad" || notif.type === "invite_lobby") {
+      } else if (notif.type === "invite_squad" || notif.type === "invite_lobby" || notif.type === "invite") {
         const { error } = await joinSquad(notif.oath_id, 0);
         if (error) {
           showToast(error, "error");
@@ -116,7 +116,7 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
                   </div>
                 </div>
 
-                {notif.status === "pending" && notif.type.startsWith("invite_") && (
+                {notif.status === "pending" && notif.type.startsWith("invite") && (
                   <div className="flex items-center gap-2 mt-4">
                     <button
                       onClick={() => handleAction(notif, "accepted")}

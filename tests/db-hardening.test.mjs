@@ -124,7 +124,10 @@ before(async () => {
     "202609300015_fix_rls_and_duo_lobby_flows.sql",
     "202609300016_referee_tokens_and_cancellation.sql",
     "202610010001_complete_readiness.sql",
-    "202610010002_apply_readiness_fixes.sql"
+    "202610010002_apply_readiness_fixes.sql",
+    "202610010004_restore_add_funds.sql",
+    "202610010005_fix_messages_rls_participant.sql",
+    "202610010007_dynamic_quorum_votes_needed.sql"
   ];
 
   for (const file of migrationFiles) {
