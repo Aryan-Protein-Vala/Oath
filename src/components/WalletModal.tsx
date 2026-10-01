@@ -12,7 +12,7 @@ import {
   CheckCircle,
   AlertCircle,
 } from "lucide-react";
-import { depositFunds, withdrawFunds, isMockMode } from "@/lib/data-hooks";
+import { withdrawFunds, isMockMode } from "@/lib/data-hooks";
 import { formatCurrency, formatCurrencyPrecise, formatRelativeTime, convertToUSD, convertToLocal } from "@/lib/utils";
 import type { Wallet, Transaction } from "@/lib/types";
 import { showToast } from "./Toast";
@@ -128,6 +128,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                   razorpay_order_id: response.razorpay_order_id || order.id,
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
+                  amount: amountUsd
                 }),
               });
               const verifyData = await verifyRes.json();
@@ -135,16 +136,12 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                 throw new Error(verifyData.error || "Payment verification failed");
               }
 
-              // 4. Deposit verified funds
-              const { error } = await depositFunds(amountUsd);
-              if (error) {
-                showToast(error, "error");
-              } else {
-                setDone(true);
-                showToast(`${formatRegionCurrency(amountUsd)} added to your wallet.`, "success");
-                onRefresh();
-                setTimeout(() => { setDone(false); setAmount(""); setTab("overview"); }, 1500);
-              }
+              // Funds are now securely deposited by the backend route
+              setDone(true);
+              showToast(`${formatRegionCurrency(amountUsd)} added to your wallet.`, "success");
+              onRefresh();
+              setTimeout(() => { setDone(false); setAmount(""); setTab("overview"); }, 1500);
+
             } catch (err: unknown) {
               const message = err instanceof Error ? err.message : "Verification failed";
               showToast(message, "error");

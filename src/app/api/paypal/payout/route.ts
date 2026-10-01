@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 
 const getPayPalUrl = () => {
   return process.env.PAYPAL_MODE === "live"
@@ -117,7 +118,14 @@ export async function POST(request: Request) {
     } catch (payoutError) {
       // Revert wallet deduction if PayPal payout fails
       console.error("PayPal transfer failed, reverting wallet deduction:", payoutError);
-      await supabase.rpc("add_funds", { 
+      
+      const supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      
+      await supabaseAdmin.rpc("add_funds_server", { 
+        p_user_id: user.id,
         p_amount: numericAmount, 
         p_description: "Refund: Failed PayPal withdrawal" 
       });
