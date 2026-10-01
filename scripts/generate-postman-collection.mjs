@@ -1,0 +1,1188 @@
+import fs from "fs";
+import path from "path";
+
+const collection = {
+  info: {
+    name: "Oath Platform - End-to-End API Suite",
+    _postman_id: "oath-e2e-api-suite-v1",
+    description: "Comprehensive automated API test suite covering Next.js Edge/Node API routes, Supabase Auth, Financial/Wallet RPCs, Oath lifecycle (Solo, Duo, Squad, Lobby), proof verification, wall of shame/honor, and security boundaries.",
+    schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  variable: [
+    { key: "baseUrl", value: "https://oath-phi.vercel.app" },
+    { key: "supabaseUrl", value: "https://qvgurpvacaubiqyvclzc.supabase.co" },
+    { key: "supabaseAnonKey", value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2Z3VycHZhY2F1YmlxeXZjbHpjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2Njg3NTksImV4cCI6MjEwNjI0NDc1OX0.EzxQuNCjo30TBzaDbpPUgn_iC1Q4j8l9F1sQkZIgmVY" },
+    { key: "adminEmail", value: "aryansharma24112003@gmail.com" },
+    { key: "adminPassword", value: "Aryan@24" },
+    { key: "accessToken", value: "" },
+    { key: "userId", value: "" },
+    { key: "createdSoloOathId", value: "" },
+    { key: "createdDuoOathId", value: "" },
+    { key: "createdSquadOathId", value: "" },
+    { key: "createdLobbyOathId", value: "" },
+    { key: "createdCancelOathId", value: "" }
+  ],
+  item: [
+    {
+      name: "1. Authentication & User Profile",
+      item: [
+        {
+          name: "1.1 Sign In with Email & Password",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns access_token and user info', function () {",
+                  "    pm.expect(json).to.have.property('access_token');",
+                  "    pm.expect(json).to.have.property('user');",
+                  "    pm.expect(json.user).to.have.property('id');",
+                  "});",
+                  "pm.collectionVariables.set('accessToken', json.access_token);",
+                  "pm.collectionVariables.set('userId', json.user.id);",
+                  "pm.environment.set('accessToken', json.access_token);",
+                  "pm.environment.set('userId', json.user.id);"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Content-Type", value: "application/json" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                email: "{{adminEmail}}",
+                password: "{{adminPassword}}"
+              })
+            },
+            url: {
+              raw: "{{supabaseUrl}}/auth/v1/token?grant_type=password",
+              host: ["{{supabaseUrl}}"],
+              path: ["auth", "v1", "token"],
+              query: [{ key: "grant_type", value: "password" }]
+            }
+          }
+        },
+        {
+          name: "1.2 Fetch Authenticated User Details",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('User ID matches session', function () {",
+                  "    pm.expect(json.id).to.eql(pm.collectionVariables.get('userId'));",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "GET",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" }
+            ],
+            url: {
+              raw: "{{supabaseUrl}}/auth/v1/user",
+              host: ["{{supabaseUrl}}"],
+              path: ["auth", "v1", "user"]
+            }
+          }
+        },
+        {
+          name: "1.3 Fetch User Profile Data",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Profile exists with reputation score', function () {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "    pm.expect(json.length).to.be.above(0);",
+                  "    pm.expect(json[0]).to.have.property('reputation_score');",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "GET",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" }
+            ],
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/profiles?id=eq.{{userId}}&select=*",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "profiles"],
+              query: [
+                { key: "id", value: "eq.{{userId}}" },
+                { key: "select", value: "*" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      name: "2. Next.js API Routes (Razorpay & PayPal)",
+      item: [
+        {
+          name: "2.1 Razorpay Create Order - INR (Authenticated)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns order id and currency INR', function () {",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.expect(json.currency).to.eql('INR');",
+                  "    pm.expect(json.amount).to.eql(50000);",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "Content-Type", value: "application/json" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({ amount: 500, currency: "INR" })
+            },
+            url: {
+              raw: "{{baseUrl}}/api/razorpay/create-order",
+              host: ["{{baseUrl}}"],
+              path: ["api", "razorpay", "create-order"]
+            }
+          }
+        },
+        {
+          name: "2.2 Razorpay Create Order - USD (Authenticated)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns order id and currency USD', function () {",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.expect(json.currency).to.eql('USD');",
+                  "    pm.expect(json.amount).to.eql(2500);",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "Content-Type", value: "application/json" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({ amount: 25, currency: "USD" })
+            },
+            url: {
+              raw: "{{baseUrl}}/api/razorpay/create-order",
+              host: ["{{baseUrl}}"],
+              path: ["api", "razorpay", "create-order"]
+            }
+          }
+        },
+        {
+          name: "2.3 Razorpay Create Order - Negative Amount (Validation)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns positive amount error', function () {",
+                  "    pm.expect(json.error).to.include('valid positive amount');",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "Content-Type", value: "application/json" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({ amount: -100, currency: "INR" })
+            },
+            url: {
+              raw: "{{baseUrl}}/api/razorpay/create-order",
+              host: ["{{baseUrl}}"],
+              path: ["api", "razorpay", "create-order"]
+            }
+          }
+        },
+        {
+          name: "2.4 Razorpay Create Order - Unsupported Currency (Validation)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns unsupported currency error', function () {",
+                  "    pm.expect(json.error).to.include('Unsupported currency');",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "Content-Type", value: "application/json" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({ amount: 100, currency: "EUR" })
+            },
+            url: {
+              raw: "{{baseUrl}}/api/razorpay/create-order",
+              host: ["{{baseUrl}}"],
+              path: ["api", "razorpay", "create-order"]
+            }
+          }
+        },
+        {
+          name: "2.5 Razorpay Create Order - Unauthenticated (Security)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns unauthorized error', function () {",
+                  "    pm.expect(json.error).to.include('Unauthorized');",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "Content-Type", value: "application/json" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({ amount: 100, currency: "INR" })
+            },
+            url: {
+              raw: "{{baseUrl}}/api/razorpay/create-order",
+              host: ["{{baseUrl}}"],
+              path: ["api", "razorpay", "create-order"]
+            }
+          }
+        },
+        {
+          name: "2.6 Razorpay Verify - Missing Fields (Validation)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns missing fields error', function () {",
+                  "    pm.expect(json.error).to.include('Missing required payment fields');",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "Content-Type", value: "application/json" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({})
+            },
+            url: {
+              raw: "{{baseUrl}}/api/razorpay/verify",
+              host: ["{{baseUrl}}"],
+              path: ["api", "razorpay", "verify"]
+            }
+          }
+        },
+        {
+          name: "2.7 Razorpay Verify - Invalid Signature (Tamper Detection)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Rejects invalid signature', function () {",
+                  "    pm.expect(json.error).to.include('Invalid payment signature');",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "Content-Type", value: "application/json" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                razorpay_order_id: "order_test_12345",
+                razorpay_payment_id: "pay_test_12345",
+                razorpay_signature: "bad_tampered_signature"
+              })
+            },
+            url: {
+              raw: "{{baseUrl}}/api/razorpay/verify",
+              host: ["{{baseUrl}}"],
+              path: ["api", "razorpay", "verify"]
+            }
+          }
+        },
+        {
+          name: "2.8 PayPal Payout - Unauthenticated (Security)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns unauthorized error', function () {",
+                  "    pm.expect(json.error).to.include('Unauthorized');",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "Content-Type", value: "application/json" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({ amount: 10, receiverEmail: "test@example.com" })
+            },
+            url: {
+              raw: "{{baseUrl}}/api/paypal/payout",
+              host: ["{{baseUrl}}"],
+              path: ["api", "paypal", "payout"]
+            }
+          }
+        },
+        {
+          name: "2.9 PayPal Payout - Invalid Email (Validation)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns invalid email error', function () {",
+                  "    pm.expect(json.error).to.include('valid PayPal receiver email');",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "Content-Type", value: "application/json" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({ amount: 10, receiverEmail: "not-an-email" })
+            },
+            url: {
+              raw: "{{baseUrl}}/api/paypal/payout",
+              host: ["{{baseUrl}}"],
+              path: ["api", "paypal", "payout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      name: "3. Wallet & Financial RPCs",
+      item: [
+        {
+          name: "3.1 Fetch Current Wallet Balance",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns wallet with balance and escrow_locked', function () {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "    pm.expect(json.length).to.be.above(0);",
+                  "    pm.expect(json[0]).to.have.property('balance');",
+                  "    pm.expect(json[0]).to.have.property('escrow_locked');",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "GET",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" }
+            ],
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/wallets?user_id=eq.{{userId}}&select=*",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "wallets"],
+              query: [
+                { key: "user_id", value: "eq.{{userId}}" },
+                { key: "select", value: "*" }
+              ]
+            }
+          }
+        },
+        {
+          name: "3.2 Deposit Funds RPC (add_funds)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 or 204', function () {",
+                  "    pm.expect([200, 204]).to.include(pm.response.code);",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" },
+              { key: "Content-Type", value: "application/json" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                p_amount: 50,
+                p_description: "Automated Postman Test Deposit"
+              })
+            },
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/rpc/add_funds",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "rpc", "add_funds"]
+            }
+          }
+        },
+        {
+          name: "3.3 Withdraw Funds RPC (withdraw_funds)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 or 204', function () {",
+                  "    pm.expect([200, 204]).to.include(pm.response.code);",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" },
+              { key: "Content-Type", value: "application/json" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                p_amount: 5,
+                p_destination: "UPI: postmantest@upi"
+              })
+            },
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/rpc/withdraw_funds",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "rpc", "withdraw_funds"]
+            }
+          }
+        },
+        {
+          name: "3.4 Fetch Transaction Ledger",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Ledger returns transactions', function () {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "    pm.expect(json.length).to.be.above(0);",
+                  "    pm.expect(json[0]).to.have.property('amount');",
+                  "    pm.expect(json[0]).to.have.property('type');",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "GET",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" }
+            ],
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/transactions?select=*&order=created_at.desc&limit=10",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "transactions"],
+              query: [
+                { key: "select", value: "*" },
+                { key: "order", value: "created_at.desc" },
+                { key: "limit", value: "10" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      name: "4. Oath Lifecycle Flows (Solo, Duo, Squad, Lobby)",
+      item: [
+        {
+          name: "4.1 Create Solo Oath with Stake",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const oathId = pm.response.text().replace(/\"/g, '');",
+                  "pm.test('Returns valid UUID for created oath', function () {",
+                  "    pm.expect(oathId).to.match(/^[0-9a-f-]{36}$/i);",
+                  "});",
+                  "pm.collectionVariables.set('createdSoloOathId', oathId);",
+                  "pm.environment.set('createdSoloOathId', oathId);"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" },
+              { key: "Content-Type", value: "application/json" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                p_oath_statement: "Postman Automated Solo Test: Complete API verification",
+                p_deadline: new Date(Date.now() + 86400000 * 2).toISOString(),
+                p_oath_type: "solo",
+                p_verification_method: "ai_vision",
+                p_consequence_type: "fiat",
+                p_stake_amount: 5,
+                p_group_mode: "survival"
+              })
+            },
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "rpc", "create_oath_with_stake"]
+            }
+          }
+        },
+        {
+          name: "4.2 Create Duo Oath (Leader Pays 2x Escrow)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const oathId = pm.response.text().replace(/\"/g, '');",
+                  "pm.test('Returns valid UUID for created duo oath', function () {",
+                  "    pm.expect(oathId).to.match(/^[0-9a-f-]{36}$/i);",
+                  "});",
+                  "pm.collectionVariables.set('createdDuoOathId', oathId);",
+                  "pm.environment.set('createdDuoOathId', oathId);"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" },
+              { key: "Content-Type", value: "application/json" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                p_oath_statement: "Postman Duo Challenge: 10km run battle",
+                p_deadline: new Date(Date.now() + 86400000 * 3).toISOString(),
+                p_oath_type: "duo",
+                p_verification_method: "peer_vote",
+                p_consequence_type: "fiat",
+                p_stake_amount: 5,
+                p_group_mode: "survival"
+              })
+            },
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "rpc", "create_oath_with_stake"]
+            }
+          }
+        },
+        {
+          name: "4.3 Create Squad Oath (Leader Pays All)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const oathId = pm.response.text().replace(/\"/g, '');",
+                  "pm.test('Returns valid UUID for created squad oath', function () {",
+                  "    pm.expect(oathId).to.match(/^[0-9a-f-]{36}$/i);",
+                  "});",
+                  "pm.collectionVariables.set('createdSquadOathId', oathId);",
+                  "pm.environment.set('createdSquadOathId', oathId);"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" },
+              { key: "Content-Type", value: "application/json" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                p_oath_statement: "Postman Squad Challenge: 5-Day Coding Sprint",
+                p_deadline: new Date(Date.now() + 86400000 * 5).toISOString(),
+                p_oath_type: "squad",
+                p_verification_method: "peer_vote",
+                p_consequence_type: "fiat",
+                p_stake_amount: 2,
+                p_min_players: 2,
+                p_max_players: 4,
+                p_group_mode: "weakest_link"
+              })
+            },
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "rpc", "create_oath_with_stake"]
+            }
+          }
+        },
+        {
+          name: "4.4 Create Public Lobby Oath (Individual Buy-In)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const oathId = pm.response.text().replace(/\"/g, '');",
+                  "pm.test('Returns valid UUID for created lobby', function () {",
+                  "    pm.expect(oathId).to.match(/^[0-9a-f-]{36}$/i);",
+                  "});",
+                  "pm.collectionVariables.set('createdLobbyOathId', oathId);",
+                  "pm.environment.set('createdLobbyOathId', oathId);"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" },
+              { key: "Content-Type", value: "application/json" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                p_oath_statement: "Postman Public Lobby: 100 Pushups Daily",
+                p_deadline: new Date(Date.now() + 86400000 * 7).toISOString(),
+                p_oath_type: "lobby",
+                p_verification_method: "peer_vote",
+                p_consequence_type: "fiat",
+                p_stake_amount: 5,
+                p_min_players: 1,
+                p_max_players: 10,
+                p_group_mode: "survival"
+              })
+            },
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "rpc", "create_oath_with_stake"]
+            }
+          }
+        },
+        {
+          name: "4.5 Create Oath to Cancel (Refund Invariant Test)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const oathId = pm.response.text().replace(/\"/g, '');",
+                  "pm.collectionVariables.set('createdCancelOathId', oathId);",
+                  "pm.environment.set('createdCancelOathId', oathId);"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" },
+              { key: "Content-Type", value: "application/json" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                p_oath_statement: "Temporary Duo to Cancel",
+                p_deadline: new Date(Date.now() + 86400000 * 2).toISOString(),
+                p_oath_type: "duo",
+                p_verification_method: "peer_vote",
+                p_consequence_type: "fiat",
+                p_stake_amount: 5,
+                p_group_mode: "survival"
+              })
+            },
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "rpc", "create_oath_with_stake"]
+            }
+          }
+        },
+        {
+          name: "4.6 Cancel Pending Oath (Escrow Refund Verification)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 or 204', function () {",
+                  "    pm.expect([200, 204]).to.include(pm.response.code);",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" },
+              { key: "Content-Type", value: "application/json" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                p_oath_id: "{{createdCancelOathId}}"
+              })
+            },
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/rpc/cancel_pending_oath",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "rpc", "cancel_pending_oath"]
+            }
+          }
+        },
+        {
+          name: "4.7 Submit Proof for Solo Oath",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const proofId = pm.response.text().replace(/\"/g, '');",
+                  "pm.test('Returns valid proof UUID', function () {",
+                  "    pm.expect(proofId).to.match(/^[0-9a-f-]{36}$/i);",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" },
+              { key: "Content-Type", value: "application/json" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                p_oath_id: "{{createdSoloOathId}}",
+                p_proof_type: "text",
+                p_proof_text: "Automated proof of completion via Postman suite"
+              })
+            },
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/rpc/submit_oath_proof",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "rpc", "submit_oath_proof"]
+            }
+          }
+        },
+        {
+          name: "4.8 Forfeit Solo Oath (Excuse & Wall of Shame Test)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 or 204', function () {",
+                  "    pm.expect([200, 204]).to.include(pm.response.code);",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "POST",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" },
+              { key: "Content-Type", value: "application/json" }
+            ],
+            body: {
+              mode: "raw",
+              raw: JSON.stringify({
+                p_oath_id: "{{createdSoloOathId}}",
+                p_excuse: "Admitted defeat in automated Postman forfeiture test."
+              })
+            },
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/rpc/forfeit_oath",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "rpc", "forfeit_oath"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      name: "5. Social, Notifications & Lobbies",
+      item: [
+        {
+          name: "5.1 Query Public Lobbies",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Lobbies returned as an array', function () {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "GET",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" }
+            ],
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/oaths?oath_type=eq.lobby&select=*,creator:profiles(*),members:group_members(*,user:profiles(*))",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "oaths"],
+              query: [
+                { key: "oath_type", value: "eq.lobby" },
+                { key: "select", value: "*,creator:profiles(*),members:group_members(*,user:profiles(*))" }
+              ]
+            }
+          }
+        },
+        {
+          name: "5.2 Query User Notifications",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Notifications returned as an array', function () {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "GET",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" }
+            ],
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/notifications?user_id=eq.{{userId}}&select=*&order=created_at.desc&limit=10",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "notifications"],
+              query: [
+                { key: "user_id", value: "eq.{{userId}}" },
+                { key: "select", value: "*" },
+                { key: "order", value: "created_at.desc" },
+                { key: "limit", value: "10" }
+              ]
+            }
+          }
+        },
+        {
+          name: "5.3 Query Wall of Shame (Failed Oaths & Excuses)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Wall of Shame returned as an array', function () {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "    pm.expect(json.length).to.be.above(0);",
+                  "    pm.expect(json[0]).to.have.property('excuse');",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "GET",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" }
+            ],
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/wall_entries?wall_type=eq.shame&select=*&order=created_at.desc&limit=10",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "wall_entries"],
+              query: [
+                { key: "wall_type", value: "eq.shame" },
+                { key: "select", value: "*" },
+                { key: "order", value: "created_at.desc" },
+                { key: "limit", value: "10" }
+              ]
+            }
+          }
+        },
+        {
+          name: "5.4 Query Wall of Honor (Completed Oaths)",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Wall of Honor returned as an array', function () {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "GET",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" }
+            ],
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/wall_entries?wall_type=eq.honor&select=*&order=created_at.desc&limit=10",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "wall_entries"],
+              query: [
+                { key: "wall_type", value: "eq.honor" },
+                { key: "select", value: "*" },
+                { key: "order", value: "created_at.desc" },
+                { key: "limit", value: "10" }
+              ]
+            }
+          }
+        },
+        {
+          name: "5.5 Query Chat Messages for Group Oath",
+          event: [
+            {
+              listen: "test",
+              script: {
+                exec: [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Messages returned as an array', function () {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});"
+                ],
+                type: "text/javascript"
+              }
+            }
+          ],
+          request: {
+            method: "GET",
+            header: [
+              { key: "apikey", value: "{{supabaseAnonKey}}" },
+              { key: "Authorization", value: "Bearer {{accessToken}}" }
+            ],
+            url: {
+              raw: "{{supabaseUrl}}/rest/v1/messages?oath_id=eq.{{createdSquadOathId}}&select=*,sender:profiles(*)&order=created_at.asc",
+              host: ["{{supabaseUrl}}"],
+              path: ["rest", "v1", "messages"],
+              query: [
+                { key: "oath_id", value: "eq.{{createdSquadOathId}}" },
+                { key: "select", value: "*,sender:profiles(*)" },
+                { key: "order", value: "created_at.asc" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+};
+
+const outputPath = path.resolve(process.cwd(), "Oath.postman_collection.json");
+fs.writeFileSync(outputPath, JSON.stringify(collection, null, 2));
+console.log("Successfully generated:", outputPath);

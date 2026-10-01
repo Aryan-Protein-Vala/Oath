@@ -36,11 +36,13 @@ async function getAccessToken() {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createServerSupabaseClient();
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
+    const supabase = await createServerSupabaseClient(token);
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser(token);
 
     if (!user || authError) {
       return NextResponse.json(

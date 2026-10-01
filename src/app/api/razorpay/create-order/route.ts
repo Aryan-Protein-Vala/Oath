@@ -41,8 +41,10 @@ export async function POST(request: Request) {
       });
     }
 
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
+    const supabase = await createServerSupabaseClient(token);
+    const { data: { user } } = await supabase.auth.getUser(token);
     if (!user) {
       return NextResponse.json({ error: "Unauthorized. Sign in to deposit funds." }, { status: 401 });
     }

@@ -12,7 +12,7 @@ import {
   CheckCircle,
   AlertCircle,
 } from "lucide-react";
-import { withdrawFunds, isMockMode } from "@/lib/data-hooks";
+import { depositFunds, withdrawFunds, isMockMode } from "@/lib/data-hooks";
 import { formatCurrency, formatCurrencyPrecise, formatRelativeTime, convertToUSD, convertToLocal } from "@/lib/utils";
 import type { Wallet, Transaction } from "@/lib/types";
 import { showToast } from "./Toast";
