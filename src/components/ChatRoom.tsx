@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Message, Oath, Profile, Proof } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { formatRelativeTime } from "@/lib/utils";
+import { showToast } from "./Toast";
 
 interface ChatRoomProps {
   oath: Oath;
@@ -17,7 +18,9 @@ export default function ChatRoom({ oath, onClose }: ChatRoomProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -75,7 +78,49 @@ export default function ChatRoom({ oath, onClose }: ChatRoomProps) {
     };
 
     setInputText("");
-    await supabase.from("messages").insert(newMessage);
+    const { error } = await supabase.from("messages").insert(newMessage);
+    if (error) {
+      console.error("Message send error:", error);
+      showToast(error.message, "error");
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    
+    // Quick validation
+    if (file.size > 10 * 1024 * 1024) {
+      showToast("File must be less than 10MB", "error");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${oath.id}/${user.id}_${Date.now()}.${ext}`;
+      
+      const { error: uploadError } = await supabase.storage.from("oath-proofs").upload(path, file, { contentType: file.type });
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from("oath-proofs").getPublicUrl(path);
+
+      const newMessage = {
+        oath_id: oath.id,
+        sender_id: user.id,
+        content: urlData.publicUrl,
+        type: "proof",
+      };
+
+      const { error: dbError } = await supabase.from("messages").insert(newMessage);
+      if (dbError) throw dbError;
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      showToast(err.message || "Failed to upload file", "error");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const isLobby = oath.oath_type === "lobby";
@@ -136,13 +181,11 @@ export default function ChatRoom({ oath, onClose }: ChatRoomProps) {
                   }`}>
                     {msg.type === "proof" ? (
                       <div className="flex flex-col items-center gap-3">
+                        <img src={msg.content} alt="Proof" className="max-w-full rounded border-2 border-zinc-950 dark:border-zinc-800" />
                         <div className="flex items-center gap-2 text-indigo-400">
                           <Camera className="w-5 h-5" />
                           <span className="font-mono font-bold uppercase text-xs">Proof Submitted</span>
                         </div>
-                        <button className="px-4 py-2 bg-indigo-600 text-white text-xs font-black uppercase tracking-wider hover:bg-indigo-700 w-full flex items-center justify-center gap-2">
-                          <BadgeCheck className="w-4 h-4" /> Verify
-                        </button>
                       </div>
                     ) : (
                       <p className="text-sm font-medium whitespace-pre-wrap">{msg.content}</p>
@@ -159,11 +202,20 @@ export default function ChatRoom({ oath, onClose }: ChatRoomProps) {
           <form onSubmit={handleSend} className="flex gap-2">
             <button
               type="button"
-              className="p-3 border-2 border-zinc-950 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-950 dark:text-zinc-100 transition-colors"
-              title="Submit Proof"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="p-3 border-2 border-zinc-950 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-950 dark:text-zinc-100 transition-colors disabled:opacity-50"
+              title="Upload Proof"
             >
-              <Camera className="w-5 h-5" />
+              {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
             </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept="image/*,video/*" 
+              onChange={handleFileUpload}
+            />
             <input
               type="text"
               value={inputText}
