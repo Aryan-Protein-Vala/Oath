@@ -137,7 +137,8 @@ before(async () => {
     "202610010004_restore_add_funds.sql",
     "202610010005_fix_messages_rls_participant.sql",
     "202610010006_ensure_storage_bucket.sql",
-    "202610010007_dynamic_quorum_votes_needed.sql"
+    "202610010007_dynamic_quorum_votes_needed.sql",
+    "202610020001_verification_cadence_and_anti_ghosting.sql"
   ];
 
   for (const file of migrationFiles) {
@@ -394,6 +395,59 @@ test("Real User Journey 6: Multi-User Chat with Attachments, RLS Protection & Qu
   await asUser(ids.squadMember2, "SELECT public.forfeit_squad_member($1)", [oathId]);
   const member2Final = (await db.query("SELECT status FROM group_members WHERE oath_id=$1 AND user_id=$2", [oathId, ids.squadMember2])).rows[0];
   assert.equal(member2Final.status, "failed");
+});
+
+test("Real User Journey 7: 24h Review Window, Automatic Notification Dispatches & Anti-Ghosting Settlement", async () => {
+  // 1. Duo Challenge: Creator challenges Opponent ($60 stake, locks $120)
+  const duoId = (await asUser(ids.creator, `SELECT public.create_oath_with_stake(
+    '10km Marathon Run', now()+interval '7 days', 'duo', 'peer', 'fiat', 60, 2, 2, '${ids.opponent}', NULL, NULL, NULL, NULL, 'survival'
+  )`)).rows[0].create_oath_with_stake;
+
+  // Opponent accepts for free
+  await asUser(ids.opponent, "SELECT public.accept_duo_challenge($1)", [duoId]);
+
+  // 2. Creator submits proof with image
+  const proofPath = `${duoId}/${ids.creator}/marathon.jpg`;
+  await db.query("INSERT INTO storage.objects (bucket_id, name) VALUES ('oath-proofs', $1)", [proofPath]);
+  const proofId = (await asUser(ids.creator, "SELECT public.submit_oath_proof($1, 'photo', $2, 'Completed 10km in 54 mins')", [duoId, proofPath])).rows[0].submit_oath_proof;
+
+  // Verify review_deadline is set ~24 hours into future
+  const proofRow = (await db.query("SELECT status, review_deadline FROM public.proofs WHERE id=$1", [proofId])).rows[0];
+  assert.equal(proofRow.status, "pending_review");
+  assert.ok(proofRow.review_deadline);
+
+  // 3. Verify automatic notification was dispatched to Opponent
+  const notifs = (await db.query("SELECT type, title, message FROM public.notifications WHERE user_id=$1 AND oath_id=$2", [ids.opponent, duoId])).rows;
+  assert.ok(notifs.length >= 1);
+  const verifyNotif = notifs.find(n => n.type === "verify_proof");
+  assert.ok(verifyNotif, "Opponent must receive verify_proof notification");
+  assert.match(verifyNotif.message, /24 hours/i);
+
+  // 4. Anti-Ghosting Auto-Resolution: Opponent ghosts for >24 hours
+  // Fast-forward review_deadline to the past
+  await db.query("UPDATE public.proofs SET review_deadline = now() - interval '1 second' WHERE id=$1", [proofId]);
+
+  const creatorWalletBefore = (await db.query("SELECT balance, escrow_locked FROM wallets WHERE user_id=$1", [ids.creator])).rows[0];
+
+  // System triggers auto_resolve_ghosted_proofs()
+  await db.query("SELECT public.auto_resolve_ghosted_proofs()");
+
+  // 5. Verify Creator is auto-approved and rewarded pot
+  const proofAfter = (await db.query("SELECT status FROM public.proofs WHERE id=$1", [proofId])).rows[0];
+  assert.equal(proofAfter.status, "verified");
+
+  const oathAfter = (await db.query("SELECT status FROM oaths WHERE id=$1", [duoId])).rows[0];
+  assert.equal(oathAfter.status, "completed");
+
+  const creatorWalletAfter = (await db.query("SELECT balance, escrow_locked FROM wallets WHERE user_id=$1", [ids.creator])).rows[0];
+  // Locked escrow $120 is cleared
+  assert.equal(Number(creatorWalletAfter.escrow_locked), Number(creatorWalletBefore.escrow_locked) - 120);
+  // Pot ($120 - 10% fee = $108) is credited to Creator
+  assert.equal(Number(creatorWalletAfter.balance), Number(creatorWalletBefore.balance) + 108);
+
+  // 6. Creator also received victory notification
+  const creatorNotifs = (await db.query("SELECT type, title FROM public.notifications WHERE user_id=$1 AND oath_id=$2", [ids.creator, duoId])).rows;
+  assert.ok(creatorNotifs.some(n => n.title && (n.title.includes("Duel Won") || n.title.includes("Default") || n.title.includes("Victory"))));
 });
 
 

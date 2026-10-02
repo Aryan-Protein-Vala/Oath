@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Shield, Check, X, Loader2, ExternalLink } from "lucide-react";
 import { useOaths, settleOath } from "@/lib/data-hooks";
 import { useAuth } from "@/lib/auth-context";
@@ -10,15 +10,29 @@ export default function NomineeVerificationBar() {
   const { user, profile } = useAuth();
   const { oaths, refresh } = useOaths();
   const [loading, setLoading] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   if (!user || !profile) return null;
 
   // Find oaths where the current user is the nominee, and the oath is active and has proofs pending review
   const pendingNomineeOaths = oaths.filter((o) => {
     const isNominee =
+      o.nominees?.some(
+        (n) =>
+          n.nominee_user_id === user.id ||
+          n.email === user.email ||
+          n.email === `@${profile.username}` ||
+          n.email === profile.username
+      ) ||
       o.nominee_email === user.email ||
       o.nominee_email === `@${profile.username}` ||
       o.nominee_email === profile.username;
+
     if (!isNominee || o.status !== "active") return false;
     
     // Check if there are any proofs that need review
@@ -32,6 +46,13 @@ export default function NomineeVerificationBar() {
   const proofToVerify = oath.proofs?.find(p => p.status === "pending_review");
 
   if (!proofToVerify) return null;
+
+  const reviewDeadline =
+    proofToVerify.review_deadline ||
+    new Date(new Date(proofToVerify.created_at).getTime() + 24 * 3600 * 1000).toISOString();
+  const remainingMs = Math.max(0, new Date(reviewDeadline).getTime() - now);
+  const hoursRemaining = Math.floor(remainingMs / (1000 * 60 * 60));
+  const minsRemaining = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
 
   const handleVerify = async (success: boolean) => {
     setLoading(oath.id);
@@ -93,6 +114,10 @@ export default function NomineeVerificationBar() {
                 </a>
               </div>
             )}
+            {/* 24-hour countdown timer */}
+            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-mono font-bold text-amber-400 dark:text-amber-600">
+              <span>⏳ 24h Review Window: {hoursRemaining} hours {minsRemaining} mins remaining before auto-approval</span>
+            </div>
           </div>
         </div>
 

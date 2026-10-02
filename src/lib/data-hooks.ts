@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import type { Oath, WallEntry, Transaction, Proof, GroupMember, Wallet, OathType, VerificationMethod, ConsequenceType, ProofType, GroupMode } from "@/lib/types";
+import type { Oath, WallEntry, Transaction, Proof, GroupMember, Wallet, OathType, VerificationMethod, ConsequenceType, ProofType, GroupMode, ProofStatus } from "@/lib/types";
 import {
   mockProfile,
   mockActiveOaths,
@@ -137,7 +137,7 @@ export function useOaths() {
 
       const { data, error } = await supabase
         .from("oaths")
-        .select(`*, creator:profiles!oaths_creator_id_fkey(*), opponent:profiles!oaths_opponent_id_fkey(*), members:group_members(*, user:profiles(*)), proofs(*)`)
+        .select(`*, creator:profiles!oaths_creator_id_fkey(*), opponent:profiles!oaths_opponent_id_fkey(*), members:group_members(*, user:profiles(*)), proofs(*), nominees(*)`)
         .or(filters.join(","))
         .in("status", ["pending", "active", "disputed"])
         .order("created_at", { ascending: false });
@@ -217,13 +217,14 @@ export function useSquadLobbies() {
         const oathRows = data as Oath[];
         const oathIds = oathRows.map((oath) => oath.id);
         const [{ data: proofs }, { data: votes }] = oathIds.length ? await Promise.all([
-          supabase.from("proofs").select("id,oath_id,submitted_by").in("oath_id", oathIds),
+          supabase.from("proofs").select("*").in("oath_id", oathIds),
           supabase.from("votes").select("proof_id,oath_id,voter_id,vote").in("oath_id", oathIds),
         ]) : [{ data: [] }, { data: [] }];
         const proofRows = proofs ?? [];
         const voteRows = votes ?? [];
         setLobbies(oathRows.map((oath) => ({
           ...oath,
+          proofs: (proofRows as Proof[]).filter((row) => row.oath_id === oath.id),
           members: oath.members?.map((member) => {
             const proof = proofRows.find((row) => row.oath_id === oath.id && row.submitted_by === member.user_id);
             const memberVotes = proof ? voteRows.filter((row) => row.proof_id === proof.id) : [];
@@ -723,6 +724,7 @@ export async function submitProof(data: {
       proof_url: data.proof_url,
       proof_text: data.proof_text,
       status: "pending_review",
+      review_deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       created_at: new Date().toISOString(),
     };
 
@@ -744,7 +746,7 @@ export async function submitProof(data: {
         const updatedMembers = s.members?.map((m) =>
           m.user_id === ADMIN_MOCK_USER.id ? { ...m, proof_submitted: true } : m
         );
-        return { ...s, members: updatedMembers };
+        return { ...s, members: updatedMembers, proofs: [newProof, ...(s.proofs ?? [])] };
       }
       return s;
     });
@@ -764,7 +766,17 @@ export async function submitProof(data: {
   });
   if (error || !proofId) return { error: error?.message ?? "Proof submission failed" };
   notifyDataUpdated();
-  return { proof: { ...data, id: proofId, submitted_by: user.id, status: "pending_review", created_at: new Date().toISOString() } as Proof, error: null };
+  return {
+    proof: {
+      ...data,
+      id: proofId,
+      submitted_by: user.id,
+      status: "pending_review",
+      review_deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      created_at: new Date().toISOString(),
+    } as Proof,
+    error: null,
+  };
 }
 
 // ---- joinSquad ----
@@ -1381,6 +1393,61 @@ export async function verifyNominee(token: string, verdict: "success" | "penalty
   const { error } = await supabase.rpc("verify_nominee", {
     p_token: token,
     p_success: verdict === "success",
+    p_note: note ?? null,
+  });
+  if (error) return { error: error.message };
+  notifyDataUpdated();
+  return { error: null };
+}
+
+// ---- peerReviewProof — duo peer review of proof submission ----
+export async function peerReviewProof(oathId: string, approve: boolean, note?: string) {
+  if (isMockMode()) {
+    const oaths = getMockOaths();
+    const oath = oaths.find((o) => o.id === oathId);
+    if (!oath) return { error: "Oath not found." };
+
+    const updatedProofs = oath.proofs?.map((p) => {
+      if (p.status === "pending_review") {
+        return {
+          ...p,
+          status: (approve ? "verified" : "rejected") as ProofStatus,
+          reviewer_id: ADMIN_MOCK_USER.id,
+          review_note: note,
+          reviewed_at: new Date().toISOString(),
+        };
+      }
+      return p;
+    });
+
+    const updatedOaths = oaths.map((o) => (o.id === oathId ? { ...o, proofs: updatedProofs } : o));
+    setMockOaths(updatedOaths);
+
+    return settleOath(oathId, approve ? "success" : "penalty", note);
+  }
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  try {
+    await supabase
+      .from("proofs")
+      .update({
+        status: approve ? "verified" : "rejected",
+        reviewer_id: user.id,
+        review_note: note ?? null,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("oath_id", oathId)
+      .eq("status", "pending_review");
+  } catch (err) {
+    console.warn("Could not update proof status directly:", err);
+  }
+
+  const { error } = await supabase.rpc("settle_oath", {
+    p_oath_id: oathId,
+    p_success: approve,
     p_note: note ?? null,
   });
   if (error) return { error: error.message };

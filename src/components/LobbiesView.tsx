@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Users,
   Clock,
@@ -14,6 +14,7 @@ import {
   Eye,
   X,
   MessageSquare,
+  ExternalLink,
 } from "lucide-react";
 import type { Oath, GroupMember, Wallet } from "@/lib/types";
 import { formatCurrency as utilsFormatCurrency, getTimeRemaining, formatRelativeTime } from "@/lib/utils";
@@ -274,6 +275,13 @@ function SquadDetail({
   const [loading, setLoading] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [inspectingMember, setInspectingMember] = useState<GroupMember | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const memberCount = squad.members?.length ?? 0;
   const spotsLeft = Math.max(0, squad.max_players - memberCount);
   const poolTotal = memberCount * squad.stake_amount;
@@ -407,56 +415,140 @@ function SquadDetail({
       )}
 
       {/* Proof Inspection Modal */}
-      {inspectingMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-zinc-900 border-4 border-zinc-950 dark:border-zinc-700 max-w-md w-full p-6 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] relative fade-in">
-            <button
-              onClick={() => setInspectingMember(null)}
-              className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-950 dark:hover:text-white"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <h4 className="text-base font-black uppercase tracking-tight text-zinc-950 dark:text-white mb-1">
-              Inspect Proof Submission
-            </h4>
-            <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 mb-4 font-bold">
-              Submitted by @{inspectingMember.user?.username || "squad_member"}{inspectingMember.stake_amount > 0 ? ` · Stake: ${utilsFormatCurrency(inspectingMember.stake_amount, region)}` : ''}
-            </p>
+      {inspectingMember && (() => {
+        const proof = squad.proofs?.find((p) => p.submitted_by === inspectingMember.user_id);
+        const reviewDeadline =
+          proof?.review_deadline ||
+          (proof?.created_at
+            ? new Date(new Date(proof.created_at).getTime() + 24 * 3600 * 1000).toISOString()
+            : new Date().toISOString());
+        const remainingMs = Math.max(0, new Date(reviewDeadline).getTime() - now);
+        const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+        const mins = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+        const secs = Math.floor((remainingMs % (1000 * 60)) / 1000);
 
-            <div className="p-4 bg-zinc-100 dark:bg-zinc-950 border-2 border-zinc-300 dark:border-zinc-800 mb-4 text-xs font-mono">
-              <p className="font-bold text-zinc-900 dark:text-zinc-100 mb-2">Proof Verification Record:</p>
-              <div className="p-3 border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-xs leading-relaxed font-mono">
-                📸 Verified Activity for &ldquo;{squad.oath_statement}&rdquo;: Submitted by @{inspectingMember.user?.username || "squad_member"}. Evidence logged in immutable squad registry.
-              </div>
-              <div className="flex items-center justify-between mt-3 text-[11px] text-zinc-500 font-bold">
-                <span>Quorum: {inspectingMember.votes_received} / {inspectingMember.votes_needed} votes</span>
-                <span className="uppercase text-zinc-900 dark:text-zinc-200">{inspectingMember.status}</span>
-              </div>
-            </div>
+        const isImage =
+          proof?.proof_type === "photo" ||
+          proof?.proof_type === "screenshot" ||
+          Boolean(proof?.proof_url && /\.(jpg|jpeg|png|webp|gif)/i.test(proof.proof_url));
 
-            <div className="flex items-center gap-3">
+        const isVideo =
+          proof?.proof_type === "video" ||
+          Boolean(proof?.proof_url && /\.(mp4|webm|mov)/i.test(proof.proof_url));
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+            <div className="bg-white dark:bg-zinc-900 border-4 border-zinc-950 dark:border-zinc-700 max-w-lg w-full p-6 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] relative fade-in my-6 text-left">
               <button
-                onClick={() => {
-                  handleVote(inspectingMember.id, true);
-                  setInspectingMember(null);
-                }}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-black uppercase tracking-wider hover:bg-zinc-800"
+                onClick={() => setInspectingMember(null)}
+                aria-label="Close modal"
+                className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-950 dark:hover:text-white p-1"
               >
-                <ThumbsUp className="w-3.5 h-3.5" /> Approve Proof
+                <X className="w-4 h-4" />
               </button>
-              <button
-                onClick={() => {
-                  handleVote(inspectingMember.id, false);
-                  setInspectingMember(null);
-                }}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 border-2 border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-black uppercase tracking-wider"
-              >
-                <ThumbsDown className="w-3.5 h-3.5" /> Reject (Fraud)
-              </button>
+              <h4 className="text-base font-black uppercase tracking-tight text-zinc-950 dark:text-white mb-1">
+                Inspect Proof Submission
+              </h4>
+              <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 mb-3 font-bold">
+                Submitted by @{inspectingMember.user?.username || "squad_member"}{inspectingMember.stake_amount > 0 ? ` · Stake: ${utilsFormatCurrency(inspectingMember.stake_amount, region)}` : ''}
+              </p>
+
+              {/* 24-hour review timer */}
+              <div className="p-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800/60 flex items-center justify-between text-xs font-mono mb-3">
+                <span className="text-amber-800 dark:text-amber-300 font-bold">
+                  ⏳ 24h Review Window: {hours}h {mins}m {secs}s remaining
+                </span>
+                <span className="text-[10px] text-amber-700 dark:text-amber-400 uppercase tracking-wider font-semibold">
+                  Voting Window
+                </span>
+              </div>
+
+              {/* Proof Verification Record */}
+              <div className="p-4 bg-zinc-100 dark:bg-zinc-950 border-2 border-zinc-300 dark:border-zinc-800 mb-4 text-xs font-mono">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-zinc-900 dark:text-zinc-100 uppercase text-[10px] tracking-wider">
+                    Evidence ({proof?.proof_type || "Activity"}):
+                  </span>
+                  <span className="uppercase text-[9px] font-bold px-1.5 py-0.5 border border-zinc-400 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
+                    {proof?.status || inspectingMember.status}
+                  </span>
+                </div>
+
+                {isImage && proof?.proof_url && (
+                  <div className="border border-zinc-300 dark:border-zinc-700 overflow-hidden bg-black flex items-center justify-center max-h-60 mb-2.5">
+                    <img
+                      src={proof.proof_url}
+                      alt="Submitted proof evidence"
+                      className="max-h-60 w-full object-contain"
+                    />
+                  </div>
+                )}
+
+                {isVideo && proof?.proof_url && (
+                  <div className="border border-zinc-300 dark:border-zinc-700 overflow-hidden bg-black max-h-60 mb-2.5">
+                    <video
+                      src={proof.proof_url}
+                      controls
+                      className="max-h-60 w-full object-contain"
+                    />
+                  </div>
+                )}
+
+                {proof?.proof_text && (
+                  <div className="p-2.5 bg-white dark:bg-zinc-900 border-l-4 border-amber-500 text-zinc-800 dark:text-zinc-200 text-xs italic mb-2 leading-relaxed">
+                    &ldquo;{proof.proof_text}&rdquo;
+                  </div>
+                )}
+
+                {proof?.proof_url && (
+                  <div className="my-1">
+                    <a
+                      href={proof.proof_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-sky-500 dark:text-sky-400 underline font-bold hover:opacity-80"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> View Submitted Evidence Link &rarr;
+                    </a>
+                  </div>
+                )}
+
+                {!proof && (
+                  <div className="p-3 border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-xs leading-relaxed font-mono">
+                    Member verified task completion for &ldquo;{squad.oath_statement}&rdquo;. Evidence logged in immutable squad registry.
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between mt-3 pt-2 border-t border-zinc-300 dark:border-zinc-800 text-[11px] text-zinc-500 font-bold">
+                  <span>Quorum: {inspectingMember.votes_received} / {inspectingMember.votes_needed} votes</span>
+                  <span className="uppercase text-zinc-900 dark:text-zinc-200">{inspectingMember.status}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    handleVote(inspectingMember.id, true);
+                    setInspectingMember(null);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-black uppercase tracking-wider hover:bg-zinc-800"
+                >
+                  <ThumbsUp className="w-3.5 h-3.5" /> Approve Proof
+                </button>
+                <button
+                  onClick={() => {
+                    handleVote(inspectingMember.id, false);
+                    setInspectingMember(null);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 border-2 border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-black uppercase tracking-wider"
+                >
+                  <ThumbsDown className="w-3.5 h-3.5" /> Reject (Fraud)
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {showChat && (
         <ChatRoom

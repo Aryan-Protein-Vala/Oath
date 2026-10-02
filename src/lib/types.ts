@@ -78,6 +78,7 @@ export interface Oath {
   time_remaining?: number;
   members?: GroupMember[];
   proofs?: Proof[];
+  nominees?: Array<{ id: string; oath_id: string; email?: string; nominee_user_id?: string; verified: boolean; verification_token?: string }>;
 }
 
 export interface Nominee {
@@ -122,6 +123,7 @@ export interface Proof {
   reviewer_id?: string;
   review_note?: string;
   reviewed_at?: string;
+  review_deadline?: string;
   created_at: string;
 }
 

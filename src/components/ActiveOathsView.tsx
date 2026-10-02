@@ -1,16 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronRight, User, Users, Upload, Eye, XCircle, Shield, AlertTriangle, X, Copy } from "lucide-react";
+import { ChevronRight, User, Users, Upload, Eye, XCircle, Shield, AlertTriangle, X, Copy, ExternalLink, Check, Loader2, MessageSquare } from "lucide-react";
 import type { Oath } from "@/lib/types";
 import { getTimeRemaining, padZero, formatCurrency as utilsFormatCurrency, formatRelativeTime } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
 import { useAuth } from "@/lib/auth-context";
 import ProofUploadModal from "./ProofUploadModal";
 import ChatRoom from "./ChatRoom";
-import { forfeitOath, forfeitSquadMember, cancelPendingOath } from "@/lib/data-hooks";
+import { forfeitOath, forfeitSquadMember, cancelPendingOath, peerReviewProof } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
-import { MessageSquare } from "lucide-react";
 
 interface ActiveOathsViewProps {
   oaths: Oath[];
@@ -26,6 +25,7 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
   const [showForfeitModal, setShowForfeitModal] = useState(false);
+  const [showPeerReviewModal, setShowPeerReviewModal] = useState(false);
   // On mobile, track whether we're showing the detail panel or list
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
 
@@ -104,6 +104,7 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
             onViewDetails={() => setShowDetailsModal(true)}
             onOpenChat={() => setShowChatModal(true)}
             onForfeit={() => setShowForfeitModal(true)}
+            onPeerReview={() => setShowPeerReviewModal(true)}
           />
 
           {showProofModal && (
@@ -135,6 +136,17 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
               onForfeited={() => {
                 setShowForfeitModal(false);
                 setMobileShowDetail(false);
+                onProofSubmitted?.();
+              }}
+            />
+          )}
+
+          {showPeerReviewModal && (
+            <PeerReviewModal
+              oath={selectedOath}
+              onClose={() => setShowPeerReviewModal(false)}
+              onReviewed={() => {
+                setShowPeerReviewModal(false);
                 onProofSubmitted?.();
               }}
             />
@@ -192,15 +204,17 @@ function OathCountdownCard({
   onViewDetails,
   onOpenChat,
   onForfeit,
+  onPeerReview,
 }: {
   oath: Oath;
   onSubmitProof: () => void;
   onViewDetails: () => void;
   onOpenChat: () => void;
   onForfeit: () => void;
+  onPeerReview: () => void;
 }) {
   const { region } = useRegion();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [now, setNow] = useState(() => Date.now());
   const [timeState, setTimeState] = useState(() => getTimeRemaining(oath.deadline));
 
@@ -321,6 +335,11 @@ function OathCountdownCard({
         const isPendingAcceptance = oath.status === "pending";
         const isLockedOut = hasPendingProof || isApproved || isPendingAcceptance;
 
+        const isDuoOpponentVerifier =
+          oath.oath_type === "duo" &&
+          (oath.opponent_id === user?.id || (oath.opponent?.username && oath.opponent.username === profile?.username)) &&
+          oath.creator_id !== user?.id;
+
         return (
           <div className="flex items-center gap-2.5">
             {isExpired && oath.status === "active" ? (
@@ -333,24 +352,38 @@ function OathCountdownCard({
               </button>
             ) : (
               <>
-                <button
-                  onClick={onSubmitProof}
-                  disabled={!isActionable || isLockedOut}
-                  className={`flex items-center gap-2 px-5 py-2.5 text-sm font-black tracking-tight uppercase transition-colors border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none ${
-                    isActionable && !isLockedOut
-                      ? "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-zinc-950 dark:border-transparent"
-                      : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border-zinc-300 dark:border-zinc-800 cursor-not-allowed shadow-none"
-                  }`}
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  {isPendingAcceptance
-                    ? (oath.oath_type === "duo" ? "Waiting for Opponent" : "Waiting for Squad")
-                    : hasPendingProof
-                    ? "Proof In Review"
-                    : isApproved
-                    ? "Proof Verified"
-                    : "Submit Proof"}
-                </button>
+                {isDuoOpponentVerifier && hasPendingProof ? (
+                  <button
+                    onClick={onPeerReview}
+                    className="relative flex items-center gap-2 px-5 py-2.5 text-sm font-black tracking-tight uppercase transition-all border-2 border-amber-500 bg-amber-500 text-zinc-950 hover:bg-amber-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                  >
+                    <Shield className="w-3.5 h-3.5 text-zinc-950" />
+                    Review Opponent Proof
+                    <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-600 border border-white"></span>
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={onSubmitProof}
+                    disabled={!isActionable || isLockedOut}
+                    className={`flex items-center gap-2 px-5 py-2.5 text-sm font-black tracking-tight uppercase transition-colors border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none ${
+                      isActionable && !isLockedOut
+                        ? "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-zinc-950 dark:border-transparent"
+                        : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border-zinc-300 dark:border-zinc-800 cursor-not-allowed shadow-none"
+                    }`}
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    {isPendingAcceptance
+                      ? (oath.oath_type === "duo" ? "Waiting for Opponent" : "Waiting for Squad")
+                      : hasPendingProof
+                      ? "Proof In Review"
+                      : isApproved
+                      ? "Proof Verified"
+                      : "Submit Proof"}
+                  </button>
+                )}
                 {oath.oath_type !== "solo" && (
                   <button
                     onClick={onOpenChat}
@@ -602,6 +635,224 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
           >
             Cancel
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PeerReviewModal({
+  oath,
+  onClose,
+  onReviewed,
+}: {
+  oath: Oath;
+  onClose: () => void;
+  onReviewed: () => void;
+}) {
+  const { region } = useRegion();
+  const [loading, setLoading] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [showRejectInput, setShowRejectInput] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const proof = oath.proofs?.find((p) => p.status === "pending_review") || oath.proofs?.[0];
+
+  const reviewDeadline =
+    proof?.review_deadline ||
+    (proof?.created_at
+      ? new Date(new Date(proof.created_at).getTime() + 24 * 3600 * 1000).toISOString()
+      : new Date().toISOString());
+  const remainingMs = Math.max(0, new Date(reviewDeadline).getTime() - now);
+  const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+  const mins = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+  const secs = Math.floor((remainingMs % (1000 * 60)) / 1000);
+
+  const handleApprove = async () => {
+    setLoading(true);
+    const { error } = await peerReviewProof(oath.id, true, "Approved by Duel Opponent");
+    setLoading(false);
+    if (error) {
+      showToast(error, "error");
+    } else {
+      showToast("Duel approved! Escrow pot released to winner.", "success");
+      onReviewed();
+      onClose();
+    }
+  };
+
+  const handleReject = async () => {
+    if (!showRejectInput) {
+      setShowRejectInput(true);
+      return;
+    }
+    if (!rejectReason.trim()) {
+      showToast("Please provide a reason to reject this proof for fraud.", "error");
+      return;
+    }
+    setLoading(true);
+    const { error } = await peerReviewProof(oath.id, false, rejectReason.trim());
+    setLoading(false);
+    if (error) {
+      showToast(error, "error");
+    } else {
+      showToast("Proof rejected as fraudulent. Dispute penalties applied.", "error");
+      onReviewed();
+      onClose();
+    }
+  };
+
+  const isImage =
+    proof?.proof_type === "photo" ||
+    proof?.proof_type === "screenshot" ||
+    Boolean(proof?.proof_url && /\.(jpg|jpeg|png|webp|gif)/i.test(proof.proof_url));
+
+  const isVideo =
+    proof?.proof_type === "video" ||
+    Boolean(proof?.proof_url && /\.(mp4|webm|mov)/i.test(proof.proof_url));
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="peer-review-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto"
+    >
+      <div className="w-full max-w-lg bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none text-left my-8">
+        <div className="flex items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 pb-4 mb-4">
+          <div className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-amber-500" />
+            <h3 id="peer-review-modal-title" className="text-base font-black text-zinc-950 dark:text-zinc-50 uppercase tracking-tight">
+              Review Opponent Proof
+            </h3>
+          </div>
+          <button onClick={onClose} aria-label="Close modal" className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {/* Oath statement banner */}
+          <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono">
+            <span className="text-[10px] uppercase font-bold text-zinc-500 block mb-0.5">Duo Duel</span>
+            <p className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">&ldquo;{oath.oath_statement}&rdquo;</p>
+            <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-1">
+              Duel Pot: <strong className="text-zinc-950 dark:text-zinc-100">{utilsFormatCurrency(oath.stake_amount * 2, region)}</strong> · Submitted by @{proof?.submitter?.username || oath.creator?.username || "opponent"}
+            </p>
+          </div>
+
+          {/* 24-hour review timer */}
+          <div className="p-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800/60 flex items-center justify-between text-xs font-mono">
+            <span className="text-amber-800 dark:text-amber-300 font-bold">
+              ⏳ 24h Review Window: {hours}h {mins}m {secs}s remaining
+            </span>
+            <span className="text-[10px] text-amber-700 dark:text-amber-400 uppercase tracking-wider font-semibold">
+              Auto-approval on expiry
+            </span>
+          </div>
+
+          {/* Submitted proof content */}
+          <div className="space-y-2">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 font-bold block">
+              Submitted Evidence ({proof?.proof_type || "Proof"})
+            </span>
+
+            {isImage && proof?.proof_url && (
+              <div className="border-2 border-zinc-950 dark:border-zinc-800 overflow-hidden bg-black flex items-center justify-center max-h-72">
+                <img
+                  src={proof.proof_url}
+                  alt="Opponent proof"
+                  className="max-h-72 w-full object-contain"
+                />
+              </div>
+            )}
+
+            {isVideo && proof?.proof_url && (
+              <div className="border-2 border-zinc-950 dark:border-zinc-800 overflow-hidden bg-black max-h-72">
+                <video
+                  src={proof.proof_url}
+                  controls
+                  className="max-h-72 w-full object-contain"
+                />
+              </div>
+            )}
+
+            {proof?.proof_text && (
+              <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border-l-4 border-amber-500 text-xs font-mono text-zinc-800 dark:text-zinc-200">
+                <p className="font-bold text-[10px] uppercase text-zinc-500 mb-1">Statement / Notes:</p>
+                <p className="italic leading-relaxed">&ldquo;{proof.proof_text}&rdquo;</p>
+              </div>
+            )}
+
+            {proof?.proof_url && (
+              <div className="pt-1">
+                <a
+                  href={proof.proof_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-sky-500 dark:text-sky-400 hover:underline"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> View Submitted Evidence Link &rarr;
+                </a>
+              </div>
+            )}
+
+            {!proof && (
+              <p className="text-xs font-mono text-zinc-500 italic p-3 border border-dashed border-zinc-400">
+                No proof records found for review.
+              </p>
+            )}
+          </div>
+
+          {/* Reject Reason Input */}
+          {showRejectInput && (
+            <div className="p-3 border-2 border-red-600 bg-red-50 dark:bg-red-950/20 text-xs font-mono fade-in">
+              <label className="text-[10px] font-bold text-red-600 uppercase block mb-1">
+                Reason for Rejection / Fraud (Required):
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Specify why this proof is fraudulent, staged, or invalid..."
+                className="w-full p-2 border border-red-400 dark:border-red-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 resize-none font-medium"
+                rows={3}
+                autoFocus
+              />
+            </div>
+          )}
+
+          {/* Buttons: Approve Duel / Reject Fraud */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+            <button
+              onClick={handleApprove}
+              disabled={loading}
+              className="w-full sm:flex-1 py-3 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 font-black text-xs uppercase tracking-wider hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors flex items-center justify-center gap-1.5 border-2 border-transparent disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              Approve Duel
+            </button>
+            <button
+              onClick={handleReject}
+              disabled={loading}
+              className="w-full sm:flex-1 py-3 bg-red-600 text-white font-black text-xs uppercase tracking-wider hover:bg-red-700 transition-colors flex items-center justify-center gap-1.5 border-2 border-transparent disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+              {showRejectInput ? "Confirm Reject (Fraud)" : "Reject (Fraud)"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
