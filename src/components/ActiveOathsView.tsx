@@ -760,7 +760,7 @@ function PeerReviewModal({
               ⏳ 24h Review Window: {hours}h {mins}m {secs}s remaining
             </span>
             <span className="text-[10px] text-amber-700 dark:text-amber-400 uppercase tracking-wider font-semibold">
-              Auto-approval on expiry
+              Review or forfeit on expiry
             </span>
           </div>
 

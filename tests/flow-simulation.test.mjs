@@ -138,7 +138,8 @@ before(async () => {
     "202610010005_fix_messages_rls_participant.sql",
     "202610010006_ensure_storage_bucket.sql",
     "202610010007_dynamic_quorum_votes_needed.sql",
-    "202610020001_verification_cadence_and_anti_ghosting.sql"
+    "202610020001_verification_cadence_and_anti_ghosting.sql",
+    "202610020002_brutal_peer_failure_no_duffer_debt.sql"
   ];
 
   for (const file of migrationFiles) {
@@ -397,7 +398,7 @@ test("Real User Journey 6: Multi-User Chat with Attachments, RLS Protection & Qu
   assert.equal(member2Final.status, "failed");
 });
 
-test("Real User Journey 7: 24h Review Window, Automatic Notification Dispatches & Anti-Ghosting Settlement", async () => {
+test("Real User Journey 7: 24h Review Window, Automatic Notification Dispatches & Brutal Peer Failure", async () => {
   // 1. Duo Challenge: Creator challenges Opponent ($60 stake, locks $120)
   const duoId = (await asUser(ids.creator, `SELECT public.create_oath_with_stake(
     '10km Marathon Run', now()+interval '7 days', 'duo', 'peer', 'fiat', 60, 2, 2, '${ids.opponent}', NULL, NULL, NULL, NULL, 'survival'
@@ -423,7 +424,7 @@ test("Real User Journey 7: 24h Review Window, Automatic Notification Dispatches 
   assert.ok(verifyNotif, "Opponent must receive verify_proof notification");
   assert.match(verifyNotif.message, /24 hours/i);
 
-  // 4. Anti-Ghosting Auto-Resolution: Opponent ghosts for >24 hours
+  // 4. Anti-Ghosting / Unreviewed Expiry: Opponent ghosts for >24 hours
   // Fast-forward review_deadline to the past
   await db.query("UPDATE public.proofs SET review_deadline = now() - interval '1 second' WHERE id=$1", [proofId]);
 
@@ -432,22 +433,21 @@ test("Real User Journey 7: 24h Review Window, Automatic Notification Dispatches 
   // System triggers auto_resolve_ghosted_proofs()
   await db.query("SELECT public.auto_resolve_ghosted_proofs()");
 
-  // 5. Verify Creator is auto-approved and rewarded pot
+  // 5. Brutal Failure: Proof is rejected and oath fails because peer failed to review
   const proofAfter = (await db.query("SELECT status FROM public.proofs WHERE id=$1", [proofId])).rows[0];
-  assert.equal(proofAfter.status, "verified");
+  assert.equal(proofAfter.status, "rejected");
 
   const oathAfter = (await db.query("SELECT status FROM oaths WHERE id=$1", [duoId])).rows[0];
-  assert.equal(oathAfter.status, "completed");
+  assert.equal(oathAfter.status, "failed");
 
   const creatorWalletAfter = (await db.query("SELECT balance, escrow_locked FROM wallets WHERE user_id=$1", [ids.creator])).rows[0];
-  // Locked escrow $120 is cleared
+  // Locked escrow $120 is cleared/forfeited (balance is NOT credited)
   assert.equal(Number(creatorWalletAfter.escrow_locked), Number(creatorWalletBefore.escrow_locked) - 120);
-  // Pot ($120 - 10% fee = $108) is credited to Creator
-  assert.equal(Number(creatorWalletAfter.balance), Number(creatorWalletBefore.balance) + 108);
+  assert.equal(Number(creatorWalletAfter.balance), Number(creatorWalletBefore.balance));
 
-  // 6. Creator also received victory notification
-  const creatorNotifs = (await db.query("SELECT type, title FROM public.notifications WHERE user_id=$1 AND oath_id=$2", [ids.creator, duoId])).rows;
-  assert.ok(creatorNotifs.some(n => n.title && (n.title.includes("Duel Won") || n.title.includes("Default") || n.title.includes("Victory"))));
+  // 6. Creator received the brutal notification: You lost because of your peers and not others
+  const creatorNotifs = (await db.query("SELECT type, title, message FROM public.notifications WHERE user_id=$1 AND oath_id=$2", [ids.creator, duoId])).rows;
+  assert.ok(creatorNotifs.some(n => n.message && n.message.includes("You lost because of your peers")));
 });
 
 

@@ -116,7 +116,7 @@ export default function NomineeVerificationBar() {
             )}
             {/* 24-hour countdown timer */}
             <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-mono font-bold text-amber-400 dark:text-amber-600">
-              <span>⏳ 24h Review Window: {hoursRemaining} hours {minsRemaining} mins remaining before auto-approval</span>
+              <span>⏳ 24h Review Window: {hoursRemaining}h {minsRemaining}m left · Review or stake is lost (on peers, not on us)</span>
             </div>
           </div>
         </div>
