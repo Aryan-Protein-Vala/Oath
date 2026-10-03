@@ -32,6 +32,14 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
   // Selected oath lookup
   const selectedOath = oaths.find((o) => o.id === selectedOathId) || oaths[0] || null;
 
+  useEffect(() => {
+    if (!selectedOathId && oaths.length > 0) {
+      setSelectedOathId(oaths[0].id);
+    } else if (selectedOathId && !oaths.some((o) => o.id === selectedOathId)) {
+      setSelectedOathId(oaths.length > 0 ? oaths[0].id : null);
+    }
+  }, [oaths, selectedOathId]);
+
   if (oaths.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center p-6">

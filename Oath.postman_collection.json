@@ -909,7 +909,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"p_oath_statement\":\"Postman Automated Solo Test: Complete API verification\",\"p_deadline\":\"2026-10-03T10:11:53.097Z\",\"p_oath_type\":\"solo\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
+              "raw": "{\"p_oath_statement\":\"Postman Automated Solo Test: Complete API verification\",\"p_deadline\":\"2026-10-10T10:11:53.097Z\",\"p_oath_type\":\"solo\",\"p_verification_method\":\"nominee\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_nominee_email\":\"referee@example.com\",\"p_group_mode\":\"survival\"}"
             },
             "url": {
               "raw": "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
@@ -1126,7 +1126,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"p_oath_statement\":\"Temporary Duo to Cancel\",\"p_deadline\":\"2026-10-03T10:11:53.098Z\",\"p_oath_type\":\"duo\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
+              "raw": "{\"p_oath_statement\":\"Temporary Duo to Cancel\",\"p_deadline\":\"2026-10-10T10:11:53.098Z\",\"p_oath_type\":\"duo\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
             },
             "url": {
               "raw": "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",

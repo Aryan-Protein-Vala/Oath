@@ -121,26 +121,45 @@ export function useOaths() {
       const { data: memberships } = await supabase.from("group_members").select("oath_id").eq("user_id", user.id);
       const membershipFilter = (memberships ?? []).map((member) => member.oath_id).filter(Boolean);
 
-      // Check if user is referee/nominee for any oath
-      const nomineeFilters = [`nominee_user_id.eq.${user.id}`];
-      if (user.email) nomineeFilters.push(`email.eq."${user.email}"`);
-      if (profile?.username) nomineeFilters.push(`email.eq."@${profile.username}"`);
-      const { data: nomineeRows } = await supabase.from("nominees").select("oath_id").or(nomineeFilters.join(","));
-      const nomineeOathIds = (nomineeRows ?? []).map((r) => r.oath_id).filter(Boolean);
+      // Check if user is referee/nominee for any oath (safely wrapped)
+      let nomineeOathIds: string[] = [];
+      try {
+        const nomineeFilters = [`nominee_user_id.eq.${user.id}`];
+        if (user.email) nomineeFilters.push(`email.eq."${user.email}"`);
+        if (profile?.username) nomineeFilters.push(`email.eq."@${profile.username}"`);
+        const { data: nomineeRows } = await supabase.from("nominees").select("oath_id").or(nomineeFilters.join(","));
+        nomineeOathIds = (nomineeRows ?? []).map((r) => r.oath_id).filter(Boolean);
+      } catch (nomineeErr) {
+        console.warn("Could not query nominee rows:", nomineeErr);
+      }
 
       const allAssociatedIds = Array.from(new Set([...membershipFilter, ...nomineeOathIds]));
 
       const filters = [`creator_id.eq.${user.id}`, `opponent_id.eq.${user.id}`];
       if (allAssociatedIds.length) {
-        allAssociatedIds.forEach((id) => filters.push(`id.eq.${id}`));
+        filters.push(`id.in.(${allAssociatedIds.join(",")})`);
       }
 
-      const { data, error } = await supabase
+      // 1. Primary query with relations
+      let { data, error } = await supabase
         .from("oaths")
         .select(`*, creator:profiles!oaths_creator_id_fkey(*), opponent:profiles!oaths_opponent_id_fkey(*), members:group_members(*, user:profiles(*)), proofs(*), nominees(*)`)
         .or(filters.join(","))
         .in("status", ["pending", "active", "disputed"])
         .order("created_at", { ascending: false });
+
+      // 2. Resilient fallback: if nominees relation throws 403 or permission issue, retry without nominees(*)
+      if (error) {
+        console.warn("Retrying oaths query without nominees relation:", error.message);
+        const fallback = await supabase
+          .from("oaths")
+          .select(`*, creator:profiles!oaths_creator_id_fkey(*), opponent:profiles!oaths_opponent_id_fkey(*), members:group_members(*, user:profiles(*)), proofs(*)`)
+          .or(filters.join(","))
+          .in("status", ["pending", "active", "disputed"])
+          .order("created_at", { ascending: false });
+        data = fallback.data;
+        error = fallback.error;
+      }
 
       if (error) {
         console.error("useOaths fetch error:", error);

@@ -730,6 +730,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 sublabel="Third party"
                 isActive={verificationMethod === "nominee"}
                 onClick={() => setVerificationMethod("nominee")}
+                disabled={oathType !== "solo"}
               />
               <TypeButton
                 icon={<Users className="w-4 h-4" />}
@@ -737,7 +738,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 sublabel="Opponent verifies"
                 isActive={verificationMethod === "peer"}
                 onClick={() => setVerificationMethod("peer")}
-                disabled={oathType === "solo"}
+                disabled={oathType !== "duo"}
               />
               <TypeButton
                 icon={<Users className="w-4 h-4" />}
@@ -949,21 +950,35 @@ function TypeButton({
   onInfo?: () => void;
 }) {
   return (
-    <div className={`relative flex flex-col items-center justify-center gap-1 px-2 py-4 border-2 transition-all ${
-      disabled
-        ? "border-zinc-300 dark:border-zinc-800/40 text-zinc-400 dark:text-zinc-700 cursor-not-allowed opacity-50"
-        : isActive
-        ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-500 dark:bg-zinc-800/80 dark:text-zinc-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
-        : "border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200 hover:border-zinc-500 dark:hover:border-zinc-700 bg-white dark:bg-transparent"
-    }`}>
+    <div
+      aria-disabled={disabled}
+      className={`relative flex flex-col items-center justify-center gap-1 px-2 py-4 border-2 transition-all ${
+        disabled
+          ? "border-zinc-200 dark:border-zinc-800/40 text-zinc-400 dark:text-zinc-600 bg-zinc-100/50 dark:bg-zinc-900/30 cursor-not-allowed opacity-40 select-none pointer-events-none"
+          : isActive
+          ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-500 dark:bg-zinc-800/80 dark:text-zinc-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+          : "border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200 hover:border-zinc-500 dark:hover:border-zinc-700 bg-white dark:bg-transparent"
+      }`}
+    >
       <button
         type="button"
-        onClick={onClick}
+        disabled={disabled}
+        onClick={(e) => {
+          if (disabled) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          onClick();
+        }}
+        tabIndex={disabled ? -1 : 0}
         aria-disabled={disabled}
-        className="absolute inset-0 w-full h-full cursor-pointer"
+        className={`absolute inset-0 w-full h-full ${
+          disabled ? "cursor-not-allowed pointer-events-none" : "cursor-pointer"
+        }`}
       />
       
-      {onInfo && (
+      {onInfo && !disabled && (
         <button 
           onClick={(e) => {
             e.stopPropagation();
@@ -978,8 +993,14 @@ function TypeButton({
       <div className="pointer-events-none flex flex-col items-center gap-1 z-0">
         {icon}
         <span className="text-[11px] font-bold tracking-tight text-center">{label}</span>
-        <span className={`text-[9px] font-mono text-center ${isActive ? "text-zinc-300 dark:text-zinc-400" : "text-zinc-500 dark:text-zinc-600"}`}>
-          {sublabel}
+        <span className={`text-[9px] font-mono text-center ${
+          disabled
+            ? "text-zinc-400 dark:text-zinc-600 italic"
+            : isActive
+            ? "text-zinc-300 dark:text-zinc-400"
+            : "text-zinc-500 dark:text-zinc-600"
+        }`}>
+          {disabled ? "Unavailable" : sublabel}
         </span>
       </div>
     </div>
