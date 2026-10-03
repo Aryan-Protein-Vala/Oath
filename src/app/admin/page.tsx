@@ -585,7 +585,7 @@ export default function AdminDashboard() {
       const notifications = allProfiles.map((p: any) => ({
         user_id: p.id,
         type: "system",
-        title: "📢 Announcement",
+        title: "[SYSTEM] Announcement",
         message: broadcastMsg,
         status: "pending",
       }));
@@ -1523,7 +1523,7 @@ export default function AdminDashboard() {
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-black">
-                        {result.success ? "✓ SUCCESS" : "✗ FAILED"}
+                        {result.success ? "[OK] SUCCESS" : "[X] FAILED"}
                       </span>
                       <span className="text-zinc-500">
                         {new Date(result.timestamp).toLocaleString()}
