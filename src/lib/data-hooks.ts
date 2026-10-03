@@ -516,8 +516,10 @@ export async function createOath(data: {
     const currentWallet = getInitialMockWallet();
     const multiplier = data.oath_type === "squad" ? (data.max_players ?? 4) : data.oath_type === "duo" ? 2 : 1;
     const totalStake = validStake * multiplier;
-    if (currentWallet.balance < totalStake) {
-      return { error: `Insufficient funds. Deposit more or lower the stake (${totalStake} required).` };
+    const protocolFee = Math.round(totalStake * 0.10 * 100) / 100;
+    const totalDeduction = totalStake + protocolFee;
+    if (currentWallet.balance < totalDeduction) {
+      return { error: `Insufficient funds. Deposit more or lower the stake (${totalDeduction} required: ${totalStake} stake + 10% platform fee).` };
     }
 
     const initialStatus = (data.oath_type === "squad" || data.oath_type === "duo" || data.oath_type === "lobby") ? "pending" : "active";
@@ -562,7 +564,7 @@ export async function createOath(data: {
     // Update wallet
     const updatedWallet: Wallet = {
       ...currentWallet,
-      balance: currentWallet.balance - totalStake,
+      balance: currentWallet.balance - totalDeduction,
       escrow_locked: currentWallet.escrow_locked + totalStake,
     };
     setMockWallet(updatedWallet);
@@ -577,7 +579,16 @@ export async function createOath(data: {
       description: `Locked for: ${data.oath_statement}`,
       created_at: new Date().toISOString(),
     };
-    setMockTransactions([newTx, ...getMockTransactions()]);
+    const feeTx: Transaction = {
+      id: `tx-fee-${Date.now()}`,
+      wallet_id: currentWallet.id,
+      oath_id: newOath.id,
+      type: "house_cut",
+      amount: protocolFee,
+      description: `Platform fee (10%) for: ${data.oath_statement}`,
+      created_at: new Date().toISOString(),
+    };
+    setMockTransactions([newTx, feeTx, ...getMockTransactions()]);
 
     // Save oath
     if (data.oath_type === "squad" || data.oath_type === "lobby") {
@@ -811,12 +822,14 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
 
     if (target.oath_type === "lobby" && target.stake_amount > 0) {
       const currentWallet = getInitialMockWallet();
-      if (currentWallet.balance < target.stake_amount) {
-        return { error: `Insufficient funds. You need ${target.stake_amount} to join this lobby.` };
+      const fee = Math.round(target.stake_amount * 0.10 * 100) / 100;
+      const totalRequired = target.stake_amount + fee;
+      if (currentWallet.balance < totalRequired) {
+        return { error: `Insufficient funds. You need ${totalRequired} (${target.stake_amount} stake + 10% platform fee) to join this lobby.` };
       }
       const updatedWallet: Wallet = {
         ...currentWallet,
-        balance: currentWallet.balance - target.stake_amount,
+        balance: currentWallet.balance - totalRequired,
         escrow_locked: currentWallet.escrow_locked + target.stake_amount,
       };
       setMockWallet(updatedWallet);
@@ -829,7 +842,16 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
         description: `Joined lobby: ${target.oath_statement}`,
         created_at: new Date().toISOString(),
       };
-      setMockTransactions([newTx, ...getMockTransactions()]);
+      const feeTx: Transaction = {
+        id: `tx-fee-${Date.now()}`,
+        wallet_id: currentWallet.id,
+        oath_id: oathId,
+        type: "house_cut",
+        amount: fee,
+        description: `Platform fee (10%) for joining lobby: ${target.oath_statement}`,
+        created_at: new Date().toISOString(),
+      };
+      setMockTransactions([newTx, feeTx, ...getMockTransactions()]);
     }
 
     const newMember: GroupMember = {
@@ -1300,15 +1322,14 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
     const currentWallet = getInitialMockWallet();
     const isDuo = oath.oath_type === "duo";
     const pot = isDuo ? oath.stake_amount * 2 : oath.stake_amount;
-    const platformFee = isDuo ? pot * (10 / 100) : 0;
-    const winnerPayout = isDuo ? pot - platformFee : oath.stake_amount;
+    const winnerPayout = pot;
 
     if (verdict === "success") {
-      // Release escrow back to balance and credit success amount
+      // Release escrow back to balance and credit success amount (100% pot payout)
       const updatedWallet: Wallet = {
         ...currentWallet,
         balance: currentWallet.balance + winnerPayout,
-        escrow_locked: Math.max(0, currentWallet.escrow_locked - oath.stake_amount),
+        escrow_locked: Math.max(0, currentWallet.escrow_locked - (isDuo ? pot : oath.stake_amount)),
       };
       setMockWallet(updatedWallet);
 
@@ -1324,7 +1345,7 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
         type: "escrow_release",
         amount: winnerPayout,
         description: isDuo
-          ? `Completed Duo Challenge ($${winnerPayout.toFixed(2)} after $${platformFee.toFixed(2)} fee): ${oath.oath_statement}`
+          ? `Won Duo Challenge ($${winnerPayout.toFixed(2)}): ${oath.oath_statement}`
           : `Completed: ${oath.oath_statement}`,
         created_at: new Date().toISOString(),
       };

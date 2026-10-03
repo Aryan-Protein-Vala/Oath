@@ -22,7 +22,11 @@ export default function CreateLobbyModal({ walletBalance, onClose, onCreated }: 
   const walletInLocal = convertToLocal(walletBalance, region);
   const stakeNum = parseFloat(stakeAmount) || 0;
   const stakeUsd = convertToUSD(stakeNum, region);
-  const isOverBudget = stakeNum > walletInLocal;
+  const feeLocal = Math.round(stakeNum * 0.10 * 100) / 100;
+  const totalChargedLocal = stakeNum + feeLocal;
+  const feeUsd = Math.round(stakeUsd * 0.10 * 100) / 100;
+  const totalChargedUsd = stakeUsd + feeUsd;
+  const isOverBudget = totalChargedLocal > walletInLocal;
 
   const handleSubmit = async () => {
     if (!statement.trim()) {
@@ -149,10 +153,32 @@ export default function CreateLobbyModal({ walletBalance, onClose, onCreated }: 
               className="w-full border-b-2 border-zinc-300 dark:border-zinc-800 focus:border-zinc-950 dark:focus:border-zinc-500 bg-transparent text-sm font-bold p-2 focus:outline-none"
             />
           </div>
+
+          {stakeNum > 0 && (
+            <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[11px] font-mono space-y-1">
+              <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                <span>Buy-in Escrow Stake:</span>
+                <span className="font-bold text-zinc-900 dark:text-zinc-100">{formatCurrency(stakeUsd, region)}</span>
+              </div>
+              <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                <span>Platform Fee (+10% upfront):</span>
+                <span className="font-bold text-amber-600 dark:text-amber-400">+{formatCurrency(feeUsd, region)}</span>
+              </div>
+              <div className="pt-1 border-t border-zinc-200 dark:border-zinc-800 flex justify-between font-bold text-zinc-950 dark:text-zinc-50">
+                <span>Total Charged from Wallet:</span>
+                <span className={isOverBudget ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}>
+                  {formatCurrency(totalChargedUsd, region)}
+                </span>
+              </div>
+              <div className="text-[9px] text-zinc-500 dark:text-zinc-400 pt-0.5">
+                ✓ 0% fee at settlement. 100% of escrow returned on verified completion.
+              </div>
+            </div>
+          )}
           
           {isOverBudget && (
             <p className="text-[10px] font-mono text-red-600 dark:text-red-500">
-              Insufficient balance. You need {formatCurrency(stakeUsd, region)}.
+              Insufficient balance. You need {formatCurrency(totalChargedUsd, region)} ({formatCurrency(stakeUsd, region)} stake + 10% platform fee).
             </p>
           )}
         </div>
@@ -167,7 +193,7 @@ export default function CreateLobbyModal({ walletBalance, onClose, onCreated }: 
             {submitting ? "Opening Lobby..." : (
               <>
                 <Plus className="w-4 h-4" />
-                Launch Lobby
+                Lock {formatCurrency(totalChargedUsd, region)} & Launch Lobby
               </>
             )}
           </button>

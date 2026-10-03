@@ -290,10 +290,18 @@ function SquadDetail({
 
   const handleJoin = async () => {
     const isLobby = squad.oath_type === "lobby";
+    const stake = squad.stake_amount;
+    const fee = isLobby ? Math.round(stake * 0.10 * 100) / 100 : 0;
+    const totalDeduction = stake + fee;
+
+    const message = isLobby
+      ? `Join this lobby challenge? Base buy-in stake is ${utilsFormatCurrency(stake, region)} + 10% platform protocol fee (${utilsFormatCurrency(fee, region)}) = Total ${utilsFormatCurrency(totalDeduction, region)} charged from your wallet. Your ${utilsFormatCurrency(stake, region)} stake is locked in escrow until deadline verification.`
+      : `Join this accountability squad? Your stake of ${utilsFormatCurrency(stake, region)} will be locked in escrow until deadline verification.`;
+
     const confirmed = await confirmAction({
       title: isLobby ? "Join Public Lobby?" : "Join Accountability Squad?",
-      message: `Join this challenge? Your stake of ${utilsFormatCurrency(squad.stake_amount, region)} will be locked in escrow until the deadline verification.`,
-      confirmLabel: `Join & Lock ${utilsFormatCurrency(squad.stake_amount, region)}`,
+      message,
+      confirmLabel: `Join & Pay ${utilsFormatCurrency(totalDeduction, region)}`,
       cancelLabel: "Cancel",
       variant: "default",
     });
@@ -420,7 +428,7 @@ function SquadDetail({
             className="w-full flex items-center justify-center gap-2 py-3.5 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 text-sm font-black tracking-tight uppercase hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {loading ? "Joining..." : squad.oath_type === "lobby" ? `Join Lobby (${utilsFormatCurrency(squad.stake_amount, region)})` : `Join Squad (${utilsFormatCurrency(squad.stake_amount, region)})`}
+            {loading ? "Joining..." : squad.oath_type === "lobby" ? `Join Lobby (${utilsFormatCurrency(squad.stake_amount * 1.1, region)})` : `Join Squad (${utilsFormatCurrency(squad.stake_amount, region)})`}
           </button>
         </div>
       )}

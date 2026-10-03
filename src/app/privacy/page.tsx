@@ -38,7 +38,7 @@ export default function PrivacyPage() {
 
           <h2>4. Public Profiles & The Wall</h2>
           <p>
-            If you select "Wall of Shame" as a consequence for your Oath, you explicitly consent to having your failure excuse, original goal, and username published publicly on the Oath platform. Your username, reputation score, and "Duffer" status are publicly visible on your profile to maintain platform accountability.
+            If you select "Wall of Shame" as a consequence for your Oath, you explicitly consent to having your failure excuse, original goal, and username published publicly on the Oath platform. Your username and reputation score are publicly visible on your profile to maintain platform accountability.
           </p>
 
           <h2>5. Third-Party Integrations</h2>

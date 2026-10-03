@@ -25,7 +25,6 @@ export interface Profile {
   total_lost: number;
   total_won: number;
   reputation_score: number;
-  duffer_debt: number;
   created_at: string;
 }
 

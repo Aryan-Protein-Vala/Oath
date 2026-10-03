@@ -70,7 +70,11 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   const multiplier = oathType === "squad" ? maxPlayers : oathType === "duo" ? 2 : 1;
   const totalStakeLocal = isFinancial ? stakeNum * multiplier : 0;
   const totalStakeUsd = isFinancial ? stakeUsd * multiplier : 0;
-  const isOverBudget = isFinancial && totalStakeLocal > walletInLocal;
+  const protocolFeeLocal = isFinancial ? Math.round(totalStakeLocal * 0.10 * 100) / 100 : 0;
+  const totalChargedLocal = totalStakeLocal + protocolFeeLocal;
+  const protocolFeeUsd = isFinancial ? Math.round(totalStakeUsd * 0.10 * 100) / 100 : 0;
+  const totalChargedUsd = totalStakeUsd + protocolFeeUsd;
+  const isOverBudget = isFinancial && totalChargedLocal > walletInLocal;
 
   // Handle mobile-exclusive features
   const handleMobileExclusive = (feature: string) => {
@@ -356,7 +360,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                     sublabel="Lose money"
                     isActive={consequenceType === "fiat"}
                     onClick={() => setConsequenceType("fiat")}
-                    onInfo={() => setInfoModal({ title: "Fiat Consequence", desc: "If you fail, the house takes a 10% cut of your locked stake, and the remaining 90% is burned forever. Hard financial loss." })}
+                    onInfo={() => setInfoModal({ title: "Fiat Consequence", desc: "If you fail, 100% of your locked escrow stake is permanently burned/seized. Hard financial loss. The 10% platform fee was already covered upfront." })}
                   />
                   {oathType === "duo" && (
                     <TypeButton
@@ -645,14 +649,33 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                       isOverBudget ? "text-red-500" : "text-zinc-600 dark:text-zinc-400"
                     }`}
                   >
-                    Balance: {formatRegionCurrency(walletBalance)}
+                    Wallet Balance: {formatRegionCurrency(walletBalance)}
                   </span>
-                  {stakeNum > 0 && (
-                    <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
-                      Oath Fee: {formatRegionCurrency(stakeUsd * 0.1)}
-                    </span>
-                  )}
+                  <span className="text-[10px] font-mono font-bold text-zinc-500">
+                    Upfront Protocol Fee: 10%
+                  </span>
                 </div>
+                {stakeNum > 0 && (
+                  <div className="mt-3 p-2.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-[11px] font-mono space-y-1">
+                    <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                      <span>Base Escrow Stake {multiplier > 1 ? `(${multiplier}x pot)` : ""}:</span>
+                      <span className="font-bold text-zinc-900 dark:text-zinc-100">{formatRegionCurrency(totalStakeUsd)}</span>
+                    </div>
+                    <div className="flex justify-between text-zinc-600 dark:text-zinc-400">
+                      <span>Platform Fee (+10% upfront):</span>
+                      <span className="font-bold text-amber-600 dark:text-amber-400">+{formatRegionCurrency(protocolFeeUsd)}</span>
+                    </div>
+                    <div className="pt-1 border-t border-zinc-200 dark:border-zinc-800 flex justify-between font-bold text-zinc-950 dark:text-zinc-50">
+                      <span>Total Charged from Wallet:</span>
+                      <span className={isOverBudget ? "text-red-500" : "text-emerald-600 dark:text-emerald-400"}>
+                        {formatRegionCurrency(totalChargedUsd)}
+                      </span>
+                    </div>
+                    <div className="text-[9px] text-zinc-500 dark:text-zinc-400 pt-0.5">
+                      ✓ Zero fee at settlement. Winner receives 100% of the locked escrow pot.
+                    </div>
+                  </div>
+                )}
                 {/* Quick stake buttons */}
                 <div className="flex flex-wrap items-center gap-2 mt-3">
                   {(region === "in" ? [500, 1000, 2500, 5000, 10000] : [25, 50, 100, 250, 500]).map((amount) => (
@@ -869,7 +892,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
 
             {multiplier > 1 && isFinancial && (
               <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 mb-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
-                💡 <strong>Leader Covers Pot:</strong> You lock the full pot upfront ({multiplier} × {formatRegionCurrency(stakeUsd)} = <strong>{formatRegionCurrency(totalStakeUsd)}</strong>). Your {oathType === "duo" ? "opponent joins" : "squad members join"} 100% free!
+                💡 <strong>Leader Covers Pot:</strong> You lock the full pot upfront ({multiplier} × {formatRegionCurrency(stakeUsd)} = <strong>{formatRegionCurrency(totalStakeUsd)}</strong> + 10% platform fee = <strong>{formatRegionCurrency(totalChargedUsd)}</strong>). Your {oathType === "duo" ? "opponent joins" : "squad members join"} 100% free!
               </div>
             )}
 
@@ -887,7 +910,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 {submitting
                   ? "Locking Escrow..."
                   : isFinancial
-                  ? `Lock ${formatRegionCurrency(totalStakeUsd)} & Create Oath`
+                  ? `Pay ${formatRegionCurrency(totalChargedUsd)} & Create Oath`
                   : "Create Oath"}
               </button>
             </div>
@@ -896,7 +919,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
               <div className="flex items-center gap-2 mt-3 text-red-500 font-bold">
                 <AlertCircle className="w-3.5 h-3.5" />
                 <span className="text-[11px] font-mono">
-                  Total stake of {formatRegionCurrency(totalStakeUsd)} exceeds wallet balance. Deposit more funds.
+                  Total required of {formatRegionCurrency(totalChargedUsd)} ({formatRegionCurrency(totalStakeUsd)} stake + 10% platform fee) exceeds wallet balance ({formatRegionCurrency(walletBalance)}). Deposit more funds.
                 </span>
               </div>
             )}
