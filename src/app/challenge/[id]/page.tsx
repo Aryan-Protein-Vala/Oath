@@ -10,6 +10,8 @@ import { getMockOaths, acceptDuoChallenge, cancelPendingOath } from "@/lib/data-
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import type { Oath } from "@/lib/types";
 import { useRegion } from "@/lib/region-context";
+import { showToast } from "@/components/Toast";
+import { confirmAction } from "@/components/ConfirmationModal";
 
 export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -262,10 +264,23 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
                         <p className="text-zinc-600 dark:text-zinc-400">Share this link with your opponent so they can accept for free.</p>
                         <button
                           onClick={async () => {
-                            if (confirm("Cancel this challenge and reclaim your 2x locked stake?")) {
-                              const { error: cancelErr } = await cancelPendingOath(oath.id);
-                              if (cancelErr) setError(cancelErr);
-                              else window.location.reload();
+                            const confirmed = await confirmAction({
+                              title: "Cancel Duel Challenge?",
+                              message: "Are you sure you want to cancel this challenge and reclaim your 2x locked stake? The invitation link will be deactivated immediately.",
+                              confirmLabel: "Cancel Challenge & Reclaim",
+                              cancelLabel: "Keep Duel Open",
+                              variant: "danger",
+                              dangerWarning: "Your 2x stake will be refunded back to your wallet.",
+                            });
+                            if (!confirmed) return;
+
+                            const { error: cancelErr } = await cancelPendingOath(oath.id);
+                            if (cancelErr) {
+                              showToast(cancelErr, "error");
+                            } else {
+                              showToast("Challenge cancelled and 2x escrow refunded to your wallet.", "success");
+                              setOath((prev) => (prev ? { ...prev, status: "cancelled" } : null));
+                              refreshWallet();
                             }
                           }}
                           className="px-4 py-2 bg-red-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-red-700 transition-colors mt-2"

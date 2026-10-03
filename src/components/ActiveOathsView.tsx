@@ -10,6 +10,7 @@ import ProofUploadModal from "./ProofUploadModal";
 import ChatRoom from "./ChatRoom";
 import { forfeitOath, forfeitSquadMember, cancelPendingOath, peerReviewProof } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
+import { confirmAction } from "./ConfirmationModal";
 
 interface ActiveOathsViewProps {
   oaths: Oath[];
@@ -423,13 +424,21 @@ function OathCountdownCard({
                 {isPendingAcceptance && oath.creator_id === user?.id && (
                   <button
                     onClick={async () => {
-                      if (confirm("Cancel this pending invitation and reclaim your locked stake?")) {
-                        const { error } = await cancelPendingOath(oath.id);
-                        if (error) {
-                          showToast(error, "error");
-                        } else {
-                          showToast("Oath cancelled and escrow refunded to your balance.", "success");
-                        }
+                      const confirmed = await confirmAction({
+                        title: "Cancel Pending Oath?",
+                        message: "Cancel this pending invitation and reclaim your locked stake back to your wallet balance?",
+                        confirmLabel: "Cancel Oath & Refund Stake",
+                        cancelLabel: "Keep Waiting",
+                        variant: "danger",
+                        dangerWarning: "Your locked escrow will be refunded to your wallet immediately.",
+                      });
+                      if (!confirmed) return;
+
+                      const { error } = await cancelPendingOath(oath.id);
+                      if (error) {
+                        showToast(error, "error");
+                      } else {
+                        showToast("Oath cancelled and escrow refunded to your balance.", "success");
                       }
                     }}
                     className="flex items-center gap-1.5 px-4 py-2.5 bg-red-600 text-white text-xs font-black uppercase tracking-tight hover:bg-red-700 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"

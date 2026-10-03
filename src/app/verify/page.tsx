@@ -10,6 +10,8 @@ import { isDemoSession } from "@/lib/auth-context";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import type { Oath } from "@/lib/types";
 import { useRegion } from "@/lib/region-context";
+import { showToast } from "@/components/Toast";
+import { confirmAction } from "@/components/ConfirmationModal";
 
 function VerifyContent() {
   const searchParams = useSearchParams();
@@ -103,17 +105,38 @@ function VerifyContent() {
 
   const handleSubmit = async () => {
     if (!verdict || !oath || submitting) return;
+
+    const isPenalty = verdict === "penalty";
+    const confirmed = await confirmAction({
+      title: isPenalty ? "Confirm Oath Failure Verdict" : "Confirm Oath Completion",
+      message: isPenalty
+        ? `Are you sure you want to fail this oath? The swearer's locked stake of ${formatCurrency(oath.stake_amount, region)} will be forfeited.`
+        : `Are you sure you want to approve this oath as completed? The swearer's locked stake will be safely returned to them.`,
+      confirmLabel: isPenalty ? "Confirm Failure (Slash Stake)" : "Approve Oath (Release Escrow)",
+      cancelLabel: "Review Again",
+      variant: isPenalty ? "danger" : "default",
+      dangerWarning: isPenalty ? "This decision is final and will penalize the swearer." : undefined,
+    });
+    if (!confirmed) return;
+
     setSubmitting(true);
     setError(null);
     try {
       const result = await verifyNominee(token, verdict, note.trim() || undefined);
       if (result?.error) {
         setError(result.error);
+        showToast(result.error, "error");
         return;
       }
+      showToast(
+        isPenalty ? "Verdict recorded: Oath marked as failed." : "Verdict recorded: Oath verified successfully!",
+        isPenalty ? "error" : "success"
+      );
       setSubmitted(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Your verification could not be recorded. Try again.");
+      const msg = cause instanceof Error ? cause.message : "Your verification could not be recorded. Try again.";
+      setError(msg);
+      showToast(msg, "error");
     } finally {
       setSubmitting(false);
     }

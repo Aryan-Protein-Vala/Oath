@@ -11,7 +11,6 @@ import ProfileView from "@/components/ProfileView";
 import LandingView from "@/components/LandingView";
 import WalletModal from "@/components/WalletModal";
 import NotificationsPanel from "@/components/NotificationsPanel";
-import { ToastContainer } from "@/components/Toast";
 import { useAuth } from "@/lib/auth-context";
 import { useOaths, useSquadLobbies, useWall, useTransactions, isMockMode } from "@/lib/data-hooks";
 import { createClient } from "@/lib/supabase/client";
@@ -165,9 +164,6 @@ export default function Home() {
           onClose={() => setShowNotifications(false)}
         />
       )}
-
-      {/* Global Toast */}
-      <ToastContainer />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Eye, EyeOff, AlertCircle, Loader2, ArrowLeft, ShieldCheck, CheckCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
+import { showToast } from "@/components/Toast";
 
 export default function AuthPage() {
   return (
@@ -67,19 +68,24 @@ function AuthForm() {
 
       if (err) {
         setError(err);
+        showToast(err, "error");
       } else if (confirmationRequired) {
         setInfoMessage(
           "Account created. We sent a verification email to your address. Please verify to continue."
         );
+        showToast("Account created. Check your email to verify.", "success");
         setMode("signin");
       } else {
+        showToast("Account created and verified! Welcome to OATH.", "success");
         router.push(redirectUrl);
       }
     } else {
       const { error: err } = await signIn(email.trim(), password);
       if (err) {
         setError(err);
+        showToast(err, "error");
       } else {
+        showToast("Welcome back.", "success");
         router.push(redirectUrl);
       }
     }

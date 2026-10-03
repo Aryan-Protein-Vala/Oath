@@ -16,6 +16,7 @@ import {
 import { createDuoChallenge, cancelDuoChallenge } from "@/lib/data-hooks";
 import { formatCurrency, convertToUSD } from "@/lib/utils";
 import { showToast } from "./Toast";
+import { confirmAction } from "./ConfirmationModal";
 import type { Wallet } from "@/lib/types";
 import { useRegion } from "@/lib/region-context";
 
@@ -99,6 +100,16 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
 
   const handleCancel = async () => {
     if (!oathId) return;
+    const confirmed = await confirmAction({
+      title: "Cancel Challenge Invitation?",
+      message: "Cancel this duel invitation and refund your locked stake immediately?",
+      confirmLabel: "Cancel Invitation & Refund",
+      cancelLabel: "Keep Invitation",
+      variant: "danger",
+      dangerWarning: "Your locked escrow will be refunded back to your wallet.",
+    });
+    if (!confirmed) return;
+
     setLoading(true);
     try {
       const { error } = await cancelDuoChallenge(oathId);

@@ -16,6 +16,7 @@ import { depositFunds, withdrawFunds, isMockMode } from "@/lib/data-hooks";
 import { formatCurrency, formatCurrencyPrecise, formatRelativeTime, convertToUSD, convertToLocal } from "@/lib/utils";
 import type { Wallet, Transaction } from "@/lib/types";
 import { showToast } from "./Toast";
+import { confirmAction } from "./ConfirmationModal";
 import { useRegion, type Region } from "@/lib/region-context";
 
 interface WalletModalProps {
@@ -186,6 +187,18 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           return;
         }
 
+        const confirmed = await confirmAction({
+          title: "Confirm UPI Withdrawal",
+          message: `Request withdrawal of ${formatRegionCurrency(amountUsd)} directly to UPI ID: ${upiId}?`,
+          confirmLabel: `Withdraw ${formatRegionCurrency(amountUsd)}`,
+          cancelLabel: "Cancel",
+          variant: "default",
+        });
+        if (!confirmed) {
+          setLoading(false);
+          return;
+        }
+
         const destination = `UPI: ${upiId}`;
         const { error } = await withdrawFunds(amountUsd, destination);
         if (error) {
@@ -207,6 +220,18 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           return;
         }
 
+        const confirmed = await confirmAction({
+          title: "Confirm PayPal Withdrawal",
+          message: `Request withdrawal of ${formatRegionCurrency(amountUsd)} to PayPal account: ${email}?`,
+          confirmLabel: `Withdraw ${formatRegionCurrency(amountUsd)}`,
+          cancelLabel: "Cancel",
+          variant: "default",
+        });
+        if (!confirmed) {
+          setLoading(false);
+          return;
+        }
+
         if (isMockMode()) {
           const { error } = await withdrawFunds(amountUsd, `PayPal (${paypalEmail.trim()})`);
           if (error) {
@@ -221,15 +246,15 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           return;
         }
 
-          const { error } = await withdrawFunds(amountUsd, paypalEmail.trim());
-          if (error) {
-            showToast(`Withdrawal failed: ${error}`, "error");
-          } else {
-            setDone(true);
-            showToast(`${formatRegionCurrency(amountUsd)} withdrawal requested.`, "success");
-            onRefresh();
-            setTimeout(() => { setDone(false); setAmount(""); setPaypalEmail(""); setTab("overview"); }, 2000);
-          }
+        const { error } = await withdrawFunds(amountUsd, paypalEmail.trim());
+        if (error) {
+          showToast(`Withdrawal failed: ${error}`, "error");
+        } else {
+          setDone(true);
+          showToast(`${formatRegionCurrency(amountUsd)} withdrawal requested.`, "success");
+          onRefresh();
+          setTimeout(() => { setDone(false); setAmount(""); setPaypalEmail(""); setTab("overview"); }, 2000);
+        }
         setLoading(false);
       }
     }

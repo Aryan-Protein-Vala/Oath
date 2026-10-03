@@ -20,6 +20,7 @@ import type { Oath, GroupMember, Wallet } from "@/lib/types";
 import { formatCurrency as utilsFormatCurrency, getTimeRemaining, formatRelativeTime } from "@/lib/utils";
 import { joinSquad, castVote } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
+import { confirmAction } from "./ConfirmationModal";
 import { useRegion } from "@/lib/region-context";
 import { useAuth } from "@/lib/auth-context";
 import CreateLobbyModal from "./CreateLobbyModal";
@@ -288,13 +289,23 @@ function SquadDetail({
   const isUserMember = squad.members?.some((m) => m.user_id === user?.id) || squad.creator_id === user?.id;
 
   const handleJoin = async () => {
+    const isLobby = squad.oath_type === "lobby";
+    const confirmed = await confirmAction({
+      title: isLobby ? "Join Public Lobby?" : "Join Accountability Squad?",
+      message: `Join this challenge? Your stake of ${utilsFormatCurrency(squad.stake_amount, region)} will be locked in escrow until the deadline verification.`,
+      confirmLabel: `Join & Lock ${utilsFormatCurrency(squad.stake_amount, region)}`,
+      cancelLabel: "Cancel",
+      variant: "default",
+    });
+    if (!confirmed) return;
+
     setLoading(true);
     const { error } = await joinSquad(squad.id, squad.stake_amount);
     setLoading(false);
     if (error) {
       showToast(error, "error");
     } else {
-      showToast(squad.oath_type === "lobby" ? "Joined Lobby! Stake locked in escrow." : "Joined accountability squad!", "success");
+      showToast(isLobby ? "Joined Lobby! Stake locked in escrow." : "Joined accountability squad!", "success");
       onJoined?.();
     }
   };

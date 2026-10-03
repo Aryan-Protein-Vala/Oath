@@ -90,6 +90,7 @@ export default function ProofUploadModal({ oath, onClose, onSuccess }: ProofUplo
     }
 
     setDone(true);
+    showToast("Proof submitted! Entering review window.", "success");
     setTimeout(() => {
       onSuccess();
       onClose();

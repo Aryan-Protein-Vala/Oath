@@ -74,6 +74,8 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
         }
         showToast("Joined Accountability Squad!", "success");
       }
+    } else if (status === "rejected") {
+      showToast("Invitation declined.", "info");
     }
 
     await supabase.from("notifications").update({ status }).eq("id", notif.id);
