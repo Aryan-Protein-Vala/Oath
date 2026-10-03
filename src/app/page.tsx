@@ -103,6 +103,10 @@ export default function Home() {
     router.push("/auth");
   };
 
+  const isPenaltyBoxActive = Boolean(
+    activeProfile?.penalty_box_until && new Date(activeProfile.penalty_box_until).getTime() > Date.now()
+  );
+
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 transition-colors duration-300">
       {/* Top Navigation */}
@@ -116,6 +120,23 @@ export default function Home() {
         unreadCount={unreadCount}
       />
 
+      {/* Penalty Box Global Alert */}
+      {isPenaltyBoxActive && (
+        <div className="bg-red-600 text-white px-4 py-2 text-xs font-mono font-bold flex flex-wrap items-center justify-between gap-2 shrink-0 shadow-inner z-20">
+          <div className="flex items-center gap-2">
+            <span className="bg-black text-red-500 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider">
+              PENALTY BOX
+            </span>
+            <span>
+              Account locked for 3 consecutive failures. Creating oaths and joining lobbies is suspended.
+            </span>
+          </div>
+          <span className="text-[11px] font-mono tracking-tight font-black">
+            Expires {new Date(activeProfile.penalty_box_until!).toLocaleDateString()} {new Date(activeProfile.penalty_box_until!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
         {currentView === "active" && (
@@ -128,11 +149,18 @@ export default function Home() {
         {currentView === "create" && (
           <CreateOathView
             walletBalance={activeWallet.balance}
+            penaltyBoxUntil={activeProfile.penalty_box_until}
             onOathCreated={() => { setCurrentView("active"); refreshOaths(); refreshLobbies(); refreshWallet(); }}
           />
         )}
         {currentView === "lobbies" && (
-          <LobbiesView squads={activeLobbies} wallet={activeWallet} onJoined={() => { refreshOaths(); refreshLobbies(); refreshWallet(); }} onCreateLobby={() => setCurrentView("create")} />
+          <LobbiesView
+            squads={activeLobbies}
+            wallet={activeWallet}
+            penaltyBoxUntil={activeProfile.penalty_box_until}
+            onJoined={() => { refreshOaths(); refreshLobbies(); refreshWallet(); }}
+            onCreateLobby={() => setCurrentView("create")}
+          />
         )}
         {currentView === "wall_shame" && (
           <WallView entries={activeShame} type="shame" />

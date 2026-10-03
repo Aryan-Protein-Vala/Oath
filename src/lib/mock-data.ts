@@ -22,6 +22,8 @@ export const mockProfile: Profile = {
   total_lost: 750.0,
   total_won: 1800.0,
   reputation_score: 82,
+  loss_streak: 0,
+  penalty_box_until: null,
   created_at: "2025-01-15T00:00:00Z",
 };
 
@@ -47,6 +49,8 @@ const mockUsers: Profile[] = [
     total_lost: 200.0,
     total_won: 4200.0,
     reputation_score: 95,
+    loss_streak: 0,
+    penalty_box_until: null,
     created_at: "2025-02-01T00:00:00Z",
   },
   {
@@ -60,6 +64,8 @@ const mockUsers: Profile[] = [
     total_lost: 1500.0,
     total_won: 300.0,
     reputation_score: 45,
+    loss_streak: 2,
+    penalty_box_until: null,
     created_at: "2025-03-10T00:00:00Z",
   },
   {
@@ -73,6 +79,8 @@ const mockUsers: Profile[] = [
     total_lost: 100.0,
     total_won: 7500.0,
     reputation_score: 98,
+    loss_streak: 0,
+    penalty_box_until: null,
     created_at: "2024-11-20T00:00:00Z",
   },
   {
@@ -86,6 +94,8 @@ const mockUsers: Profile[] = [
     total_lost: 2800.0,
     total_won: 0.0,
     reputation_score: 12,
+    loss_streak: 3,
+    penalty_box_until: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString(),
     created_at: "2025-05-01T00:00:00Z",
   },
   {
@@ -99,6 +109,8 @@ const mockUsers: Profile[] = [
     total_lost: 900.0,
     total_won: 2800.0,
     reputation_score: 76,
+    loss_streak: 0,
+    penalty_box_until: null,
     created_at: "2025-01-28T00:00:00Z",
   },
 ];

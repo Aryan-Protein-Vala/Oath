@@ -33,11 +33,15 @@ import { showToast } from "./Toast";
 interface CreateOathViewProps {
   walletBalance: number;
   onOathCreated?: () => void;
+  penaltyBoxUntil?: string | null;
 }
 
-export default function CreateOathView({ walletBalance, onOathCreated }: CreateOathViewProps) {
+export default function CreateOathView({ walletBalance, onOathCreated, penaltyBoxUntil }: CreateOathViewProps) {
   const { user } = useAuth();
   const { region, formatCurrency: formatRegionCurrency } = useRegion();
+  const isPenaltyBoxActive = Boolean(
+    penaltyBoxUntil && new Date(penaltyBoxUntil).getTime() > Date.now()
+  );
   // Form state
   const [oathStatement, setOathStatement] = useState("");
   const [oathType, setOathType] = useState<OathType>("solo");
@@ -173,6 +177,11 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   };
 
   const handleSubmit = async () => {
+    if (isPenaltyBoxActive) {
+      showToast(`Account locked in The Penalty Box until ${new Date(penaltyBoxUntil!).toLocaleDateString()} for 3 consecutive failures. No oath creation allowed.`, "error");
+      return;
+    }
+
     if (!oathStatement.trim()) {
       showToast("You need to swear to something.", "error");
       return;
@@ -184,7 +193,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
         return;
       }
       if (isOverBudget) {
-        showToast(`Insufficient funds. You need ${formatRegionCurrency(totalStakeUsd)} for this ${oathType} oath.`, "error");
+        showToast(`Insufficient funds. You need ${formatRegionCurrency(totalChargedUsd)} (${formatRegionCurrency(totalStakeUsd)} stake + 10% platform fee) for this ${oathType} oath.`, "error");
         return;
       }
     }
@@ -671,8 +680,8 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                         {formatRegionCurrency(totalChargedUsd)}
                       </span>
                     </div>
-                    <div className="text-[9px] text-zinc-500 dark:text-zinc-400 pt-0.5">
-                      ✓ Zero fee at settlement. Winner receives 100% of the locked escrow pot.
+                    <div className="text-[9px] text-zinc-500 dark:text-zinc-400 pt-0.5 leading-normal">
+                      ✓ Non-refundable 10% platform fee is retained by Oath. Winners receive 100% of their escrow pot ({formatRegionCurrency(totalStakeUsd)}). If you fail, your stake is lost and the 10% fee stays with Oath.
                     </div>
                   </div>
                 )}
@@ -896,12 +905,25 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
               </div>
             )}
 
+            {isPenaltyBoxActive && (
+              <div className="mb-4 p-4 border-2 border-red-600 bg-red-950/20 text-red-600 dark:text-red-400 font-mono space-y-1 shadow-[2px_2px_0px_0px_rgba(220,38,38,1)]">
+                <div className="flex items-center gap-2 font-black text-xs uppercase tracking-wider">
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                  LOCKED IN THE PENALTY BOX
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  You have failed 3 consecutive oaths. The system has placed you on a 7-day timeout. Creating oaths is disabled until{" "}
+                  <strong>{new Date(penaltyBoxUntil!).toLocaleDateString()} {new Date(penaltyBoxUntil!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} UTC</strong>.
+                </p>
+              </div>
+            )}
+
             <div className="flex items-center gap-3">
               <button
                 onClick={handleSubmit}
-                disabled={!oathStatement || (isFinancial && (stakeNum <= 0 || isOverBudget)) || submitting}
+                disabled={!oathStatement || (isFinancial && (stakeNum <= 0 || isOverBudget)) || submitting || isPenaltyBoxActive}
                 className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-black tracking-tight uppercase transition-all ${
-                  !oathStatement || (isFinancial && (stakeNum <= 0 || isOverBudget)) || submitting
+                  !oathStatement || (isFinancial && (stakeNum <= 0 || isOverBudget)) || submitting || isPenaltyBoxActive
                     ? "bg-zinc-300 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-600 cursor-not-allowed"
                     : "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
                 }`}
@@ -909,6 +931,8 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 <Zap className="w-4 h-4" />
                 {submitting
                   ? "Locking Escrow..."
+                  : isPenaltyBoxActive
+                  ? "Locked in Penalty Box"
                   : isFinancial
                   ? `Pay ${formatRegionCurrency(totalChargedUsd)} & Create Oath`
                   : "Create Oath"}

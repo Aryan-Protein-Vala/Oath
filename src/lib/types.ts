@@ -25,6 +25,8 @@ export interface Profile {
   total_lost: number;
   total_won: number;
   reputation_score: number;
+  loss_streak: number;
+  penalty_box_until?: string | null;
   created_at: string;
 }
 

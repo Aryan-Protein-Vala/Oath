@@ -513,6 +513,9 @@ export async function createOath(data: {
   }
 
   if (isMockMode()) {
+    if (mockProfile.penalty_box_until && new Date(mockProfile.penalty_box_until).getTime() > Date.now()) {
+      return { error: `You are locked in The Penalty Box until ${new Date(mockProfile.penalty_box_until).toLocaleString()} for 3 consecutive oath failures. No oath creation allowed.` };
+    }
     const currentWallet = getInitialMockWallet();
     const multiplier = data.oath_type === "squad" ? (data.max_players ?? 4) : data.oath_type === "duo" ? 2 : 1;
     const totalStake = validStake * multiplier;
@@ -812,6 +815,9 @@ export async function submitProof(data: {
 // ---- joinSquad ----
 export async function joinSquad(oathId: string, stakeAmount: number) {
   if (isMockMode()) {
+    if (mockProfile.penalty_box_until && new Date(mockProfile.penalty_box_until).getTime() > Date.now()) {
+      return { error: `You are locked in The Penalty Box until ${new Date(mockProfile.penalty_box_until).toLocaleString()} for 3 consecutive oath failures. You cannot join squads or lobbies.` };
+    }
     const squads = getMockSquads();
     const target = squads.find((s) => s.id === oathId);
     if (!target) return { error: "Squad pool not found." };
@@ -1364,6 +1370,10 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
         };
         setMockWall("honor", [honorEntry, ...getMockWall("honor")]);
       }
+
+      mockProfile.oaths_completed += 1;
+      mockProfile.loss_streak = 0;
+      mockProfile.penalty_box_until = null;
     } else {
       // Forfeited stake
       const updatedWallet: Wallet = {
@@ -1403,6 +1413,12 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
           created_at: new Date().toISOString(),
         };
         setMockWall("shame", [shameEntry, ...getMockWall("shame")]);
+      }
+
+      mockProfile.oaths_failed += 1;
+      mockProfile.loss_streak = (mockProfile.loss_streak ?? 0) + 1;
+      if (mockProfile.loss_streak >= 3) {
+        mockProfile.penalty_box_until = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
       }
     }
 

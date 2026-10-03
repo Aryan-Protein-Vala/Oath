@@ -7,17 +7,20 @@ import { useRegion } from "@/lib/region-context";
 
 interface CreateLobbyModalProps {
   walletBalance: number;
+  penaltyBoxUntil?: string | null;
   onClose: () => void;
   onCreated: () => void;
 }
 
-export default function CreateLobbyModal({ walletBalance, onClose, onCreated }: CreateLobbyModalProps) {
+export default function CreateLobbyModal({ walletBalance, penaltyBoxUntil, onClose, onCreated }: CreateLobbyModalProps) {
   const [statement, setStatement] = useState("");
   const [stakeAmount, setStakeAmount] = useState("");
   const [deadline, setDeadline] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(10);
   const [submitting, setSubmitting] = useState(false);
   const { region } = useRegion();
+
+  const isPenaltyBoxActive = !!penaltyBoxUntil && new Date(penaltyBoxUntil).getTime() > Date.now();
 
   const walletInLocal = convertToLocal(walletBalance, region);
   const stakeNum = parseFloat(stakeAmount) || 0;
@@ -29,6 +32,10 @@ export default function CreateLobbyModal({ walletBalance, onClose, onCreated }: 
   const isOverBudget = totalChargedLocal > walletInLocal;
 
   const handleSubmit = async () => {
+    if (isPenaltyBoxActive) {
+      showToast("Account locked in Penalty Box. Opening lobbies is suspended.", "error");
+      return;
+    }
     if (!statement.trim()) {
       showToast("Lobby needs a goal.", "error");
       return;
@@ -91,6 +98,17 @@ export default function CreateLobbyModal({ walletBalance, onClose, onCreated }: 
 
         {/* Content */}
         <div className="p-5 overflow-y-auto flex-1 space-y-6">
+          {isPenaltyBoxActive && (
+            <div className="p-3 bg-red-500/10 border-2 border-red-500/30 text-center">
+              <p className="text-xs font-mono font-bold text-red-500 uppercase tracking-wider">
+                🚨 Benched in Penalty Box
+              </p>
+              <p className="text-[11px] font-mono text-zinc-500 mt-0.5">
+                Account suspended until {new Date(penaltyBoxUntil!).toLocaleDateString()} {new Date(penaltyBoxUntil!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
               <Target className="w-3.5 h-3.5" />
@@ -170,8 +188,8 @@ export default function CreateLobbyModal({ walletBalance, onClose, onCreated }: 
                   {formatCurrency(totalChargedUsd, region)}
                 </span>
               </div>
-              <div className="text-[9px] text-zinc-500 dark:text-zinc-400 pt-0.5">
-                ✓ 0% fee at settlement. 100% of escrow returned on verified completion.
+              <div className="text-[9px] text-zinc-500 dark:text-zinc-400 pt-0.5 leading-relaxed">
+                ✓ Non-refundable 10% platform fee is retained by Oath. Winners recover 100% of their buy-in stake. If failed, the buy-in is forfeited and the 10% fee remains with Oath.
               </div>
             </div>
           )}
@@ -187,10 +205,10 @@ export default function CreateLobbyModal({ walletBalance, onClose, onCreated }: 
         <div className="p-4 border-t-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
           <button
             onClick={handleSubmit}
-            disabled={submitting || isOverBudget || !statement || stakeNum <= 0 || !deadline}
+            disabled={submitting || isOverBudget || !statement || stakeNum <= 0 || !deadline || isPenaltyBoxActive}
             className="w-full py-3 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 font-black uppercase tracking-widest text-xs hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {submitting ? "Opening Lobby..." : (
+            {submitting ? "Opening Lobby..." : isPenaltyBoxActive ? "Locked in Penalty Box" : (
               <>
                 <Plus className="w-4 h-4" />
                 Lock {formatCurrency(totalChargedUsd, region)} & Launch Lobby

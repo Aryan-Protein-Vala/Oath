@@ -29,15 +29,17 @@ import ChatRoom from "./ChatRoom";
 interface LobbiesViewProps {
   squads: Oath[];
   wallet: Wallet;
+  penaltyBoxUntil?: string | null;
   onJoined?: () => void;
   onCreateLobby?: () => void;
 }
 
-export default function LobbiesView({ squads, wallet, onJoined, onCreateLobby }: LobbiesViewProps) {
+export default function LobbiesView({ squads, wallet, penaltyBoxUntil, onJoined, onCreateLobby }: LobbiesViewProps) {
   const [selectedSquadId, setSelectedSquadId] = useState<string | null>(null);
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
+  const isPenaltyBoxActive = !!penaltyBoxUntil && new Date(penaltyBoxUntil).getTime() > Date.now();
   const selectedSquad = squads.find((s) => s.id === selectedSquadId) || null;
 
   return (
@@ -62,11 +64,23 @@ export default function LobbiesView({ squads, wallet, onJoined, onCreateLobby }:
               </span>
               {onCreateLobby && (
                 <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 text-[10px] font-mono font-black uppercase tracking-widest hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors border-2 border-zinc-950 dark:border-transparent shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                  onClick={() => {
+                    if (isPenaltyBoxActive) {
+                      showToast(`Account locked in Penalty Box until ${new Date(penaltyBoxUntil!).toLocaleDateString()}. Creating lobbies is suspended.`, "error");
+                      return;
+                    }
+                    setShowCreateModal(true);
+                  }}
+                  disabled={isPenaltyBoxActive}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono font-black uppercase tracking-widest transition-colors border-2 ${
+                    isPenaltyBoxActive
+                      ? "bg-red-100 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900 cursor-not-allowed opacity-75"
+                      : "bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-zinc-950 dark:border-transparent shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                  }`}
+                  title={isPenaltyBoxActive ? `Account locked in Penalty Box until ${new Date(penaltyBoxUntil!).toLocaleDateString()}` : "Create Lobby"}
                 >
                   <UserPlus className="w-3 h-3" />
-                  Create
+                  {isPenaltyBoxActive ? "Benched" : "Create"}
                 </button>
               )}
             </div>
@@ -95,11 +109,22 @@ export default function LobbiesView({ squads, wallet, onJoined, onCreateLobby }:
               </div>
               {onCreateLobby && (
                 <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-black uppercase tracking-wider hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                  onClick={() => {
+                    if (isPenaltyBoxActive) {
+                      showToast(`Account locked in Penalty Box until ${new Date(penaltyBoxUntil!).toLocaleDateString()}. Creating lobbies is suspended.`, "error");
+                      return;
+                    }
+                    setShowCreateModal(true);
+                  }}
+                  disabled={isPenaltyBoxActive}
+                  className={`flex items-center gap-2 px-5 py-2.5 text-xs font-black uppercase tracking-wider transition-colors border-2 ${
+                    isPenaltyBoxActive
+                      ? "bg-red-100 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900 cursor-not-allowed opacity-75"
+                      : "bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                  }`}
                 >
                   <UserPlus className="w-4 h-4" />
-                  Create a Lobby
+                  {isPenaltyBoxActive ? "Benched in Penalty Box" : "Create a Lobby"}
                 </button>
               )}
             </div>
@@ -125,6 +150,7 @@ export default function LobbiesView({ squads, wallet, onJoined, onCreateLobby }:
           <SquadDetail
             squad={selectedSquad}
             wallet={wallet}
+            penaltyBoxUntil={penaltyBoxUntil}
             onClose={() => { setSelectedSquadId(null); setMobileShowDetail(false); }}
             onJoined={onJoined}
           />
@@ -134,6 +160,7 @@ export default function LobbiesView({ squads, wallet, onJoined, onCreateLobby }:
       {showCreateModal && (
         <CreateLobbyModal
           walletBalance={wallet.balance}
+          penaltyBoxUntil={penaltyBoxUntil}
           onClose={() => setShowCreateModal(false)}
           onCreated={() => {
             setShowCreateModal(false);
@@ -263,11 +290,13 @@ function SquadCard({
 function SquadDetail({
   squad,
   wallet,
+  penaltyBoxUntil,
   onClose,
   onJoined,
 }: {
   squad: Oath;
   wallet: Wallet;
+  penaltyBoxUntil?: string | null;
   onClose: () => void;
   onJoined?: () => void;
 }) {
@@ -277,6 +306,8 @@ function SquadDetail({
   const [showChat, setShowChat] = useState(false);
   const [inspectingMember, setInspectingMember] = useState<GroupMember | null>(null);
   const [now, setNow] = useState(() => Date.now());
+
+  const isPenaltyBoxActive = !!penaltyBoxUntil && new Date(penaltyBoxUntil).getTime() > Date.now();
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -289,6 +320,10 @@ function SquadDetail({
   const isUserMember = squad.members?.some((m) => m.user_id === user?.id) || squad.creator_id === user?.id;
 
   const handleJoin = async () => {
+    if (isPenaltyBoxActive) {
+      showToast(`Account locked in Penalty Box until ${new Date(penaltyBoxUntil!).toLocaleDateString()}. Joining squads and lobbies is suspended.`, "error");
+      return;
+    }
     const isLobby = squad.oath_type === "lobby";
     const stake = squad.stake_amount;
     const fee = isLobby ? Math.round(stake * 0.10 * 100) / 100 : 0;
@@ -422,14 +457,25 @@ function SquadDetail({
       {/* Join Button */}
       {spotsLeft > 0 && (squad.status === "pending" || squad.status === "active") && !isUserMember && (
         <div className="px-5 py-4 border-t-2 border-zinc-950 dark:border-zinc-800/40 bg-white dark:bg-transparent">
-          <button
-            onClick={handleJoin}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 py-3.5 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 text-sm font-black tracking-tight uppercase hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-            {loading ? "Joining..." : squad.oath_type === "lobby" ? `Join Lobby (${utilsFormatCurrency(squad.stake_amount * 1.1, region)})` : `Join Squad (${utilsFormatCurrency(squad.stake_amount, region)})`}
-          </button>
+          {isPenaltyBoxActive ? (
+            <div className="p-3 bg-red-500/10 border-2 border-red-500/30 text-center">
+              <p className="text-xs font-mono font-bold text-red-500 uppercase tracking-wider">
+                🚨 Benched in Penalty Box
+              </p>
+              <p className="text-[11px] font-mono text-zinc-500 mt-0.5">
+                Account suspended until {new Date(penaltyBoxUntil!).toLocaleDateString()} {new Date(penaltyBoxUntil!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          ) : (
+            <button
+              onClick={handleJoin}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 py-3.5 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 text-sm font-black tracking-tight uppercase hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+              {loading ? "Joining..." : squad.oath_type === "lobby" ? `Join Lobby (${utilsFormatCurrency(squad.stake_amount * 1.1, region)})` : `Join Squad (${utilsFormatCurrency(squad.stake_amount, region)})`}
+            </button>
+          )}
         </div>
       )}
 

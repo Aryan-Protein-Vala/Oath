@@ -5,6 +5,7 @@ import {
   TrendingDown,
   DollarSign,
   LogOut,
+  AlertTriangle,
 } from "lucide-react";
 import { formatCurrency as utilsFormatCurrency, formatCurrencyPrecise as utilsFormatCurrencyPrecise, formatRelativeTime } from "@/lib/utils";
 import type { Profile, Wallet, Transaction } from "@/lib/types";
@@ -19,6 +20,9 @@ interface ProfileViewProps {
 
 export default function ProfileView({ profile, wallet, transactions, onSignOut }: ProfileViewProps) {
   const { region } = useRegion();
+  const isPenaltyBoxActive = !!profile.penalty_box_until && new Date(profile.penalty_box_until).getTime() > Date.now();
+  const lossStreak = profile.loss_streak ?? 0;
+
   const resolvedOaths = profile.oaths_completed + profile.oaths_failed;
   const completionRate = resolvedOaths > 0
     ? Math.round((profile.oaths_completed / resolvedOaths) * 100)
@@ -48,6 +52,25 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
     <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-y-auto sm:overflow-hidden bg-zinc-50 dark:bg-transparent">
       {/* Profile summary */}
       <div className="w-full sm:w-72 shrink-0 border-b-2 sm:border-b-0 sm:border-r-2 border-zinc-950 dark:border-zinc-800/60 flex flex-col sm:overflow-y-auto bg-white dark:bg-transparent">
+        {/* Penalty Box Alert if benched */}
+        {isPenaltyBoxActive && (
+          <div className="p-4 bg-red-600 text-white font-mono border-b-2 border-zinc-950">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 shrink-0 animate-bounce" />
+              <span className="text-xs font-black uppercase tracking-widest">PENALTY BOX LOCKOUT</span>
+            </div>
+            <p className="text-[11px] mt-1.5 text-red-100 font-bold leading-snug">
+              Benched for 3 consecutive failures. Creating oaths and joining squads/lobbies is disabled.
+            </p>
+            <div className="mt-2 text-[10px] font-black bg-red-950/70 p-2 border border-red-400/50 flex justify-between items-center">
+              <span>UNBENCH AT:</span>
+              <span>
+                {new Date(profile.penalty_box_until!).toLocaleDateString()} {new Date(profile.penalty_box_until!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Identity */}
         <div className="p-5 border-b-2 border-zinc-200 dark:border-zinc-800/40">
           <div className="flex items-center gap-3 mb-4">
@@ -97,10 +120,22 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
           <StatCell label="Created" value={profile.oaths_created} />
           <StatCell label="Completed" value={profile.oaths_completed} accent />
           <StatCell label="Failed" value={profile.oaths_failed} danger />
+          <StatCell 
+            label="Loss Streak" 
+            value={`${lossStreak} / 3`} 
+            danger={lossStreak >= 2} 
+          />
           <StatCell label="Win/Loss" value={`${profile.oaths_completed}W / ${profile.oaths_failed}L`} />
           <StatCell label="Success" value={`${completionRate}%`} />
-          <StatCell label="Ratio" value={`${winLossRatio}x`} accent />
         </div>
+
+        {/* Loss streak warning if approaching lockout */}
+        {lossStreak > 0 && !isPenaltyBoxActive && (
+          <div className="px-4 py-2 bg-amber-500/10 border-b-2 border-zinc-200 dark:border-zinc-800/40 flex items-center justify-between text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400">
+            <span>⚠️ {lossStreak} consecutive fail{lossStreak > 1 ? "s" : ""}</span>
+            <span>{3 - lossStreak} more to Penalty Box</span>
+          </div>
+        )}
 
         {/* Money stats */}
         <div className="p-4 border-b-2 border-zinc-200 dark:border-zinc-800/40 space-y-3">
