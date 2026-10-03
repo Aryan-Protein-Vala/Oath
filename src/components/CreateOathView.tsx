@@ -42,7 +42,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
   const [oathStatement, setOathStatement] = useState("");
   const [oathType, setOathType] = useState<OathType>("solo");
   const [consequenceType, setConsequenceType] = useState<ConsequenceType>("fiat");
-  const [verificationMethod, setVerificationMethod] = useState<VerificationMethod>("solo_lonely");
+  const [verificationMethod, setVerificationMethod] = useState<VerificationMethod>("nominee");
   const [groupMode, setGroupMode] = useState<"weakest_link" | "survival">("survival");
   const [maxPlayers, setMaxPlayers] = useState<number>(4);
   const [stakeAmount, setStakeAmount] = useState("");
@@ -307,7 +307,7 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 isActive={oathType === "solo"}
                 onClick={() => {
                   setOathType("solo");
-                  setVerificationMethod("solo_lonely");
+                  setVerificationMethod("nominee");
                   if (consequenceType !== "fiat" && consequenceType !== "social_ransom" && consequenceType !== "app_blocking" && consequenceType !== "anti_charity" && consequenceType !== "public_shame") {
                     setConsequenceType("fiat");
                   }
@@ -746,13 +746,6 @@ export default function CreateOathView({ walletBalance, onOathCreated }: CreateO
                 isActive={verificationMethod === "quorum"}
                 onClick={() => setVerificationMethod("quorum")}
                 disabled={oathType !== "squad"}
-              />
-              <TypeButton
-                icon={<Camera className="w-4 h-4" />}
-                label="Solo"
-                sublabel="Photo proof"
-                isActive={verificationMethod === "solo_lonely"}
-                onClick={() => setVerificationMethod("solo_lonely")}
               />
             </div>
           </div>

@@ -55,9 +55,27 @@ export async function GET(request: Request) {
       );
     }
 
+    // 4. Trigger auto_resolve_expired_oaths()
+    // Resolves oaths where deadline < now() and user NEVER submitted any proof
+    const { data: expiredCount, error: expiredError } = await supabase.rpc(
+      "auto_resolve_expired_oaths"
+    );
+
+    if (expiredError) {
+      console.error("[CRON] Error executing auto_resolve_expired_oaths:", expiredError);
+      return NextResponse.json(
+        {
+          error: "Failed to execute auto_resolve_expired_oaths",
+          details: expiredError.message,
+        },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       resolved_ghosted_proofs: resolvedCount ?? 0,
+      resolved_expired_oaths: expiredCount ?? 0,
       timestamp: new Date().toISOString(),
     });
   } catch (err: unknown) {
