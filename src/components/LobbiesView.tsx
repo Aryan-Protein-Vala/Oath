@@ -612,11 +612,6 @@ function MemberLogEntry({
                 YOU
               </span>
             )}
-            {member.user?.duffer_debt ? member.user.duffer_debt > 0 && (
-              <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 border-2 border-red-600 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 uppercase tracking-widest shadow-[2px_2px_0px_0px_rgba(220,38,38,1)] dark:shadow-none ml-1">
-                DUFFER
-              </span>
-            ) : null}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 stake-number font-bold">
