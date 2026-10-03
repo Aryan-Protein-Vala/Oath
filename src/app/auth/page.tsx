@@ -2,17 +2,19 @@
 
 import { useState, Suspense } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, Zap, AlertCircle, Loader2, ArrowLeft, Shield, CheckCircle } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, Loader2, ArrowLeft, ShieldCheck, CheckCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function AuthPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-[#09090b]">
-        <Loader2 className="w-8 h-8 animate-spin text-zinc-950 dark:text-zinc-50" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-[#09090b]">
+          <Loader2 className="w-8 h-8 animate-spin text-zinc-950 dark:text-zinc-50" />
+        </div>
+      }
+    >
       <AuthForm />
     </Suspense>
   );
@@ -27,30 +29,11 @@ function AuthForm() {
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp, enterDemo } = useAuth();
+  const { signIn, signUp } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawRedirect = searchParams.get("redirect") || "/";
   const redirectUrl = rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/";
-
-  const handleInstantDemo = () => {
-    setError(null);
-    setInfoMessage(null);
-    const result = enterDemo();
-    if (result.error) {
-      setError(result.error);
-    } else {
-      router.push(redirectUrl);
-    }
-  };
-
-  const handleDemoFill = () => {
-    setMode("signin");
-    setEmail(process.env.NEXT_PUBLIC_ADMIN_EMAIL || "aryansharma24112003@gmail.com");
-    setPassword(process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "Aryan@24");
-    setError(null);
-    setInfoMessage(null);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,38 +41,44 @@ function AuthForm() {
     setInfoMessage(null);
     setLoading(true);
 
-    if (mode === "signup" && username.trim().length < 3) {
-      setError("Username must be at least 3 characters.");
-      setLoading(false);
-      return;
-    }
-    if (mode === "signup" && password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      setLoading(false);
-      return;
-    }
-
-    if (mode === "signin") {
-      const { error: err } = await signIn(email, password);
-      if (err) {
-        setError(err);
-      } else {
-        router.push(redirectUrl);
+    if (mode === "signup") {
+      const cleanUsername = username.trim().toLowerCase().replace(/\s+/g, "_");
+      if (cleanUsername.length < 3) {
+        setError("Username must be at least 3 characters.");
+        setLoading(false);
+        return;
       }
-    } else {
+      if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
+        setError("Username can only contain letters, numbers, and underscores.");
+        setLoading(false);
+        return;
+      }
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters.");
+        setLoading(false);
+        return;
+      }
+
       const { error: err, confirmationRequired } = await signUp(
-        email,
+        email.trim(),
         password,
-        username.toLowerCase().replace(/\s+/g, "_")
+        cleanUsername
       );
 
       if (err) {
         setError(err);
       } else if (confirmationRequired) {
         setInfoMessage(
-          "Account created! We sent a confirmation link to your email. Please verify your email before logging in."
+          "Account created. We sent a verification email to your address. Please verify to continue."
         );
         setMode("signin");
+      } else {
+        router.push(redirectUrl);
+      }
+    } else {
+      const { error: err } = await signIn(email.trim(), password);
+      if (err) {
+        setError(err);
       } else {
         router.push(redirectUrl);
       }
@@ -98,65 +87,60 @@ function AuthForm() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 px-6 py-12 transition-colors duration-300">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 px-4 sm:px-6 py-8 sm:py-12 transition-colors duration-300">
       <div className="noise-overlay" aria-hidden="true" />
       <div className="scanline-overlay" aria-hidden="true" />
 
-      <div className="w-full max-w-sm fade-in bg-white dark:bg-[#09090b] p-8 border-4 border-zinc-950 dark:border-zinc-800 shadow-[12px_12px_0px_0px_rgba(9,9,11,1)] dark:shadow-none">
+      <div className="w-full max-w-sm fade-in bg-white dark:bg-[#09090b] p-6 sm:p-8 border-4 border-zinc-950 dark:border-zinc-800 shadow-[8px_8px_0px_0px_rgba(9,9,11,1)] dark:shadow-none">
         {/* Navigation Back */}
         <div className="mb-6 flex items-center justify-between">
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors uppercase tracking-wider"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Dashboard
           </Link>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={handleInstantDemo}
-              className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-mono font-bold uppercase tracking-wider text-red-600 dark:text-red-400 border border-red-600/40 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-              title="Enter instant offline sandbox demo mode"
-            >
-              <Shield className="w-2.5 h-2.5" /> Demo Mode
-            </button>
-            <button
-              type="button"
-              onClick={handleDemoFill}
-              className="inline-flex items-center gap-1 px-2 py-1 text-[9px] font-mono font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-              title="Auto-fill sample admin credentials"
-            >
-              Fill Credentials
-            </button>
+          <div className="flex items-center gap-1 text-[10px] font-mono text-zinc-500 uppercase tracking-widest font-bold">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Secure Auth
           </div>
         </div>
 
         {/* Brand */}
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-black tracking-[-0.08em] text-zinc-950 dark:text-zinc-50">OATH</h1>
+        <div className="mb-6 text-center">
+          <h1 className="text-3xl sm:text-4xl font-black tracking-[-0.08em] text-zinc-950 dark:text-zinc-50">OATH</h1>
           <p className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 tracking-[0.25em] uppercase mt-1">
             Stake everything.
           </p>
         </div>
 
         {/* Toggle */}
-        <div className="flex border-4 border-zinc-950 dark:border-zinc-800 mb-8 bg-zinc-100 dark:bg-[#09090b] p-1 shadow-[inset_4px_4px_0px_0px_rgba(0,0,0,0.05)] dark:shadow-none">
+        <div className="flex border-4 border-zinc-950 dark:border-zinc-800 mb-6 bg-zinc-100 dark:bg-[#09090b] p-1 shadow-[inset_4px_4px_0px_0px_rgba(0,0,0,0.05)] dark:shadow-none">
           <button
-            onClick={() => { setMode("signin"); setError(null); setInfoMessage(null); }}
+            type="button"
+            onClick={() => {
+              setMode("signin");
+              setError(null);
+              setInfoMessage(null);
+            }}
             className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all ${
-              mode === "signin" 
-                ? "bg-zinc-950 text-white dark:bg-zinc-800/60 dark:text-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] dark:shadow-none" 
-                : "text-zinc-500 hover:text-zinc-950 dark:text-zinc-600 dark:hover:text-zinc-400"
+              mode === "signin"
+                ? "bg-zinc-950 text-white dark:bg-zinc-800/80 dark:text-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] dark:shadow-none"
+                : "text-zinc-500 hover:text-zinc-950 dark:text-zinc-500 dark:hover:text-zinc-300"
             }`}
           >
             Sign In
           </button>
           <button
-            onClick={() => { setMode("signup"); setError(null); setInfoMessage(null); }}
+            type="button"
+            onClick={() => {
+              setMode("signup");
+              setError(null);
+              setInfoMessage(null);
+            }}
             className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-all ${
-              mode === "signup" 
-                ? "bg-zinc-950 text-white dark:bg-zinc-800/60 dark:text-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] dark:shadow-none" 
-                : "text-zinc-500 hover:text-zinc-950 dark:text-zinc-600 dark:hover:text-zinc-400"
+              mode === "signup"
+                ? "bg-zinc-950 text-white dark:bg-zinc-800/80 dark:text-zinc-100 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] dark:shadow-none"
+                : "text-zinc-500 hover:text-zinc-950 dark:text-zinc-500 dark:hover:text-zinc-300"
             }`}
           >
             Create Account
@@ -165,25 +149,33 @@ function AuthForm() {
 
         {/* Informational Message */}
         {infoMessage && (
-          <div className="mb-6 p-3 bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-600 text-emerald-800 dark:text-emerald-300 text-xs font-mono font-bold flex items-start gap-2">
+          <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-600 text-emerald-800 dark:text-emerald-300 text-xs font-mono font-bold flex items-start gap-2">
             <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
             <span>{infoMessage}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        {/* Error Alert */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border-2 border-red-600 text-red-700 dark:text-red-300 text-xs font-mono font-bold flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Username (signup only) */}
           {mode === "signup" && (
             <div className="fade-in">
-              <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-500 uppercase tracking-[0.15em] mb-2 block">
+              <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.15em] mb-1.5 block">
                 Username
               </label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="reaper_exe"
-                className="w-full px-4 py-3.5 text-sm font-medium border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 focus:border-red-600 dark:focus:border-zinc-600 outline-none transition-colors text-zinc-950 dark:text-zinc-50 shadow-[4px_4px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
+                placeholder="iron_will"
+                className="w-full px-3.5 py-3 text-sm font-medium border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 focus:border-red-600 dark:focus:border-zinc-500 outline-none transition-colors text-zinc-950 dark:text-zinc-50 shadow-[3px_3px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
                 autoComplete="username"
                 required
               />
@@ -192,15 +184,15 @@ function AuthForm() {
 
           {/* Email */}
           <div>
-            <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-500 uppercase tracking-[0.15em] mb-2 block">
-              Email
+            <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.15em] mb-1.5 block">
+              Email Address
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@nowhere.com"
-              className="w-full px-4 py-3.5 text-sm font-medium border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 focus:border-red-600 dark:focus:border-zinc-600 outline-none transition-colors text-zinc-950 dark:text-zinc-50 shadow-[4px_4px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
+              placeholder="you@domain.com"
+              className="w-full px-3.5 py-3 text-sm font-medium border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 focus:border-red-600 dark:focus:border-zinc-500 outline-none transition-colors text-zinc-950 dark:text-zinc-50 shadow-[3px_3px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
               autoComplete="email"
               required
             />
@@ -208,8 +200,8 @@ function AuthForm() {
 
           {/* Password */}
           <div>
-            <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-500 uppercase tracking-[0.15em] mb-2 block">
-              Password
+            <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.15em] mb-1.5 block">
+              Password {mode === "signup" && <span className="text-[9px] text-zinc-400">(min 8 chars)</span>}
             </label>
             <div className="relative">
               <input
@@ -217,55 +209,53 @@ function AuthForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-4 py-3.5 pr-12 text-sm font-medium border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 focus:border-red-600 dark:focus:border-zinc-600 outline-none transition-colors text-zinc-950 dark:text-zinc-50 shadow-[4px_4px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
+                className="w-full px-3.5 py-3 pr-11 text-sm font-medium border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 focus:border-red-600 dark:focus:border-zinc-500 outline-none transition-colors text-zinc-950 dark:text-zinc-50 shadow-[3px_3px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPw(!showPw)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-950 dark:text-zinc-600 dark:hover:text-zinc-400 transition-colors"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors p-1"
+                aria-label={showPw ? "Hide password" : "Show password"}
               >
-                {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
           </div>
-
-          {/* Error */}
-          {error && (
-            <div className="flex items-center gap-2 text-red-500 fade-in">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              <span className="text-[11px] font-mono">{error}</span>
-            </div>
-          )}
 
           {/* Submit */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 py-4 mt-6 bg-red-600 text-white text-base font-black uppercase tracking-tight hover:bg-red-700 hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_rgba(9,9,11,1)] dark:hover:shadow-[0_0_20px_rgba(220,38,38,0.3)] active:translate-y-0 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed transition-all border-4 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
+            className="w-full py-3.5 px-4 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 font-black text-xs uppercase tracking-widest hover:bg-zinc-800 dark:hover:bg-zinc-200 active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center justify-center gap-2 border-2 border-zinc-950 dark:border-zinc-100 shadow-[4px_4px_0px_0px_rgba(9,9,11,1)] dark:shadow-none disabled:opacity-60 disabled:pointer-events-none mt-2"
           >
             {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Processing...</span>
+              </>
+            ) : mode === "signin" ? (
+              "Sign In to Escrow"
             ) : (
-              <Zap className="w-5 h-5" />
+              "Create Account & Join"
             )}
-            {loading ? "Working..." : mode === "signin" ? "Enter Arena" : "Create Account"}
           </button>
         </form>
 
-        <p className="text-center text-[10px] font-mono font-bold text-zinc-500 dark:text-zinc-600 mt-8 leading-relaxed">
-          By continuing you agree to our{" "}
-          <Link href="/terms" className="underline hover:text-zinc-900 dark:hover:text-zinc-300">
-            Terms of Service
-          </Link>
-          {" "}and{" "}
-          <Link href="/privacy" className="underline hover:text-zinc-900 dark:hover:text-zinc-300">
-            Privacy Policy
-          </Link>.
-          <br />
-          Consequences are real. Excuses are not.
-        </p>
+        {/* Footer info */}
+        <div className="mt-6 pt-4 border-t border-zinc-200 dark:border-zinc-800 text-center">
+          <p className="text-[10px] text-zinc-500 font-mono">
+            By signing in, you agree to Oath&apos;s{" "}
+            <Link href="/terms" className="underline hover:text-zinc-950 dark:hover:text-zinc-200">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="underline hover:text-zinc-950 dark:hover:text-zinc-200">
+              Privacy Policy
+            </Link>.
+          </p>
+        </div>
       </div>
     </div>
   );
