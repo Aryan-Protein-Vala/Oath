@@ -11,6 +11,7 @@ import ProfileView from "@/components/ProfileView";
 import LandingView from "@/components/LandingView";
 import WalletModal from "@/components/WalletModal";
 import NotificationsPanel from "@/components/NotificationsPanel";
+import { showToast } from "@/components/Toast";
 import { useAuth } from "@/lib/auth-context";
 import { useOaths, useSquadLobbies, useWall, useTransactions, isMockMode } from "@/lib/data-hooks";
 import { createClient } from "@/lib/supabase/client";
@@ -71,6 +72,43 @@ export default function Home() {
       supabase.removeChannel(channel);
     };
   }, [user]);
+
+  // Handle return from PayPal redirect
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const paypalSuccess = params.get("paypal_success");
+    const orderId = params.get("order_id");
+
+    if (paypalSuccess === "true" && orderId) {
+      window.history.replaceState({}, "", window.location.pathname);
+      (async () => {
+        try {
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+
+          const res = await fetch("/api/paypal/verify", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({ paypal_order_id: orderId }),
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showToast("PayPal deposit completed successfully!", "success");
+            refreshWallet();
+          } else {
+            showToast(data.error || "PayPal verification failed", "error");
+          }
+        } catch {
+          showToast("Failed to verify PayPal payment", "error");
+        }
+      })();
+    }
+  }, [refreshWallet]);
 
   // Show loading state while auth resolves
   if (loading) {

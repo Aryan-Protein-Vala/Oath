@@ -20,38 +20,60 @@ const RegionContext = createContext<RegionContextType>({
 });
 
 export function RegionProvider({ children }: { children: React.ReactNode }) {
-  const [region, setRegion] = useState<Region>("global");
+  const [region, setRegionState] = useState<Region>("global");
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
+    // 1. If user previously chose a region preference, prioritize it unconditionally
+    try {
+      const saved = typeof window !== "undefined" ? (localStorage.getItem("oath_region") as Region | null) : null;
+      if (saved === "global" || saved === "in") {
+        setRegionState(saved);
+        setIsInitializing(false);
+        return;
+      }
+    } catch {
+      // Ignore localStorage read errors in private browsing
+    }
+
     const detectRegion = async () => {
       try {
-        // 1. Instant Timezone Check (Zero latency, no rate limits)
+        // 2. Instant Timezone Check (Zero latency, no rate limits)
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
         if (tz === "Asia/Kolkata" || tz === "Asia/Calcutta") {
-          setRegion("in");
+          setRegionState("in");
           return;
         }
         
-        // 2. Fallback to IP check if timezone isn't strictly India but they might be
+        // 3. Fallback to IP check if timezone isn't strictly India
         const res = await fetch("https://ipapi.co/json/");
         const data = await res.json();
         if (data.country_code === "IN" || data.country === "IN") {
-          setRegion("in");
+          setRegionState("in");
         } else {
-          setRegion("global");
+          setRegionState("global");
         }
       } catch (err) {
         console.error("Failed to detect region:", err);
-        // Fallback to global if everything fails
-        setRegion("global");
+        setRegionState("global");
       } finally {
-        setTimeout(() => setIsInitializing(false), 500);
+        setIsInitializing(false);
       }
     };
 
     detectRegion();
   }, []);
+
+  const setRegion = (newRegion: Region) => {
+    setRegionState(newRegion);
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("oath_region", newRegion);
+      }
+    } catch (e) {
+      console.warn("Could not save region preference to localStorage", e);
+    }
+  };
 
   const formatCurrency = (usdAmount: number) => {
     return utilsFormatCurrency(usdAmount, region);

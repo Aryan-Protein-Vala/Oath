@@ -1,21 +1,30 @@
 import { NextResponse } from "next/server";
+import { createPayPalOrder } from "@/lib/paypal";
 
 export async function POST(request: Request) {
   try {
-    const { amount, currency } = await request.json();
+    const { amount, currency = "USD" } = await request.json();
 
-    if (!amount || amount <= 0) {
+    const numericAmount = Number(amount);
+    if (!numericAmount || numericAmount <= 0 || isNaN(numericAmount)) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }
 
-    // In a real app, you would call the PayPal REST API to create an order here:
-    // const response = await fetch("https://api-m.sandbox.paypal.com/v2/checkout/orders", { ... })
-    // For now, we simulate the order creation with a mock ID
-    const mockOrderId = `PAYPAL_MOCK_ORDER_${Date.now()}`;
+    if (numericAmount > 50000) {
+      return NextResponse.json({ error: "Amount exceeds maximum deposit limit" }, { status: 400 });
+    }
+
+    // Create real PayPal order using PayPal REST API
+    const order = await createPayPalOrder(numericAmount, currency, "OATH Wallet Deposit");
+
+    const approveLink = order.links?.find((l: { rel: string; href: string }) => l.rel === "approve");
 
     return NextResponse.json({
-      id: mockOrderId,
-      amount: amount,
+      id: order.id,
+      status: order.status,
+      links: order.links,
+      approveUrl: approveLink ? approveLink.href : null,
+      amount: numericAmount,
       currency: currency || "USD",
     });
   } catch (error: unknown) {

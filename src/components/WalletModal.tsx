@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X,
   Plus,
@@ -13,6 +13,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { depositFunds, withdrawFunds, isMockMode } from "@/lib/data-hooks";
+import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, formatCurrencyPrecise, formatRelativeTime, convertToUSD, convertToLocal } from "@/lib/utils";
 import type { Wallet, Transaction } from "@/lib/types";
 import { showToast } from "./Toast";
@@ -44,7 +45,9 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [paypalEmail, setPaypalEmail] = useState("");
-  const { region, formatCurrency: formatRegionCurrency } = useRegion();
+  const { region, setRegion, formatCurrency: formatRegionCurrency } = useRegion();
+
+  const activeOrderRef = useRef<string | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -54,25 +57,25 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  // Load Razorpay script for India flow
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
   const QUICK_AMOUNTS = region === "in" ? [500, 1000, 2500, 5000, 10000, 25000] : [25, 50, 100, 250, 500, 1000];
 
   const amountNum = parseFloat(amount) || 0;
   const amountUsd = convertToUSD(amountNum, region);
   const canWithdraw = amountNum > 0 && amountUsd <= wallet.balance;
   const canDeposit = amountNum > 0 && amountNum <= 50000;
-
-  useEffect(() => {
-    // Load Razorpay script
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    document.body.appendChild(script);
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
-
-  const activeTransactions = transactions;
 
   const handleAction = async () => {
     if (amountNum <= 0) return;
@@ -95,72 +98,122 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
 
       try {
         if (region === "global") {
-          // PayPal Flow
+          // Real PayPal Checkout Flow
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+
           const res = await fetch("/api/paypal/create-order", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {})
+            },
             body: JSON.stringify({ amount: amountNum, currency: "USD" }),
           });
+
           const order = await res.json();
           if (order.error) throw new Error(order.error);
 
-          setLoading(true);
-          
-          // Simulate PayPal popup
-          const popup = window.open("", "PayPal Checkout", "width=500,height=600");
-          if (popup) {
-            popup.document.write(`
-              <html style="font-family: sans-serif; text-align: center; padding-top: 50px;">
-                <body>
-                  <h2>PayPal Mock Checkout</h2>
-                  <p>Processing $${amountNum}...</p>
-                  <p style="color: gray; font-size: 12px;">This window will close automatically.</p>
-                </body>
-              </html>
-            `);
+          if (!order.approveUrl) {
+            throw new Error("PayPal did not return an approval link");
           }
 
-          setTimeout(async () => {
-             if (popup && !popup.closed) popup.close();
-             try {
-                const verifyRes = await fetch("/api/paypal/verify", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    paypal_order_id: order.id,
-                    amount: amountUsd
-                  }),
-                });
-                const verifyData = await verifyRes.json();
-                if (!verifyRes.ok || !verifyData.success) {
-                  throw new Error(verifyData.error || "PayPal payment failed");
-                }
+          activeOrderRef.current = order.id;
+          setLoading(true);
 
-                setDone(true);
-                showToast(`${formatRegionCurrency(amountUsd)} added via PayPal.`, "success");
-                onRefresh();
-                setTimeout(() => { setDone(false); setAmount(""); setTab("overview"); }, 1500);
-             } catch (err: unknown) {
-                const message = err instanceof Error ? err.message : "Verification failed";
-                showToast(message, "error");
-             } finally {
-                setLoading(false);
-             }
-          }, 2000);
+          // Open real PayPal checkout in a popup window
+          const width = 500;
+          const height = 680;
+          const left = window.screenX + (window.outerWidth - width) / 2;
+          const top = window.screenY + (window.outerHeight - height) / 2;
+          const popup = window.open(
+            order.approveUrl,
+            "PayPal_Checkout",
+            `width=${width},height=${height},left=${left},top=${top},status=no,toolbar=no,menubar=no`
+          );
+
+          if (!popup || popup.closed || typeof popup.closed === "undefined") {
+            // Popup blocked by browser — redirect directly
+            window.location.href = order.approveUrl;
+            return;
+          }
+
+          showToast("Complete payment in the PayPal window...", "info");
+
+          let verified = false;
+          const completeVerification = async () => {
+            if (verified) return;
+            verified = true;
+            try {
+              setLoading(true);
+              const verifyRes = await fetch("/api/paypal/verify", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(token ? { "Authorization": `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({
+                  paypal_order_id: order.id,
+                  amount: amountUsd,
+                }),
+              });
+              const verifyData = await verifyRes.json();
+              if (!verifyRes.ok || !verifyData.success) {
+                throw new Error(verifyData.error || "Payment was not completed");
+              }
+
+              setDone(true);
+              showToast(`$${amountNum.toFixed(2)} added via PayPal.`, "success");
+              onRefresh();
+              setTimeout(() => { setDone(false); setAmount(""); setTab("overview"); }, 1500);
+            } catch (err: unknown) {
+              const message = err instanceof Error ? err.message : "Payment verification failed";
+              showToast(message, "error");
+            } finally {
+              setLoading(false);
+            }
+          };
+
+          const messageHandler = (event: MessageEvent) => {
+            if (event.data?.type === "PAYPAL_APPROVED" && event.data?.orderId === order.id) {
+              window.removeEventListener("message", messageHandler);
+              if (pollTimer) clearInterval(pollTimer);
+              completeVerification();
+            }
+          };
+          window.addEventListener("message", messageHandler);
+
+          const pollTimer = setInterval(() => {
+            if (popup.closed) {
+              clearInterval(pollTimer);
+              window.removeEventListener("message", messageHandler);
+              setTimeout(() => {
+                completeVerification();
+              }, 600);
+            }
+          }, 1000);
+
           return;
         }
 
         // Razorpay Flow (India)
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
         const res = await fetch("/api/razorpay/create-order", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({ amount: amountNum, currency: region === "in" ? "INR" : "USD" }),
         });
         const order = await res.json();
 
         if (order.error) throw new Error(order.error);
 
-        // 2. Initialize Razorpay Checkout
         interface RazorpaySuccessResponse {
           razorpay_order_id?: string;
           razorpay_payment_id?: string;
@@ -177,10 +230,12 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           handler: async function (response: RazorpaySuccessResponse) {
             setLoading(true);
             try {
-              // 3. Verify signature on backend
               const verifyRes = await fetch("/api/razorpay/verify", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(token ? { "Authorization": `Bearer ${token}` } : {})
+                },
                 body: JSON.stringify({
                   razorpay_order_id: response.razorpay_order_id || order.id,
                   razorpay_payment_id: response.razorpay_payment_id,
@@ -193,7 +248,6 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                 throw new Error(verifyData.error || "Payment verification failed");
               }
 
-              // Funds are now securely deposited by the backend route
               setDone(true);
               showToast(`${formatRegionCurrency(amountUsd)} added to your wallet.`, "success");
               onRefresh();
@@ -267,7 +321,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
         }
         setLoading(false);
       } else {
-        // Withdrawal request for global users
+        // Withdrawal request for global users (PayPal)
         const email = paypalEmail.trim();
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!email || !emailRegex.test(email)) {
@@ -302,12 +356,12 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           return;
         }
 
-        const { error } = await withdrawFunds(amountUsd, paypalEmail.trim());
+        const { error } = await withdrawFunds(amountUsd, `PayPal (${paypalEmail.trim()})`);
         if (error) {
           showToast(`Withdrawal failed: ${error}`, "error");
         } else {
           setDone(true);
-          showToast(`${formatRegionCurrency(amountUsd)} withdrawal requested.`, "success");
+          showToast(`${formatRegionCurrency(amountUsd)} withdrawal requested to PayPal.`, "success");
           onRefresh();
           setTimeout(() => { setDone(false); setAmount(""); setPaypalEmail(""); setTab("overview"); }, 2000);
         }
@@ -348,8 +402,8 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           </div>
         </div>
 
-        <p className="px-5 py-3 text-[10px] font-mono text-zinc-700 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
-          Deposits are processed securely. Withdrawals are processed manually to your requested destination (within 24 hours).
+        <p className="px-5 py-2.5 text-[10px] font-mono text-zinc-700 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
+          Deposits are processed securely via PayPal or Razorpay. Withdrawals are processed manually within 24 hours.
         </p>
 
         {/* Tab Row */}
@@ -376,10 +430,10 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           {/* OVERVIEW — Transaction History */}
           {tab === "overview" && (
             <div className="space-y-0 max-h-72 overflow-y-auto">
-              {activeTransactions.map((tx) => (
+              {transactions.map((tx) => (
                 <TxRow key={tx.id} tx={tx} region={region} />
               ))}
-              {activeTransactions.length === 0 && (
+              {transactions.length === 0 && (
                 <p className="text-center text-zinc-500 text-xs font-mono py-8">
                   No transactions yet
                 </p>
@@ -399,6 +453,42 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                 </div>
               ) : (
                 <>
+                  {/* Gateway & Currency Selector */}
+                  <div className="flex items-center justify-between p-2.5 bg-zinc-100 dark:bg-zinc-900/60 border-2 border-zinc-950 dark:border-zinc-800">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 shrink-0">
+                        Gateway:
+                      </span>
+                      <span className="text-xs font-black uppercase text-zinc-950 dark:text-zinc-100 truncate">
+                        {region === "global" ? "PayPal (USD)" : "Razorpay (INR)"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => { setRegion("global"); setAmount(""); }}
+                        className={`px-2.5 py-1 text-[10px] font-mono font-black uppercase border transition-colors ${
+                          region === "global"
+                            ? "bg-zinc-950 text-white border-zinc-950 dark:bg-zinc-100 dark:text-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                            : "border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-950 dark:hover:text-zinc-200"
+                        }`}
+                      >
+                        🌐 PayPal (USD)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setRegion("in"); setAmount(""); }}
+                        className={`px-2.5 py-1 text-[10px] font-mono font-black uppercase border transition-colors ${
+                          region === "in"
+                            ? "bg-zinc-950 text-white border-zinc-950 dark:bg-zinc-100 dark:text-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                            : "border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-950 dark:hover:text-zinc-200"
+                        }`}
+                      >
+                        🇮🇳 Razorpay (INR)
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Amount input */}
                   <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-950/50">
                     <div className="flex items-center gap-2">
@@ -427,13 +517,13 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                   {tab === "withdraw" && (
                     <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-950/50">
                       <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.2em] mb-2 block">
-                        Withdrawal Details (UPI / PayPal)
+                        {region === "in" ? "UPI ID (Instant Bank Settlement)" : "PayPal Account Email"}
                       </label>
                       <input
-                        type="text"
+                        type={region === "in" ? "text" : "email"}
                         value={paypalEmail}
                         onChange={(e) => setPaypalEmail(e.target.value)}
-                        placeholder="Enter UPI ID or PayPal Email"
+                        placeholder={region === "in" ? "name@okhdfcbank or 9876543210@paytm" : "yourname@domain.com"}
                         className="w-full text-base sm:text-sm font-bold text-zinc-950 dark:text-zinc-100 bg-transparent border-b-2 border-zinc-300 dark:border-zinc-700 focus:border-zinc-950 dark:focus:border-zinc-500 p-2 focus:outline-none transition-colors"
                       />
                     </div>
@@ -451,7 +541,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                             : "border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-600 hover:text-zinc-900"
                         }`}
                       >
-                        {formatRegionCurrency(convertToUSD(a, region))}
+                        {region === "in" ? `₹${a}` : `$${a}`}
                       </button>
                     ))}
                   </div>
@@ -486,11 +576,17 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                     )}
                     {loading
                       ? "Processing..."
-                      : `${tab === "deposit" ? "Add funds" : "Withdraw funds"} ${amountNum > 0 ? formatRegionCurrency(amountUsd) : ""}`}
+                      : tab === "deposit"
+                      ? `Deposit ${amountNum > 0 ? (region === "global" ? `$${amountNum.toFixed(2)}` : `₹${amountNum}`) : ""} via ${region === "global" ? "PayPal" : "Razorpay"}`
+                      : `Withdraw ${amountNum > 0 ? formatRegionCurrency(amountUsd) : ""}`}
                   </button>
 
                   <p className="text-[10px] font-mono text-zinc-500 text-center mt-2">
-                    {tab === "deposit" ? (region === "in" ? "Processed securely by Razorpay." : "Processed securely by PayPal.") : "Withdrawals processed manually within 24 hours."}
+                    {tab === "deposit"
+                      ? region === "global"
+                        ? "Global deposits processed securely via PayPal Live Checkout."
+                        : "India deposits processed securely via Razorpay (UPI, Cards, Netbanking)."
+                      : "Withdrawals processed manually within 24 hours."}
                   </p>
                 </>
               )}
