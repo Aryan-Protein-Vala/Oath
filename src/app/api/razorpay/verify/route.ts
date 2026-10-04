@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, createAdminClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   try {
@@ -20,7 +20,9 @@ export async function POST(request: Request) {
     // Support mock order verification when testing in development or mock mode
     if (typeof razorpay_order_id === "string" && razorpay_order_id.startsWith("order_mock_")) {
       if (user && amount && Number(amount) > 0) {
-        await supabase.rpc("add_funds", {
+        const supabaseAdmin = createAdminClient();
+        await supabaseAdmin.rpc("add_funds_server", {
+          p_user_id: user.id,
           p_amount: Number(amount),
           p_description: "Deposited funds (Demo Mode)"
         });
@@ -50,7 +52,9 @@ export async function POST(request: Request) {
 
     // Credit verified deposit on server if amount and user are present
     if (user && amount && Number(amount) > 0) {
-      const { error: depositError } = await supabase.rpc("add_funds", {
+      const supabaseAdmin = createAdminClient();
+      const { error: depositError } = await supabaseAdmin.rpc("add_funds_server", {
+        p_user_id: user.id,
         p_amount: Number(amount),
         p_description: `Deposited funds via Razorpay (${razorpay_payment_id})`
       });

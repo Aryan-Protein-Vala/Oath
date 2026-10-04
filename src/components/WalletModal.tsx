@@ -94,7 +94,63 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
       }
 
       try {
-        // 1. Create order on our backend
+        if (region === "glb") {
+          // PayPal Flow
+          const res = await fetch("/api/paypal/create-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ amount: amountNum, currency: "USD" }),
+          });
+          const order = await res.json();
+          if (order.error) throw new Error(order.error);
+
+          setLoading(true);
+          
+          // Simulate PayPal popup
+          const popup = window.open("", "PayPal Checkout", "width=500,height=600");
+          if (popup) {
+            popup.document.write(`
+              <html style="font-family: sans-serif; text-align: center; padding-top: 50px;">
+                <body>
+                  <h2>PayPal Mock Checkout</h2>
+                  <p>Processing $${amountNum}...</p>
+                  <p style="color: gray; font-size: 12px;">This window will close automatically.</p>
+                </body>
+              </html>
+            `);
+          }
+
+          setTimeout(async () => {
+             if (popup && !popup.closed) popup.close();
+             try {
+                const verifyRes = await fetch("/api/paypal/verify", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    paypal_order_id: order.id,
+                    amount: amountUsd
+                  }),
+                });
+                const verifyData = await verifyRes.json();
+                if (!verifyRes.ok || !verifyData.success) {
+                  throw new Error(verifyData.error || "PayPal payment failed");
+                }
+
+                setDone(true);
+                showToast(`${formatRegionCurrency(amountUsd)} added via PayPal.`, "success");
+                onRefresh();
+                setTimeout(() => { setDone(false); setAmount(""); setTab("overview"); }, 1500);
+             } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : "Verification failed";
+                showToast(message, "error");
+             } finally {
+                setLoading(false);
+             }
+          }, 2000);
+          return;
+        }
+
+        // Razorpay Flow (India)
         const res = await fetch("/api/razorpay/create-order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -433,7 +489,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                   </button>
 
                   <p className="text-[10px] font-mono text-zinc-500 text-center mt-2">
-                    {tab === "deposit" ? "Processed securely by Razorpay." : "Withdrawals processed manually within 24 hours."}
+                    {tab === "deposit" ? (region === "in" ? "Processed securely by Razorpay." : "Processed securely by PayPal.") : "Withdrawals processed manually within 24 hours."}
                   </p>
                 </>
               )}
