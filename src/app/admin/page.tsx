@@ -104,7 +104,7 @@ interface FeatureFlags {
   maxStake: number;
 }
 
-type AdminTab = "analytics" | "users" | "oaths" | "disputes" | "cron" | "broadcast" | "flags" | "audit";
+type AdminTab = "analytics" | "users" | "oaths" | "disputes" | "cron" | "broadcast" | "flags" | "audit" | "vault";
 
 // ============================================================
 // MOCK DATA
@@ -770,6 +770,7 @@ export default function AdminDashboard() {
     { id: "broadcast", label: "Broadcast", icon: <Megaphone className="w-3.5 h-3.5" /> },
     { id: "flags", label: "Flags", icon: <Settings className="w-3.5 h-3.5" /> },
     { id: "audit", label: "Audit", icon: <FileText className="w-3.5 h-3.5" />, badge: auditLog.length },
+    { id: "vault", label: "Vault", icon: <DollarSign className="w-3.5 h-3.5" /> },
   ];
 
   // ============================================================
@@ -992,6 +993,54 @@ export default function AdminDashboard() {
                     ))
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* TAB: VAULT */}
+        {/* ============================================================ */}
+        {activeTab === "vault" && (
+          <div className="space-y-6 fade-in">
+            <div className="border-2 border-zinc-950 dark:border-zinc-800 bg-zinc-950 text-zinc-100 dark:bg-zinc-100 dark:text-zinc-950 p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
+              <h2 className="text-xl font-black uppercase tracking-widest flex items-center gap-2 mb-2">
+                <DollarSign className="w-6 h-6" /> Platform Finances
+              </h2>
+              <p className="text-sm font-mono opacity-80 mb-6 uppercase">Real-time ledger transparency.</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-zinc-900 dark:bg-zinc-200 border border-zinc-800 dark:border-zinc-300 p-4">
+                  <p className="text-xs font-mono opacity-70 uppercase mb-1">Total TVL (Escrow)</p>
+                  <p className="text-2xl font-black">${stats.totalEscrowLocked.toLocaleString()}</p>
+                  <p className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 mt-2 uppercase">Not ours (Holded)</p>
+                </div>
+                <div className="bg-zinc-900 dark:bg-zinc-200 border border-zinc-800 dark:border-zinc-300 p-4">
+                  <p className="text-xs font-mono opacity-70 uppercase mb-1">Liquid Float</p>
+                  <p className="text-2xl font-black text-blue-400 dark:text-blue-600">${(stats.totalEscrowLocked * 0.1).toLocaleString()}</p>
+                  <p className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 mt-2 uppercase">10% of TVL (Usable)</p>
+                </div>
+                <div className="bg-zinc-900 dark:bg-zinc-200 border border-zinc-800 dark:border-zinc-300 p-4">
+                  <p className="text-xs font-mono opacity-70 uppercase mb-1">Pure Profit</p>
+                  <p className="text-2xl font-black text-green-400 dark:text-green-600">${stats.totalMoneyLost.toLocaleString()}</p>
+                  <p className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 mt-2 uppercase">Total Money Lost</p>
+                </div>
+                <div className="bg-zinc-900 dark:bg-zinc-200 border border-zinc-800 dark:border-zinc-300 p-4">
+                  <p className="text-xs font-mono opacity-70 uppercase mb-1">Total Balances</p>
+                  <p className="text-2xl font-black">${(stats.totalDeposited - stats.totalWithdrawn - stats.totalEscrowLocked).toLocaleString()}</p>
+                  <p className="text-[10px] font-mono text-zinc-400 dark:text-zinc-500 mt-2 uppercase">Free cash in wallets</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-900/50">
+                <h3 className="text-sm font-black uppercase mb-2">Total Deposited</h3>
+                <p className="text-xl font-mono">${stats.totalDeposited.toLocaleString()}</p>
+              </div>
+              <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-900/50">
+                <h3 className="text-sm font-black uppercase mb-2">Total Withdrawn</h3>
+                <p className="text-xl font-mono">${stats.totalWithdrawn.toLocaleString()}</p>
               </div>
             </div>
           </div>
