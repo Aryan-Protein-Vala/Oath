@@ -82,7 +82,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
 
   // Handle mobile-exclusive features
   const handleMobileExclusive = (feature: string) => {
-    showToast(`${feature} — Available only on mobile app.`, "error", 5000);
+    showToast(`${feature} is an upcoming native Mobile App exclusive. It cannot be used on this web version.`, "info", 6000);
   };
 
   const [submitting, setSubmitting] = useState(false);
@@ -402,11 +402,11 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                   <TypeButton
                     icon={<Lock className="w-3.5 h-3.5" />}
                     label="Digital Lockout"
-                    sublabel="App blackout"
+                    sublabel="App Only"
                     isActive={consequenceType === "app_blocking"}
                     onClick={() => handleMobileExclusive("Digital Lockout")}
                     disabled
-                    onInfo={() => setInfoModal({ title: "Digital Lockout", desc: "Available on Mobile only. Locks down Instagram, TikTok, and Reddit on your OS if you fail to complete your oath." })}
+                    onInfo={() => setInfoModal({ title: "Digital Lockout (App Only)", desc: "IMPORTANT: This feature requires our native mobile application (iOS/Android). If you fail an oath, it uses OS-level permissions to physically lock you out of distracting apps like Instagram, TikTok, and Reddit." })}
                   />
                   <TypeButton
                     icon={<Flame className="w-4 h-4" />}
@@ -791,8 +791,18 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
               <div className="flex items-center gap-2 mb-3">
                 <Shield className="w-3.5 h-3.5 text-zinc-500" />
                 <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-500 uppercase tracking-[0.2em]">
-                  Nominee @username or Referee Email
+                  Nominee @username
                 </span>
+                <button 
+                  type="button" 
+                  onClick={() => setInfoModal({ 
+                    title: "Trustworthy Nominees", 
+                    desc: "A Nominee is the sole judge of your oath. If you pick someone who easily caves to your excuses, you are wasting your money. Pick someone ruthless."
+                  })}
+                  className="ml-auto text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
+                >
+                  <Info className="w-3.5 h-3.5" />
+                </button>
               </div>
               <div className="relative">
                 <input
@@ -804,9 +814,15 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                   }}
                   onFocus={() => { if (nomineeSuggestions.length > 0) setShowNomineeSuggestions(true); }}
                   onBlur={() => setTimeout(() => setShowNomineeSuggestions(false), 200)}
-                  placeholder="@username or referee@email.com"
+                  placeholder="@username"
                   className="w-full px-3.5 py-3 text-base sm:text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
                 />
+                <div className="mt-2 p-2 bg-yellow-100/50 dark:bg-yellow-950/30 border border-yellow-300 dark:border-yellow-900/50 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-500 mt-0.5 shrink-0" />
+                  <p className="text-[10px] sm:text-xs text-yellow-800 dark:text-yellow-200/80 font-mono leading-tight">
+                    <strong className="font-bold">IMPORTANT:</strong> Type `@` followed by the username of a trustworthy referee. <span className="underline decoration-yellow-400/50">The nominee must already have an account on this app</span>, otherwise they cannot verify your proof.
+                  </p>
+                </div>
                 
                 {showNomineeSuggestions && nomineeSuggestions.length > 0 && (
                   <div
