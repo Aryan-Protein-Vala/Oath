@@ -453,41 +453,6 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                 </div>
               ) : (
                 <>
-                  {/* Gateway & Currency Selector */}
-                  <div className="flex items-center justify-between p-2.5 bg-zinc-100 dark:bg-zinc-900/60 border-2 border-zinc-950 dark:border-zinc-800">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 shrink-0">
-                        Gateway:
-                      </span>
-                      <span className="text-xs font-black uppercase text-zinc-950 dark:text-zinc-100 truncate">
-                        {region === "global" ? "PayPal (USD)" : "Razorpay (INR)"}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => { setRegion("global"); setAmount(""); }}
-                        className={`px-2.5 py-1 text-[10px] font-mono font-black uppercase border transition-colors ${
-                          region === "global"
-                            ? "bg-zinc-950 text-white border-zinc-950 dark:bg-zinc-100 dark:text-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
-                            : "border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-950 dark:hover:text-zinc-200"
-                        }`}
-                      >
-                        🌐 PayPal (USD)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setRegion("in"); setAmount(""); }}
-                        className={`px-2.5 py-1 text-[10px] font-mono font-black uppercase border transition-colors ${
-                          region === "in"
-                            ? "bg-zinc-950 text-white border-zinc-950 dark:bg-zinc-100 dark:text-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
-                            : "border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-950 dark:hover:text-zinc-200"
-                        }`}
-                      >
-                        🇮🇳 Razorpay (INR)
-                      </button>
-                    </div>
-                  </div>
 
                   {/* Amount input */}
                   <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-950/50">
