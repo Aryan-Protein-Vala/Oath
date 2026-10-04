@@ -37,9 +37,9 @@ export default function TopNav({
 
   return (
     <nav className="w-full border-b-2 sm:border-b-4 border-zinc-950 dark:border-zinc-800/80 bg-zinc-50/95 dark:bg-[#09090b]/95 backdrop-blur-md transition-colors duration-300">
-      <div className="flex items-center justify-between h-14 sm:h-16 px-5 max-w-7xl mx-auto w-full">
+      <div className="flex items-center justify-between h-14 sm:h-16 px-2.5 sm:px-5 max-w-7xl mx-auto w-full">
         {/* Logo / Brand */}
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-3 sm:gap-5">
           <button
             onClick={() => onViewChange("active")}
             className="flex items-center gap-2 group"
@@ -63,7 +63,7 @@ export default function TopNav({
         </div>
 
         {/* Right Side */}
-        <div className="flex items-center gap-1.5 sm:gap-3">
+        <div className="flex items-center gap-1 sm:gap-3">
           {/* Region Toggle Button */}
           {mounted && (
             <button
@@ -112,11 +112,11 @@ export default function TopNav({
           {/* Wallet Balance */}
           <button
             onClick={onWalletClick}
-            className="flex items-center gap-1.5 sm:gap-2 border-2 border-zinc-950 dark:border-zinc-800 px-2 sm:px-3 py-1 sm:py-1.5 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none"
+            className="flex items-center gap-1.5 sm:gap-2 border-2 border-zinc-950 dark:border-zinc-800 px-2 sm:px-3 py-1 sm:py-1.5 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none shrink-0"
           >
             <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-950 dark:text-zinc-500 shrink-0" />
-            <div className="flex flex-col text-left">
-              <span className="text-[11px] sm:text-xs font-mono font-black text-zinc-950 dark:text-zinc-50 stake-number leading-none">
+            <div className="flex flex-col text-left min-w-0">
+              <span className="text-[11px] sm:text-xs font-mono font-black text-zinc-950 dark:text-zinc-50 stake-number leading-none truncate max-w-[68px] sm:max-w-none">
                 {formatCurrencyPrecise(wallet.balance, region)}
               </span>
               <span className="text-[8px] sm:text-[9px] font-mono font-bold text-zinc-600 dark:text-zinc-500 leading-none mt-0.5 hidden sm:inline-block">
@@ -133,13 +133,13 @@ export default function TopNav({
           {/* User / Profile */}
           <button
             onClick={() => onViewChange("profile")}
-            className={`w-9 h-9 border-2 flex items-center justify-center transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 border-2 flex items-center justify-center transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none shrink-0 ${
               currentView === "profile"
                 ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-500 dark:bg-zinc-800 dark:text-zinc-300"
                 : "border-zinc-950 bg-zinc-50 text-zinc-950 dark:border-zinc-800 dark:bg-[#09090b] dark:text-zinc-400"
             }`}
           >
-            <span className="text-[11px] font-mono font-black uppercase">
+            <span className="text-[10px] sm:text-[11px] font-mono font-black uppercase">
               {username.substring(0, 2)}
             </span>
           </button>
@@ -153,7 +153,6 @@ export default function TopNav({
         <MobileNavTab icon={<Users className="w-3.5 h-3.5" />} label="Lobbies" isActive={currentView === "lobbies"} onClick={() => onViewChange("lobbies")} />
         <MobileNavTab icon={<Skull className="w-3.5 h-3.5" />} label="Shame" isActive={currentView === "wall_shame"} onClick={() => onViewChange("wall_shame")} accent />
         <MobileNavTab icon={<Crown className="w-3.5 h-3.5" />} label="Honor" isActive={currentView === "wall_honor"} onClick={() => onViewChange("wall_honor")} />
-        <MobileNavTab icon={<User className="w-3.5 h-3.5" />} label="Me" isActive={currentView === "profile"} onClick={() => onViewChange("profile")} />
       </div>
     </nav>
   );
@@ -210,7 +209,7 @@ function MobileNavTab({
   return (
     <button
       onClick={onClick}
-      className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-all border-b-2
+      className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-all border-b-2
         ${
           isActive
             ? accent
@@ -218,12 +217,12 @@ function MobileNavTab({
               : "bg-zinc-950 text-white border-zinc-950 dark:bg-zinc-800/50 dark:text-zinc-50 dark:border-transparent"
             : accent
             ? "border-transparent text-red-600 hover:bg-red-50 dark:text-red-600/60 dark:hover:bg-red-950/20"
-            : "border-transparent text-zinc-500 hover:text-zinc-950 hover:bg-zinc-100 dark:text-zinc-600 dark:hover:text-zinc-300 dark:hover:bg-zinc-900"
+            : "border-transparent text-zinc-500 hover:text-zinc-950 hover:bg-zinc-100 dark:text-zinc-500 dark:hover:text-zinc-300 dark:hover:bg-zinc-900"
         }
       `}
     >
       {icon}
-      <span className="text-[8px] font-black tracking-widest uppercase">{label}</span>
+      <span className="text-[9px] font-black tracking-wider uppercase leading-none">{label}</span>
     </button>
   );
 }

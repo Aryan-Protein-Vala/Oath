@@ -445,7 +445,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                         : "border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-600"
                     }`}
                   >
-                    {size} Players
+                    {size} <span className="hidden sm:inline">Players</span><span className="sm:hidden">P</span>
                   </button>
                 ))}
               </div>
@@ -504,13 +504,14 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                     onFocus={() => { if (opponentSuggestions.length > 0) setShowOpponentSuggestions(true); }}
                     onBlur={() => setTimeout(() => setShowOpponentSuggestions(false), 200)}
                     placeholder={oathType === "squad" ? "Search @username to invite" : "@username"}
-                    className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
+                    className="w-full px-3.5 py-3 text-base sm:text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
                   />
                   
                   {showOpponentSuggestions && opponentSuggestions.length > 0 && (
                     <div
                       onMouseDown={(e) => e.preventDefault()}
-                      className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a0f] border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none z-10 max-h-40 overflow-y-auto"
+                      onTouchStart={(e) => e.preventDefault()}
+                      className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a0f] border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none z-30 max-h-40 overflow-y-auto"
                     >
                       {opponentSuggestions.map((u) => (
                         <button
@@ -556,7 +557,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                       </div>
                       <button 
                         onClick={() => setSquadMembers(squadMembers.filter(m => m.id !== member.id))}
-                        className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded text-red-500 transition-colors"
+                        className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded text-red-500 transition-colors shrink-0"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -644,6 +645,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                   <span className="text-2xl font-black text-zinc-500">{region === "in" ? "₹" : "$"}</span>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={stakeAmount}
                     onChange={(e) => setStakeAmount(e.target.value)}
                     placeholder="0"
@@ -692,7 +694,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                       key={amount}
                       type="button"
                       onClick={() => setStakeAmount(amount.toString())}
-                      className={`px-3 py-1.5 text-[10px] font-mono font-bold border-2 transition-colors ${
+                      className={`px-3 sm:px-2.5 py-2 sm:py-1.5 min-h-[38px] sm:min-h-0 text-xs sm:text-[10px] font-mono font-bold border-2 transition-colors ${
                         stakeNum === amount
                           ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-500 dark:text-zinc-200 dark:bg-zinc-800"
                           : "border-zinc-300 text-zinc-700 hover:text-zinc-950 hover:border-zinc-500 dark:border-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
@@ -717,7 +719,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                   value={deadline}
                   onChange={(e) => setDeadline(e.target.value)}
                   min={new Date().toISOString().split("T")[0]}
-                  className="w-full text-lg bg-transparent border-0 p-0 text-zinc-900 dark:text-zinc-200 font-bold focus:outline-none"
+                  className="w-full text-base sm:text-lg bg-transparent border-0 p-0 text-zinc-900 dark:text-zinc-200 font-bold focus:outline-none"
                   style={{ outline: "none", border: "none" }}
                 />
               </div>
@@ -736,7 +738,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                     <button
                       key={label}
                       onClick={() => setDeadline(val)}
-                      className={`px-3 py-1.5 text-[10px] font-mono font-bold border-2 transition-colors ${
+                      className={`px-3 sm:px-2.5 py-2 sm:py-1.5 min-h-[38px] sm:min-h-0 text-xs sm:text-[10px] font-mono font-bold border-2 transition-colors ${
                         deadline === val
                           ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-500 dark:text-zinc-200 dark:bg-zinc-800"
                           : "border-zinc-300 text-zinc-700 hover:text-zinc-950 hover:border-zinc-500 dark:border-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
@@ -803,13 +805,14 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                   onFocus={() => { if (nomineeSuggestions.length > 0) setShowNomineeSuggestions(true); }}
                   onBlur={() => setTimeout(() => setShowNomineeSuggestions(false), 200)}
                   placeholder="@username or referee@email.com"
-                  className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
+                  className="w-full px-3.5 py-3 text-base sm:text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none transition-colors"
                 />
                 
                 {showNomineeSuggestions && nomineeSuggestions.length > 0 && (
                   <div
                     onMouseDown={(e) => e.preventDefault()}
-                    className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a0f] border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none z-10 max-h-40 overflow-y-auto"
+                    onTouchStart={(e) => e.preventDefault()}
+                    className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#0a0a0f] border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none z-30 max-h-40 overflow-y-auto"
                   >
                     {nomineeSuggestions.map((u) => (
                       <button
@@ -1031,7 +1034,7 @@ function TypeButton({
             e.stopPropagation();
             onInfo();
           }}
-          className="absolute top-1.5 right-1.5 z-10 p-1 text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition-colors"
+          className="absolute top-0 right-0 z-10 w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center text-zinc-400 hover:text-zinc-950 dark:hover:text-white transition-colors"
         >
           <Info className="w-3.5 h-3.5" />
         </button>

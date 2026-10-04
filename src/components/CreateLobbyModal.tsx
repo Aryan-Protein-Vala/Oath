@@ -91,13 +91,13 @@ export default function CreateLobbyModal({ walletBalance, penaltyBoxUntil, onClo
             <Shield className="w-5 h-5" />
             <h2 className="text-xl font-black uppercase tracking-tight">Create Lobby</h2>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
+          <button onClick={onClose} aria-label="Close modal" className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-5 overflow-y-auto flex-1 space-y-6">
+        <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-5 sm:space-y-6">
           {isPenaltyBoxActive && (
             <div className="p-3 bg-red-500/10 border-2 border-red-500/30 text-center">
               <p className="text-xs font-mono font-bold text-red-500 uppercase tracking-wider">
@@ -119,7 +119,7 @@ export default function CreateLobbyModal({ walletBalance, penaltyBoxUntil, onClo
               value={statement}
               onChange={(e) => setStatement(e.target.value)}
               placeholder="E.g., Read 20 pages a day"
-              className="w-full border-b-2 border-zinc-300 dark:border-zinc-800 focus:border-zinc-950 dark:focus:border-zinc-500 bg-transparent text-sm font-bold p-2 focus:outline-none"
+              className="w-full border-b-2 border-zinc-300 dark:border-zinc-800 focus:border-zinc-950 dark:focus:border-zinc-500 bg-transparent text-base sm:text-sm font-bold p-2 focus:outline-none"
             />
           </div>
 
@@ -135,10 +135,11 @@ export default function CreateLobbyModal({ walletBalance, penaltyBoxUntil, onClo
                 </span>
                 <input
                   type="number"
+                  inputMode="decimal"
                   value={stakeAmount}
                   onChange={(e) => setStakeAmount(e.target.value)}
                   placeholder="50"
-                  className="w-full border-b-2 border-zinc-300 dark:border-zinc-800 focus:border-zinc-950 dark:focus:border-zinc-500 bg-transparent text-sm font-bold py-2 pl-6 focus:outline-none"
+                  className="w-full border-b-2 border-zinc-300 dark:border-zinc-800 focus:border-zinc-950 dark:focus:border-zinc-500 bg-transparent text-base sm:text-sm font-bold py-2 pl-6 focus:outline-none"
                 />
               </div>
             </div>
@@ -150,7 +151,7 @@ export default function CreateLobbyModal({ walletBalance, penaltyBoxUntil, onClo
               <select
                 value={maxPlayers}
                 onChange={(e) => setMaxPlayers(parseInt(e.target.value))}
-                className="w-full border-b-2 border-zinc-300 dark:border-zinc-800 focus:border-zinc-950 dark:focus:border-zinc-500 bg-transparent text-sm font-bold p-2 focus:outline-none"
+                className="w-full border-b-2 border-zinc-300 dark:border-zinc-800 focus:border-zinc-950 dark:focus:border-zinc-500 bg-transparent text-base sm:text-sm font-bold p-2 focus:outline-none"
               >
                 {[4, 6, 8, 10].map(n => (
                   <option key={n} value={n}>{n} Players</option>
@@ -168,7 +169,7 @@ export default function CreateLobbyModal({ walletBalance, penaltyBoxUntil, onClo
               type="date"
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
-              className="w-full border-b-2 border-zinc-300 dark:border-zinc-800 focus:border-zinc-950 dark:focus:border-zinc-500 bg-transparent text-sm font-bold p-2 focus:outline-none"
+              className="w-full border-b-2 border-zinc-300 dark:border-zinc-800 focus:border-zinc-950 dark:focus:border-zinc-500 bg-transparent text-base sm:text-sm font-bold p-2 focus:outline-none"
             />
           </div>
 
@@ -202,11 +203,11 @@ export default function CreateLobbyModal({ walletBalance, penaltyBoxUntil, onClo
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
+        <div className="p-4 border-t-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <button
             onClick={handleSubmit}
             disabled={submitting || isOverBudget || !statement || stakeNum <= 0 || !deadline || isPenaltyBoxActive}
-            className="w-full py-3 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 font-black uppercase tracking-widest text-xs hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 font-black uppercase tracking-widest text-xs hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none min-h-[44px]"
           >
             {submitting ? "Opening Lobby..." : isPenaltyBoxActive ? "Locked in Penalty Box" : (
               <>

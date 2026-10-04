@@ -94,7 +94,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
       }
 
       try {
-        if (region === "glb") {
+        if (region === "global") {
           // PayPal Flow
           const res = await fetch("/api/paypal/create-order", {
             method: "POST",
@@ -405,11 +405,12 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                       <span className="text-2xl font-black text-zinc-500">{region === "in" ? "₹" : "$"}</span>
                       <input
                         type="number"
+                        inputMode="decimal"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
                         placeholder="0"
                         min="1"
-                        className="flex-1 text-3xl font-black text-zinc-950 dark:text-zinc-100 bg-transparent stake-number"
+                        className="flex-1 text-3xl font-black text-zinc-950 dark:text-zinc-100 bg-transparent stake-number focus:outline-none"
                         style={{ outline: "none", border: "none" }}
                         autoFocus
                       />
@@ -433,18 +434,18 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
                         value={paypalEmail}
                         onChange={(e) => setPaypalEmail(e.target.value)}
                         placeholder="Enter UPI ID or PayPal Email"
-                        className="w-full text-sm font-bold text-zinc-950 dark:text-zinc-100 bg-transparent border-b-2 border-zinc-300 dark:border-zinc-700 focus:border-zinc-950 dark:focus:border-zinc-500 p-2 focus:outline-none transition-colors"
+                        className="w-full text-base sm:text-sm font-bold text-zinc-950 dark:text-zinc-100 bg-transparent border-b-2 border-zinc-300 dark:border-zinc-700 focus:border-zinc-950 dark:focus:border-zinc-500 p-2 focus:outline-none transition-colors"
                       />
                     </div>
                   )}
 
                   {/* Quick amounts */}
-                  <div className="grid grid-cols-6 gap-1.5">
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-1.5">
                     {QUICK_AMOUNTS.map((a) => (
                       <button
                         key={a}
                         onClick={() => setAmount(a.toString())}
-                        className={`py-1.5 text-[10px] font-mono font-bold border transition-colors ${
+                        className={`py-2 sm:py-1.5 min-h-[38px] sm:min-h-0 text-xs sm:text-[10px] font-mono font-bold border transition-colors ${
                           amountNum === a
                             ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-500 dark:text-zinc-200 dark:bg-zinc-800"
                             : "border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-600 hover:text-zinc-900"
@@ -507,17 +508,17 @@ function TxRow({ tx, region }: { tx: Transaction; region: Region }) {
   const isDebit = ["withdrawal", "penalty", "house_cut"].includes(tx.type);
 
   return (
-    <div className="flex items-center justify-between py-3 border-b border-zinc-200 dark:border-zinc-800/30">
-      <div className="flex items-center gap-3">
-        <div className="w-6 h-6 flex items-center justify-center">
+    <div className="flex items-center justify-between py-3 border-b border-zinc-200 dark:border-zinc-800/30 gap-2">
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <div className="w-6 h-6 flex items-center justify-center shrink-0">
           {TX_ICON[tx.type] ?? <DollarSign className="w-3 h-3 text-zinc-500" />}
         </div>
-        <div>
-          <p className="text-[11px] text-zinc-900 dark:text-zinc-300 font-bold leading-tight">{tx.description}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] text-zinc-900 dark:text-zinc-300 font-bold leading-tight truncate">{tx.description}</p>
           <p className="text-[9px] font-mono text-zinc-500 mt-0.5">{formatRelativeTime(tx.created_at)}</p>
         </div>
       </div>
-      <span className={`text-sm font-black stake-number ${
+      <span className={`text-xs sm:text-sm font-black stake-number shrink-0 ${
         isCredit ? "text-zinc-900 dark:text-zinc-200" : isLock ? "text-zinc-500 dark:text-zinc-400 font-mono" : isDebit ? "text-red-600" : "text-zinc-500"
       }`}>
         {isCredit ? "+" : isLock ? "🔒 " : isDebit ? "-" : ""}{formatCurrency(tx.amount, region)}

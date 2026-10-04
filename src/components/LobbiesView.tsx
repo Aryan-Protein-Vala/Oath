@@ -15,6 +15,7 @@ import {
   X,
   MessageSquare,
   ExternalLink,
+  ArrowLeft,
 } from "lucide-react";
 import type { Oath, GroupMember, Wallet } from "@/lib/types";
 import { formatCurrency as utilsFormatCurrency, getTimeRemaining, formatRelativeTime } from "@/lib/utils";
@@ -138,13 +139,13 @@ export default function LobbiesView({ squads, wallet, penaltyBoxUntil, onJoined,
           mobileShowDetail ? "flex" : "hidden sm:flex"
         } flex-1 flex-col overflow-hidden`}>
           {/* Mobile back button */}
-          <div className="flex sm:hidden items-center px-4 py-2 border-b-2 border-zinc-950 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/50">
+          <div className="flex sm:hidden items-center px-4 py-2.5 border-b-2 border-zinc-950 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/80 sticky top-0 z-10 shrink-0">
             <button
               onClick={() => { setMobileShowDetail(false); setSelectedSquadId(null); }}
-              className="flex items-center gap-1.5 text-[10px] font-mono font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200"
+              className="flex items-center gap-2 py-1.5 px-3 border border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-mono font-black uppercase tracking-wider text-zinc-950 dark:text-zinc-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none min-h-[38px]"
             >
-              <UserPlus className="w-3 h-3 rotate-180" />
-              All Lobbies
+              <ArrowLeft className="w-4 h-4" />
+              Back to Lobbies
             </button>
           </div>
           <SquadDetail
@@ -388,17 +389,17 @@ function SquadDetail({
 
       {/* Stats Row */}
       <div className="grid grid-cols-3 border-b-2 border-zinc-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-950/30">
-        <div className="px-4 py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center">
-          <p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{utilsFormatCurrency(poolTotal, region)}</p>
-          <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Total Escrow</p>
+        <div className="px-2 sm:px-4 py-2.5 sm:py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center min-w-0">
+          <p className="text-base sm:text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100 truncate">{utilsFormatCurrency(poolTotal, region)}</p>
+          <p className="text-[8px] sm:text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5 truncate">Total Escrow</p>
         </div>
-        <div className="px-4 py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center">
-          <p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{utilsFormatCurrency(squad.stake_amount, region)}</p>
-          <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Per Player</p>
+        <div className="px-2 sm:px-4 py-2.5 sm:py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center min-w-0">
+          <p className="text-base sm:text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100 truncate">{utilsFormatCurrency(squad.stake_amount, region)}</p>
+          <p className="text-[8px] sm:text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5 truncate">Per Player</p>
         </div>
-        <div className="px-4 py-3 text-center">
-          <p className="text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{spotsLeft}</p>
-          <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Spots Left</p>
+        <div className="px-2 sm:px-4 py-2.5 sm:py-3 text-center min-w-0">
+          <p className="text-base sm:text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{spotsLeft}</p>
+          <p className="text-[8px] sm:text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5 truncate">Spots Left</p>
         </div>
       </div>
 
@@ -437,16 +438,16 @@ function SquadDetail({
 
       {/* Joined Action Bar / Open Chat */}
       {isUserMember && (
-        <div className="px-5 py-3 border-t-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/60 flex items-center justify-between gap-3">
+        <div className="px-5 py-3 border-t-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/60 flex items-center justify-between gap-3 shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[11px] font-mono font-bold text-zinc-900 dark:text-zinc-200 uppercase">
-              You are in this {squad.oath_type === "lobby" ? "lobby" : "squad"}
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <span className="text-[11px] font-mono font-bold text-zinc-900 dark:text-zinc-200 uppercase truncate">
+              In this {squad.oath_type === "lobby" ? "lobby" : "squad"}
             </span>
           </div>
           <button
             onClick={() => setShowChat(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-mono font-black uppercase tracking-wider hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors border-2 border-zinc-950 dark:border-transparent shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-mono font-black uppercase tracking-wider hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors border-2 border-zinc-950 dark:border-transparent shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none shrink-0"
           >
             <MessageSquare className="w-3.5 h-3.5" />
             Open Chat
@@ -456,7 +457,7 @@ function SquadDetail({
 
       {/* Join Button */}
       {spotsLeft > 0 && (squad.status === "pending" || squad.status === "active") && !isUserMember && (
-        <div className="px-5 py-4 border-t-2 border-zinc-950 dark:border-zinc-800/40 bg-white dark:bg-transparent">
+        <div className="px-5 py-4 border-t-2 border-zinc-950 dark:border-zinc-800/40 bg-white dark:bg-transparent shrink-0 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {isPenaltyBoxActive ? (
             <div className="p-3 bg-red-500/10 border-2 border-red-500/30 text-center">
               <p className="text-xs font-mono font-bold text-red-500 uppercase tracking-wider">
@@ -502,16 +503,16 @@ function SquadDetail({
           Boolean(proof?.proof_url && /\.(mp4|webm|mov)/i.test(proof.proof_url));
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-            <div className="bg-white dark:bg-zinc-900 border-4 border-zinc-950 dark:border-zinc-700 max-w-lg w-full p-6 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] relative fade-in my-6 text-left">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+            <div className="bg-white dark:bg-zinc-900 border-4 border-zinc-950 dark:border-zinc-700 max-w-lg w-full p-4 sm:p-6 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] relative fade-in my-auto text-left max-h-[92dvh] overflow-y-auto">
               <button
                 onClick={() => setInspectingMember(null)}
                 aria-label="Close modal"
-                className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-950 dark:hover:text-white p-1"
+                className="absolute top-3 right-3 sm:top-4 sm:right-4 text-zinc-500 hover:text-zinc-950 dark:hover:text-white p-2 min-w-[36px] min-h-[36px] flex items-center justify-center"
               >
                 <X className="w-4 h-4" />
               </button>
-              <h4 className="text-base font-black uppercase tracking-tight text-zinc-950 dark:text-white mb-1">
+              <h4 className="text-base font-black uppercase tracking-tight text-zinc-950 dark:text-white mb-1 pr-8">
                 Inspect Proof Submission
               </h4>
               <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 mb-3 font-bold">
@@ -529,7 +530,7 @@ function SquadDetail({
               </div>
 
               {/* Proof Verification Record */}
-              <div className="p-4 bg-zinc-100 dark:bg-zinc-950 border-2 border-zinc-300 dark:border-zinc-800 mb-4 text-xs font-mono">
+              <div className="p-3 sm:p-4 bg-zinc-100 dark:bg-zinc-950 border-2 border-zinc-300 dark:border-zinc-800 mb-4 text-xs font-mono">
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-bold text-zinc-900 dark:text-zinc-100 uppercase text-[10px] tracking-wider">
                     Evidence ({proof?.proof_type || "Activity"}):
@@ -540,21 +541,21 @@ function SquadDetail({
                 </div>
 
                 {isImage && proof?.proof_url && (
-                  <div className="border border-zinc-300 dark:border-zinc-700 overflow-hidden bg-black flex items-center justify-center max-h-60 mb-2.5">
+                  <div className="border border-zinc-300 dark:border-zinc-700 overflow-hidden bg-black flex items-center justify-center max-h-[40vh] sm:max-h-60 mb-2.5">
                     <img
                       src={proof.proof_url}
                       alt="Submitted proof evidence"
-                      className="max-h-60 w-full object-contain"
+                      className="max-h-[40vh] sm:max-h-60 w-full object-contain"
                     />
                   </div>
                 )}
 
                 {isVideo && proof?.proof_url && (
-                  <div className="border border-zinc-300 dark:border-zinc-700 overflow-hidden bg-black max-h-60 mb-2.5">
+                  <div className="border border-zinc-300 dark:border-zinc-700 overflow-hidden bg-black max-h-[40vh] sm:max-h-60 mb-2.5">
                     <video
                       src={proof.proof_url}
                       controls
-                      className="max-h-60 w-full object-contain"
+                      className="max-h-[40vh] sm:max-h-60 w-full object-contain"
                     />
                   </div>
                 )}
@@ -590,13 +591,13 @@ function SquadDetail({
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
                 <button
                   onClick={() => {
                     handleVote(inspectingMember.id, true);
                     setInspectingMember(null);
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-black uppercase tracking-wider hover:bg-zinc-800"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-black uppercase tracking-wider hover:bg-zinc-800 min-h-[44px] sm:min-h-0"
                 >
                   <ThumbsUp className="w-3.5 h-3.5" /> Approve Proof
                 </button>
@@ -605,7 +606,7 @@ function SquadDetail({
                     handleVote(inspectingMember.id, false);
                     setInspectingMember(null);
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 border-2 border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-black uppercase tracking-wider"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 border-2 border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-black uppercase tracking-wider min-h-[44px] sm:min-h-0"
                 >
                   <ThumbsDown className="w-3.5 h-3.5" /> Reject (Fraud)
                 </button>
@@ -699,21 +700,21 @@ function MemberLogEntry({
               <>
                 <button
                   onClick={onInspectProof}
-                  className="p-1.5 border border-zinc-400 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-300 text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors bg-zinc-100 dark:bg-zinc-800"
+                  className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center border border-zinc-400 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-300 text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors bg-zinc-100 dark:bg-zinc-800"
                   title="Inspect proof before voting"
                 >
                   <Eye className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={() => onVote(member.id, true)}
-                  className="p-1.5 border border-zinc-400 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-300 text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors bg-zinc-100 dark:bg-zinc-800"
+                  className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center border border-zinc-400 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-300 text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors bg-zinc-100 dark:bg-zinc-800"
                   title="Vote: Approve proof"
                 >
                   <ThumbsUp className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={() => onVote(member.id, false)}
-                  className="p-1.5 border border-zinc-400 dark:border-zinc-700 hover:border-red-600 text-zinc-700 dark:text-zinc-400 hover:text-red-600 transition-colors bg-zinc-100 dark:bg-zinc-800"
+                  className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center border border-zinc-400 dark:border-zinc-700 hover:border-red-600 text-zinc-700 dark:text-zinc-400 hover:text-red-600 transition-colors bg-zinc-100 dark:bg-zinc-800"
                   title="Vote: Reject proof"
                 >
                   <ThumbsDown className="w-3.5 h-3.5" />

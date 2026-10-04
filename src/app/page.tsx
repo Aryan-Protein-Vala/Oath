@@ -75,7 +75,7 @@ export default function Home() {
   // Show loading state while auth resolves
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-zinc-50 dark:bg-[#09090b] transition-colors duration-300">
+      <div className="h-[100dvh] flex items-center justify-center bg-zinc-50 dark:bg-[#09090b] transition-colors duration-300">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-zinc-950 dark:border-zinc-800 animate-spin border-t-zinc-400 dark:border-t-zinc-500 rounded-full" />
           <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-500 uppercase tracking-widest">Loading</span>
@@ -108,7 +108,7 @@ export default function Home() {
   );
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 transition-colors duration-300">
+    <div className="h-[100dvh] flex flex-col overflow-hidden bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 transition-colors duration-300">
       {/* Top Navigation */}
       <TopNav
         wallet={activeWallet}

@@ -19,8 +19,14 @@ interface ActiveOathsViewProps {
 }
 
 export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick }: ActiveOathsViewProps) {
+  const [filterType, setFilterType] = useState<"all" | "solo" | "duo" | "squad" | "lobby">("all");
+  const filteredOaths = oaths.filter((o) => {
+    if (filterType === "all") return true;
+    return o.oath_type === filterType;
+  });
+
   const [selectedOathId, setSelectedOathId] = useState<string | null>(
-    oaths.length > 0 ? oaths[0].id : null
+    filteredOaths.length > 0 ? filteredOaths[0].id : (oaths.length > 0 ? oaths[0].id : null)
   );
   const [showProofModal, setShowProofModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -31,15 +37,15 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
 
   // Selected oath lookup
-  const selectedOath = oaths.find((o) => o.id === selectedOathId) || oaths[0] || null;
+  const selectedOath = oaths.find((o) => o.id === selectedOathId) || filteredOaths[0] || oaths[0] || null;
 
   useEffect(() => {
-    if (!selectedOathId && oaths.length > 0) {
-      setSelectedOathId(oaths[0].id);
+    if (!selectedOathId && filteredOaths.length > 0) {
+      setSelectedOathId(filteredOaths[0].id);
     } else if (selectedOathId && !oaths.some((o) => o.id === selectedOathId)) {
-      setSelectedOathId(oaths.length > 0 ? oaths[0].id : null);
+      setSelectedOathId(filteredOaths.length > 0 ? filteredOaths[0].id : null);
     }
-  }, [oaths, selectedOathId]);
+  }, [oaths, filteredOaths, selectedOathId]);
 
   if (oaths.length === 0) {
     return (
@@ -73,12 +79,29 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
       <div className={`${
         mobileShowDetail ? "hidden sm:flex" : "flex"
       } sm:w-72 w-full border-r-2 border-zinc-950 dark:border-zinc-800/60 flex-col overflow-y-auto shrink-0 bg-white dark:bg-transparent`}>
-        <div className="px-4 py-3 border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/50">
-          <span className="text-[10px] font-mono font-bold text-zinc-700 dark:text-zinc-400 uppercase tracking-widest">
-            Active Oaths ({oaths.length})
-          </span>
+        <div className="border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/50">
+          <div className="px-4 py-2.5 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800">
+            <span className="text-[10px] font-mono font-bold text-zinc-700 dark:text-zinc-400 uppercase tracking-widest">
+              Active Oaths ({filteredOaths.length})
+            </span>
+          </div>
+          <div className="flex items-center gap-1 px-3 py-2 overflow-x-auto scrollbar-none">
+            {(["all", "solo", "duo", "squad", "lobby"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setFilterType(t)}
+                className={`px-2.5 py-1 text-[9px] sm:text-[10px] font-mono font-bold uppercase shrink-0 border transition-colors ${
+                  filterType === t
+                    ? "bg-zinc-950 text-white border-zinc-950 dark:bg-zinc-100 dark:text-zinc-950"
+                    : "border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-500"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
-        {oaths.map((oath) => (
+        {filteredOaths.map((oath) => (
           <OathListItem
             key={oath.id}
             oath={oath}
@@ -89,21 +112,26 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
             }}
           />
         ))}
+        {filteredOaths.length === 0 && (
+          <div className="p-6 text-center text-xs font-mono text-zinc-500">
+            No active {filterType} oaths
+          </div>
+        )}
       </div>
 
       {/* Main Countdown — hidden on mobile when list is shown */}
       {selectedOath && (
         <div className={`${
           mobileShowDetail ? "flex" : "hidden sm:flex"
-        } flex-1 flex-col overflow-hidden`}>
+        } flex-1 flex-col overflow-y-auto sm:overflow-hidden`}>
           {/* Mobile back button */}
-          <div className="flex sm:hidden items-center px-4 py-2 border-b-2 border-zinc-950 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/50">
+          <div className="flex sm:hidden items-center px-4 py-2.5 border-b-2 border-zinc-950 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/50 shrink-0 sticky top-0 z-10">
             <button
               onClick={() => setMobileShowDetail(false)}
-              className="flex items-center gap-1.5 text-[10px] font-mono font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-200"
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono font-black uppercase tracking-wider text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-800 border-2 border-zinc-950 dark:border-zinc-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
             >
-              <ChevronRight className="w-3 h-3 rotate-180" />
-              All Oaths
+              <ChevronRight className="w-3.5 h-3.5 rotate-180" />
+              Back to Oaths
             </button>
           </div>
 
@@ -242,7 +270,7 @@ function OathCountdownCard({
   const progressPercent = Math.min(100, Math.max(0, (progressElapsed / progressTotal) * 100));
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-8 relative overflow-hidden bg-zinc-50 dark:bg-transparent" suppressHydrationWarning>
+    <div className="flex-1 flex flex-col items-center justify-start sm:justify-center py-6 sm:py-8 px-4 sm:px-8 relative overflow-y-auto bg-zinc-50 dark:bg-transparent" suppressHydrationWarning>
       {/* Crimson glow when urgent */}
       {timeState.isUrgent && (
         <div className="absolute inset-0 pointer-events-none crimson-glow" />
@@ -350,7 +378,7 @@ function OathCountdownCard({
           oath.creator_id !== user?.id;
 
         return (
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 w-full max-w-md px-2">
             {isExpired && oath.status === "active" ? (
               <button
                 onClick={onForfeit}
@@ -459,7 +487,7 @@ function OathCountdownCard({
 function TimeUnit({ value, label, large, urgent }: { value: number; label: string; large?: boolean; urgent?: boolean }) {
   return (
     <div className="flex flex-col items-center">
-      <span className={`font-black timer-display ${large ? "text-6xl sm:text-7xl" : "text-5xl sm:text-6xl"} ${urgent ? "text-red-600 dark:text-red-500" : "text-zinc-950 dark:text-zinc-50"}`}>
+      <span className={`font-black timer-display ${large ? "text-4xl sm:text-6xl md:text-7xl" : "text-3xl sm:text-5xl md:text-6xl"} ${urgent ? "text-red-600 dark:text-red-500" : "text-zinc-950 dark:text-zinc-50"}`}>
         {padZero(value)}
       </span>
       <span className={`text-[8px] font-mono tracking-[0.3em] mt-1 font-bold ${urgent ? "text-red-600" : "text-zinc-500 dark:text-zinc-500"}`}>
@@ -471,7 +499,7 @@ function TimeUnit({ value, label, large, urgent }: { value: number; label: strin
 
 function Sep({ urgent, large }: { urgent?: boolean; large?: boolean }) {
   return (
-    <span className={`${large ? "text-5xl sm:text-6xl" : "text-4xl sm:text-5xl"} font-black mb-6 ${urgent ? "text-red-600 urgent-pulse" : "text-zinc-400 dark:text-zinc-700"}`}>
+    <span className={`${large ? "text-3xl sm:text-5xl md:text-6xl" : "text-2xl sm:text-4xl md:text-5xl"} font-black mb-3 sm:mb-6 ${urgent ? "text-red-600 urgent-pulse" : "text-zinc-400 dark:text-zinc-700"}`}>
       :
     </span>
   );
@@ -495,13 +523,13 @@ function OathDetailsModal({ oath, onClose }: { oath: Oath; onClose: () => void }
       aria-labelledby="details-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
     >
-      <div className="w-full max-w-lg bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
+      <div className="w-full max-w-lg max-h-[90dvh] overflow-y-auto overscroll-contain bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-4 sm:p-6 fade-in shadow-none sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
         <div className="flex items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 pb-4 mb-4">
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-red-600" />
             <h3 id="details-modal-title" className="text-base font-black text-zinc-950 dark:text-zinc-50 uppercase tracking-tight">Oath Details</h3>
           </div>
-          <button onClick={onClose} aria-label="Close details" className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+          <button onClick={onClose} aria-label="Close details" className="p-2 -mr-1 min-w-[40px] min-h-[40px] flex items-center justify-center hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
             <X className="w-5 h-5" />
           </button>
         </div>

@@ -58,13 +58,13 @@ export function ToastContainer() {
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`slide-up cursor-pointer flex items-center gap-3 px-5 py-3 border ${
+            className={`slide-up cursor-pointer flex items-center gap-3 px-4 sm:px-5 py-3 border ${
               toast.type === "error"
                 ? "bg-red-950/90 border-red-800 text-red-200"
                 : toast.type === "success"
                 ? "bg-zinc-900/90 border-zinc-700 text-zinc-200"
                 : "bg-zinc-900/90 border-zinc-700 text-zinc-300"
-            } backdrop-blur-sm min-w-[320px] max-w-[480px] shadow-lg`}
+            } backdrop-blur-sm w-[calc(100vw-2rem)] sm:w-auto min-w-0 sm:min-w-[320px] max-w-[480px] shadow-lg`}
             onClick={() => dismissToast(toast.id)}
           >
             {toast.type === "error" && (

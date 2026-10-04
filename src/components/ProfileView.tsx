@@ -49,7 +49,7 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
       : "text-red-600 dark:text-red-500";
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-y-auto sm:overflow-hidden bg-zinc-50 dark:bg-transparent">
+    <div className="flex-1 min-h-0 flex flex-col sm:flex-row overflow-y-auto sm:overflow-hidden bg-zinc-50 dark:bg-transparent pb-16 sm:pb-0">
       {/* Profile summary */}
       <div className="w-full sm:w-72 shrink-0 border-b-2 sm:border-b-0 sm:border-r-2 border-zinc-950 dark:border-zinc-800/60 flex flex-col sm:overflow-y-auto bg-white dark:bg-transparent">
         {/* Penalty Box Alert if benched */}
@@ -62,9 +62,9 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
             <p className="text-[11px] mt-1.5 text-red-100 font-bold leading-snug">
               Benched for 3 consecutive failures. Creating oaths and joining squads/lobbies is disabled.
             </p>
-            <div className="mt-2 text-[10px] font-black bg-red-950/70 p-2 border border-red-400/50 flex justify-between items-center">
+            <div className="mt-2 text-[10px] font-black bg-red-950/70 p-2 border border-red-400/50 flex flex-wrap justify-between items-center gap-1">
               <span>UNBENCH AT:</span>
-              <span>
+              <span className="truncate">
                 {new Date(profile.penalty_box_until!).toLocaleDateString()} {new Date(profile.penalty_box_until!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
@@ -182,7 +182,7 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
       </div>
 
       {/* Right — Transaction History */}
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white dark:bg-transparent">
+      <div className="flex-1 min-h-0 flex flex-col sm:overflow-hidden bg-white dark:bg-transparent">
         <div className="px-5 py-4 border-b-2 border-zinc-200 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/40">
           <h3 className="text-base font-black tracking-tight text-zinc-950 dark:text-zinc-100 uppercase">
             SANDBOX ACTIVITY
@@ -192,7 +192,7 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 sm:overflow-y-auto">
           {transactions.length === 0 ? (
             <div className="flex items-center justify-center h-48">
               <p className="text-xs font-mono font-bold text-zinc-500">No transactions recorded yet</p>

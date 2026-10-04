@@ -108,18 +108,18 @@ export default function ProofUploadModal({ oath, onClose, onSuccess }: ProofUplo
       role="dialog"
       aria-modal="true"
       aria-labelledby="proof-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-4"
     >
-      <div className="w-full max-w-md mx-4 bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 fade-in shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.05)]">
+      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 fade-in shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.05)] max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b-2 border-zinc-950 dark:border-zinc-800">
-          <div>
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b-2 border-zinc-950 dark:border-zinc-800 shrink-0">
+          <div className="min-w-0 flex-1 pr-2">
             <h3 id="proof-modal-title" className="text-sm font-black text-zinc-950 dark:text-zinc-100 tracking-tight">SUBMIT PROOF</h3>
-            <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-500 mt-0.5 truncate max-w-xs">
+            <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-500 mt-0.5 truncate">
               {oath.oath_statement}
             </p>
           </div>
-          <button onClick={onClose} aria-label="Close modal" className="text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 transition-colors p-1">
+          <button onClick={onClose} aria-label="Close modal" className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 transition-colors shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -131,18 +131,18 @@ export default function ProofUploadModal({ oath, onClose, onSuccess }: ProofUplo
             <p className="text-[11px] font-mono text-zinc-600 mt-1">Sent for review</p>
           </div>
         ) : (
-          <div className="p-5 space-y-6">
+          <div className="p-4 sm:p-5 space-y-5 sm:space-y-6">
             {/* Proof Type Selector */}
             <div>
               <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.15em] mb-2 block">
                 Proof Type
               </label>
-              <div className="grid grid-cols-5 gap-1.5">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 sm:gap-2">
                 {(["photo", "screenshot", "video", "link", "text"] as ProofType[]).map((t) => (
                   <button
                     key={t}
                     onClick={() => { setProofType(t); setFile(null); setFilePreview(null); }}
-                    className={`flex flex-col items-center gap-1 py-2 border-2 text-[9px] font-mono uppercase transition-all ${
+                    className={`flex flex-col items-center justify-center gap-1 py-2.5 sm:py-2 border-2 text-[10px] sm:text-[9px] font-mono uppercase transition-all min-h-[44px] sm:min-h-0 ${
                       proofType === t
                         ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-500 dark:bg-zinc-800/60 dark:text-zinc-200 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
                         : "border-zinc-300 text-zinc-600 hover:border-zinc-950 hover:text-zinc-950 dark:border-zinc-800 dark:hover:border-zinc-700 bg-zinc-50 dark:bg-transparent"
@@ -153,7 +153,7 @@ export default function ProofUploadModal({ oath, onClose, onSuccess }: ProofUplo
                     {t === "video" && <Upload className="w-3.5 h-3.5" />}
                     {t === "link" && <Link2 className="w-3.5 h-3.5" />}
                     {t === "text" && <FileText className="w-3.5 h-3.5" />}
-                    {t}
+                    <span className="truncate max-w-full px-1">{t}</span>
                   </button>
                 ))}
               </div>
@@ -215,7 +215,7 @@ export default function ProofUploadModal({ oath, onClose, onSuccess }: ProofUplo
                   value={linkUrl}
                   onChange={(e) => setLinkUrl(e.target.value)}
                   placeholder="https://..."
-                  className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors"
+                  className="w-full px-3.5 py-3 text-base sm:text-sm border-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors"
                 />
               </div>
             )}
@@ -231,7 +231,7 @@ export default function ProofUploadModal({ oath, onClose, onSuccess }: ProofUplo
                   onChange={(e) => setTextNote(e.target.value)}
                   maxLength={500}
                   placeholder="Describe exactly what you did and how you verified it..."
-                  className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors resize-none"
+                  className="w-full px-3.5 py-3 text-base sm:text-sm border-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors resize-none"
                   rows={4}
                 />
                 <p className="text-[10px] font-mono font-bold text-zinc-500 mt-1.5">{textNote.length}/500</p>
@@ -249,7 +249,7 @@ export default function ProofUploadModal({ oath, onClose, onSuccess }: ProofUplo
                   onChange={(e) => setTextNote(e.target.value)}
                   maxLength={500}
                   placeholder="Add any context for your verifier..."
-                  className="w-full px-3.5 py-3 text-sm border-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors resize-none"
+                  className="w-full px-3.5 py-3 text-base sm:text-sm border-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/50 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none transition-colors resize-none"
                   rows={2}
                 />
               </div>

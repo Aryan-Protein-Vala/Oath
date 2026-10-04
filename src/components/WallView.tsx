@@ -26,7 +26,7 @@ export default function WallView({ entries, type }: WallViewProps) {
     <div className="flex-1 flex flex-col overflow-hidden bg-zinc-50 dark:bg-transparent">
       {/* Header */}
       <div
-        className={`px-6 py-5 border-b-2 ${
+        className={`px-4 sm:px-6 py-4 sm:py-5 border-b-2 ${
           isShame ? "border-red-600/30 bg-red-50/50 dark:bg-red-950/10" : "border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-transparent"
         }`}
       >
@@ -52,7 +52,7 @@ export default function WallView({ entries, type }: WallViewProps) {
       </div>
 
       {/* Feed */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
         <div className="space-y-0">
           {entries.map((entry, index) => (
             <WallEntryCard key={entry.id} entry={entry} isShame={isShame} index={index} />
@@ -95,12 +95,12 @@ function WallEntryCard({
       } py-4 group`}
       style={{ animationDelay: `${index * 60}ms` }}
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-3">
         {/* Left content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1.5">
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <span
-              className={`text-[10px] font-mono font-black ${
+              className={`text-[10px] sm:text-[11px] font-mono font-black ${
                 isShame ? "text-red-700 dark:text-red-400" : "text-zinc-700 dark:text-zinc-400"
               }`}
             >
@@ -113,7 +113,7 @@ function WallEntryCard({
           </div>
 
           <p
-            className={`text-sm font-bold tracking-tight leading-snug ${
+            className={`text-sm font-bold tracking-tight leading-snug break-words ${
               isShame ? "text-red-900 dark:text-red-300" : "text-zinc-950 dark:text-zinc-200"
             }`}
           >
@@ -124,23 +124,23 @@ function WallEntryCard({
           {isShame && entry.excuse && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="flex items-center gap-1.5 mt-2 group/excuse"
+              className="flex items-center gap-1.5 mt-2 py-1 px-2 border border-red-200 dark:border-red-900/50 bg-red-50/60 dark:bg-red-950/20 text-left min-h-[36px] group/excuse transition-colors"
             >
-              <AlertTriangle className="w-3 h-3 text-red-600" />
-              <span className="text-[10px] font-mono font-bold text-red-700 dark:text-red-500 group-hover/excuse:underline transition-colors">
-                {expanded ? "Hide excuse" : "View pathetic excuse"}
+              <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+              <span className="text-[10px] font-mono font-bold text-red-700 dark:text-red-400 group-hover/excuse:underline">
+                {expanded ? "Hide excuse" : "View excuse"}
               </span>
               {expanded ? (
-                <ChevronUp className="w-3 h-3 text-red-700" />
+                <ChevronUp className="w-3 h-3 text-red-700 shrink-0" />
               ) : (
-                <ChevronDown className="w-3 h-3 text-red-700" />
+                <ChevronDown className="w-3 h-3 text-red-700 shrink-0" />
               )}
             </button>
           )}
 
           {expanded && entry.excuse && (
-            <div className="mt-2 pl-4 border-l-2 border-red-600/60 bg-red-50/50 dark:bg-red-950/20 p-2.5">
-              <p className="text-xs text-red-800 dark:text-red-300 italic font-medium leading-relaxed">
+            <div className="mt-2 pl-3 border-l-2 border-red-600/60 bg-red-50/50 dark:bg-red-950/20 p-2.5">
+              <p className="text-xs text-red-800 dark:text-red-300 italic font-medium leading-relaxed break-words">
                 &ldquo;{entry.excuse}&rdquo;
               </p>
             </div>
@@ -148,7 +148,7 @@ function WallEntryCard({
         </div>
 
         {/* Right — stake amount */}
-        <div className="flex flex-col items-end shrink-0">
+        <div className="flex flex-col items-end shrink-0 pl-2">
           <div className="flex items-center gap-1">
             {isShame ? (
               <Ban className="w-3.5 h-3.5 text-red-600" />
@@ -156,7 +156,7 @@ function WallEntryCard({
               <DollarSign className="w-3.5 h-3.5 text-zinc-500" />
             )}
             <span
-              className={`text-lg font-black stake-number tracking-tight ${
+              className={`text-base sm:text-lg font-black stake-number tracking-tight ${
                 isShame ? "text-red-600 dark:text-red-500" : "text-zinc-950 dark:text-zinc-200"
               }`}
             >
@@ -165,7 +165,7 @@ function WallEntryCard({
             </span>
           </div>
           <span
-            className={`text-[9px] font-mono font-bold mt-0.5 ${
+            className={`text-[8px] sm:text-[9px] font-mono font-bold mt-0.5 ${
               isShame ? "text-red-700 dark:text-red-400" : "text-zinc-500"
             }`}
           >

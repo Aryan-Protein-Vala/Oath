@@ -181,7 +181,7 @@ function AuthForm() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="iron_will"
-                className="w-full px-3.5 py-3 text-sm font-medium border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 focus:border-red-600 dark:focus:border-zinc-500 outline-none transition-colors text-zinc-950 dark:text-zinc-50 shadow-[3px_3px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
+                className="w-full px-3.5 py-3 text-base sm:text-sm font-medium border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 focus:border-red-600 dark:focus:border-zinc-500 outline-none transition-colors text-zinc-950 dark:text-zinc-50 shadow-[3px_3px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
                 autoComplete="username"
                 required
               />
@@ -198,7 +198,7 @@ function AuthForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@domain.com"
-              className="w-full px-3.5 py-3 text-sm font-medium border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 focus:border-red-600 dark:focus:border-zinc-500 outline-none transition-colors text-zinc-950 dark:text-zinc-50 shadow-[3px_3px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
+              className="w-full px-3.5 py-3 text-base sm:text-sm font-medium border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 focus:border-red-600 dark:focus:border-zinc-500 outline-none transition-colors text-zinc-950 dark:text-zinc-50 shadow-[3px_3px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
               autoComplete="email"
               required
             />
@@ -215,14 +215,14 @@ function AuthForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-3.5 py-3 pr-11 text-sm font-medium border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 focus:border-red-600 dark:focus:border-zinc-500 outline-none transition-colors text-zinc-950 dark:text-zinc-50 shadow-[3px_3px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
+                className="w-full px-3.5 py-3 pr-11 text-base sm:text-sm font-medium border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 focus:border-red-600 dark:focus:border-zinc-500 outline-none transition-colors text-zinc-950 dark:text-zinc-50 shadow-[3px_3px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPw(!showPw)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors p-1"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors p-2 min-w-[36px] min-h-[36px] flex items-center justify-center"
                 aria-label={showPw ? "Hide password" : "Show password"}
               >
                 {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
