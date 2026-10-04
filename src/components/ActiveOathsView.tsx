@@ -48,15 +48,17 @@ interface ActiveOathsViewProps {
 
 export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick }: ActiveOathsViewProps) {
   const { user, profile } = useAuth();
-  const [filterType, setFilterType] = useState<"all" | "solo" | "duo" | "squad" | "lobby" | "referee">("all");
+  const [filterType, setFilterType] = useState<"all" | "solo" | "duo" | "squad" | "lobby">("all");
   
   const isReferee = (o: Oath) => isNomineeRefereeForOath(o, user?.id, user?.email, profile?.username);
 
   const filteredOaths = oaths.filter((o) => {
     if (filterType === "all") return true;
-    if (filterType === "referee") return isReferee(o);
-    if (filterType === "solo") return o.oath_type === "solo" && !isReferee(o);
-    return o.oath_type === filterType;
+    if (filterType === "solo") return o.oath_type === "solo";
+    if (filterType === "duo") return o.oath_type === "duo";
+    if (filterType === "squad") return o.oath_type === "squad";
+    if (filterType === "lobby") return o.oath_type === "lobby";
+    return true;
   });
 
   const [selectedOathId, setSelectedOathId] = useState<string | null>(
@@ -127,37 +129,21 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
             </span>
           </div>
           <div className="flex items-center gap-1 px-3 py-2 overflow-x-auto scrollbar-none">
-            {(["all", "solo", "duo", "squad", "lobby", "referee"] as const)
+            {(["all", "solo", "duo", "squad", "lobby"] as const)
               .filter((t) => t !== "lobby" || oaths.some((o) => o.oath_type === "lobby"))
-              .map((t) => {
-              const refereeCount = oaths.filter(isReferee).length;
-              return (
+              .map((t) => (
                 <button
                   key={t}
                   onClick={() => setFilterType(t)}
                   className={`px-2.5 py-1 text-[9px] sm:text-[10px] font-mono font-bold uppercase shrink-0 border transition-colors flex items-center gap-1.5 ${
                     filterType === t
-                      ? t === "referee"
-                        ? "bg-amber-500 text-zinc-950 border-amber-500 font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                        : "bg-zinc-950 text-white border-zinc-950 dark:bg-zinc-100 dark:text-zinc-950"
+                      ? "bg-zinc-950 text-white border-zinc-950 dark:bg-zinc-100 dark:text-zinc-950 font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
                       : "border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-500"
                   }`}
                 >
-                  {t === "referee" ? (
-                    <>
-                      <span>Referee</span>
-                      {refereeCount > 0 && (
-                        <span className="px-1 py-0.2 text-[8px] bg-amber-400 text-zinc-950 font-black border border-amber-600">
-                          {refereeCount}
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    t
-                  )}
+                  {t}
                 </button>
-              );
-            })}
+              ))}
           </div>
         </div>
         <div className="border-b-2 border-red-300 dark:border-red-950/60 bg-red-50/40 dark:bg-red-950/10">
@@ -404,7 +390,9 @@ function ActionRequiredRow({ oath, reason, isSelected, onClick }: { oath: Oath; 
 
 function OathListItem({ oath, isSelected, isReferee, onClick }: { oath: Oath; isSelected: boolean; isReferee: boolean; onClick: () => void }) {
   const { region } = useRegion();
-  const time = getTimeRemaining(oath.deadline);
+  const isDaily = oath.cadence === "daily" || ((oath.total_days ?? 1) > 1);
+  const targetDeadline = isDaily ? (oath.daily_deadline || oath.deadline) : oath.deadline;
+  const time = getTimeRemaining(targetDeadline);
   const typeIcon = isReferee ? (
     <Shield className="w-3 h-3 text-amber-500" />
   ) : oath.oath_type === "solo" ? (
@@ -485,13 +473,14 @@ function OathCountdownCard({
   const { region } = useRegion();
   const { user, profile } = useAuth();
   const [now, setNow] = useState(() => Date.now());
-  const [timeState, setTimeState] = useState(() => getTimeRemaining(oath.deadline));
 
   const totalDays = oath.total_days ?? 1;
   const currentDay = oath.current_day ?? 1;
   const isMultiDay = totalDays > 1;
+  const isDaily = oath.cadence === "daily" || isMultiDay;
   const dailyDeadline = oath.daily_deadline || oath.deadline;
-  const [todayTime, setTodayTime] = useState(() => getTimeRemaining(dailyDeadline));
+  const targetDeadline = isDaily ? dailyDeadline : oath.deadline;
+  const [timeState, setTimeState] = useState(() => getTimeRemaining(targetDeadline));
 
   const latestProof = oath.proofs?.find((p) => p.status === "pending_review") || oath.proofs?.[0];
   const hasPendingProof = Boolean(oath.proofs?.some((p) => p.status === "pending_review"));
@@ -501,101 +490,17 @@ function OathCountdownCard({
   useEffect(() => {
     const interval = setInterval(() => {
       setNow(Date.now());
-      setTimeState(getTimeRemaining(oath.deadline));
-      setTodayTime(getTimeRemaining(dailyDeadline));
+      setTimeState(getTimeRemaining(targetDeadline));
     }, 1000);
     return () => clearInterval(interval);
-  }, [oath.deadline, dailyDeadline]);
+  }, [targetDeadline]);
 
-  const deadlineMs = new Date(oath.deadline).getTime();
+  const deadlineMs = new Date(targetDeadline).getTime();
   const createdMs = new Date(oath.created_at).getTime();
   const progressTotal = isNaN(deadlineMs) || isNaN(createdMs) ? 1 : Math.max(1, deadlineMs - createdMs);
   const progressElapsed = isNaN(createdMs) ? 0 : Math.max(0, now - createdMs);
   const progressPercent = Math.min(100, Math.max(0, (progressElapsed / progressTotal) * 100));
 
-  // --- REFEREE VIEW ---
-  if (isReferee) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center py-8 px-4 sm:px-8 relative overflow-y-auto bg-zinc-50 dark:bg-transparent" suppressHydrationWarning>
-        <div className="w-full max-w-xl bg-white dark:bg-zinc-900 border-4 border-zinc-950 dark:border-zinc-800 p-6 sm:p-8 shadow-[8px_8px_0px_0px_rgba(245,158,11,1)] dark:shadow-none text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-400 text-zinc-950 font-mono font-black text-xs uppercase tracking-widest border-2 border-zinc-950 mb-6 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-            <Shield className="w-4 h-4 text-zinc-950" />
-            REFEREE DUTY: @{oath.creator?.username || "Challenger"}&apos;s Oath
-          </div>
-
-          {/* Statement */}
-          <h1 className="text-2xl sm:text-3xl font-black text-zinc-950 dark:text-zinc-50 tracking-tight leading-tight mb-6">
-            &ldquo;{oath.oath_statement}&rdquo;
-          </h1>
-
-          {/* Cadence progression if multi-day */}
-          {isMultiDay && (
-            <div className="mb-6 flex flex-col items-center">
-              <div className="flex items-center gap-1.5 mb-2">
-                {Array.from({ length: Math.min(totalDays, 14) }).map((_, idx) => {
-                  const dayNum = idx + 1;
-                  const isDone = dayNum < currentDay;
-                  const isCurrent = dayNum === currentDay;
-                  return (
-                    <div
-                      key={idx}
-                      className={`w-7 h-7 flex items-center justify-center border font-mono text-[9px] font-bold ${
-                        isDone
-                          ? "bg-emerald-500 text-white border-emerald-600"
-                          : isCurrent
-                          ? "bg-amber-500 text-zinc-950 border-amber-600 ring-2 ring-amber-400"
-                          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 border-zinc-300 dark:border-zinc-700"
-                      }`}
-                    >
-                      D{dayNum}
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="text-[11px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
-                Day {currentDay} of {totalDays} · Streak: {oath.current_streak ?? 0} days
-              </p>
-            </div>
-          )}
-
-          {/* Duty & Stake Box */}
-          <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-500/80 mb-6 text-center">
-            <p className="text-xs sm:text-sm font-mono text-zinc-800 dark:text-zinc-200 leading-relaxed">
-              Challenger has staked{" "}
-              <span className="font-black text-zinc-950 dark:text-zinc-100 stake-number">
-                {utilsFormatCurrency(oath.stake_amount, region)}
-              </span>
-              . As referee, your job is to review their daily proofs in chat.
-            </p>
-            <p className="text-[10px] font-mono text-amber-700 dark:text-amber-400 font-bold mt-1.5">
-              You have $0 at risk · Challenger is held accountable by you
-            </p>
-          </div>
-
-          {/* Primary Action Button: Open Chat & Review Proofs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <button
-              onClick={onOpenChat}
-              className="w-full sm:w-auto px-6 py-3.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 border-2 border-zinc-950 dark:border-zinc-700 text-sm font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
-            >
-              <MessageSquare className="w-4 h-4 text-zinc-950" />
-              Open Chat &amp; Review Proofs
-            </button>
-            <button
-              onClick={onViewDetails}
-              className="w-full sm:w-auto px-5 py-3.5 border-2 border-zinc-950 dark:border-zinc-700 text-zinc-900 dark:text-zinc-300 text-sm font-bold tracking-tight hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none flex items-center justify-center gap-2"
-            >
-              <Eye className="w-4 h-4" />
-              Oath Details
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // --- CHALLENGER VIEW ---
   return (
     <div className="flex-1 flex flex-col items-center justify-start sm:justify-center py-6 sm:py-8 px-4 sm:px-8 relative overflow-y-auto bg-zinc-50 dark:bg-transparent" suppressHydrationWarning>
       {/* Crimson glow when urgent */}
@@ -610,18 +515,31 @@ function OathCountdownCard({
         }`}>
           {oath.status}
         </span>
-        <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-500 px-2.5 py-1 border border-zinc-300 dark:border-zinc-800">
-          {oath.verification_method.replace(/_/g, " ")}
+        <span className={`text-[9px] font-mono font-bold uppercase tracking-widest px-2.5 py-1 border ${
+          isReferee
+            ? "border-amber-500 bg-amber-400 text-zinc-950 font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+            : "text-zinc-600 dark:text-zinc-500 border-zinc-300 dark:border-zinc-800"
+        }`}>
+          {isReferee ? "REFEREE DUTY" : oath.verification_method.replace(/_/g, " ")}
         </span>
       </div>
 
       {/* Oath text */}
       <div className="text-center mb-6 max-w-xl">
-        <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-[0.2em] font-bold mb-3">I swore to</p>
+        {isReferee ? (
+          <p className="text-[10px] font-mono text-amber-600 dark:text-amber-400 uppercase tracking-[0.2em] font-black mb-3 flex items-center justify-center gap-1.5">
+            <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            REFEREE FOR @{oath.creator?.username || "CHALLENGER"}&apos;S OATH
+          </p>
+        ) : (
+          <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-[0.2em] font-bold mb-3">
+            I swore to
+          </p>
+        )}
         <h1 className="text-2xl sm:text-3xl font-black text-zinc-950 dark:text-zinc-50 tracking-tight leading-tight">
           {oath.oath_statement}
         </h1>
-        {oath.opponent && (
+        {oath.opponent && !isReferee && (
           <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 font-mono font-bold">vs @{oath.opponent.username}</p>
         )}
       </div>
@@ -653,11 +571,19 @@ function OathCountdownCard({
           <p className="text-[11px] font-mono font-bold text-zinc-700 dark:text-zinc-300">
             DAY {currentDay} OF {totalDays} · {oath.current_streak ?? 0} DAY STREAK
           </p>
-          <p className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 mt-0.5">
-            Today&apos;s proof due in {todayTime.hours}h {todayTime.minutes}m
-          </p>
         </div>
       )}
+
+      {/* Countdown Header */}
+      <div className="text-center mb-2">
+        <span className={`text-[10px] font-mono font-black uppercase tracking-widest px-2.5 py-1 border ${
+          timeState.isUrgent
+            ? "border-red-600 text-red-600 bg-red-50 dark:bg-red-950/30"
+            : "border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400"
+        }`}>
+          {isDaily ? `DAY ${currentDay} OF ${totalDays} · TIME REMAINING TODAY` : "TIME REMAINING UNTIL DEADLINE"}
+        </span>
+      </div>
 
       {/* Countdown */}
       <div className="mb-6">
@@ -680,6 +606,11 @@ function OathCountdownCard({
             <TimeUnit value={timeState.seconds} label="SEC" large={timeState.days === 0} urgent={timeState.isUrgent && timeState.days === 0} />
           </div>
         )}
+        <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 mt-2 text-center">
+          {isDaily
+            ? `Daily proof window · Final deadline: ${new Date(oath.deadline).toLocaleDateString()}`
+            : `Single verification · Complete deadline: ${new Date(oath.deadline).toLocaleDateString()}`}
+        </p>
       </div>
 
       {/* Needs more proof alert for challenger */}
@@ -702,10 +633,17 @@ function OathCountdownCard({
       <div className="text-center mb-6">
         {oath.stake_amount > 0 ? (
           <>
-            <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-[0.2em] font-bold mb-1">At stake</p>
+            <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-[0.2em] font-bold mb-1">
+              {isReferee ? `At stake by @${oath.creator?.username || "Challenger"}` : "At stake"}
+            </p>
             <p className="text-4xl sm:text-5xl font-black text-zinc-950 dark:text-zinc-50 stake-number tracking-tight">
               {utilsFormatCurrency(oath.stake_amount, region)}
             </p>
+            {isReferee && (
+              <p className="text-[10px] font-mono text-amber-700 dark:text-amber-400 font-bold mt-1">
+                You have $0 at risk · Challenger is held accountable by you
+              </p>
+            )}
           </>
         ) : (
           <>
@@ -741,6 +679,32 @@ function OathCountdownCard({
 
       {/* Actions */}
       {(() => {
+        // If viewing as referee, the user strictly sees "Chat and Proof" and "Details"
+        if (isReferee) {
+          return (
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 w-full max-w-md px-2">
+              <button
+                onClick={onOpenChat}
+                className={`flex items-center gap-2 px-6 py-3 text-sm font-black tracking-tight uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none ${
+                  hasPendingProof
+                    ? "bg-amber-500 hover:bg-amber-400 text-zinc-950 border-amber-600 animate-pulse"
+                    : "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-zinc-950 dark:border-transparent font-black"
+                }`}
+              >
+                <MessageSquare className="w-4 h-4" />
+                {hasPendingProof ? "Chat and Proof (Review Pending)" : "Chat and Proof"}
+              </button>
+              <button
+                onClick={onViewDetails}
+                className="flex items-center gap-2 px-5 py-3 border-2 border-zinc-950 dark:border-zinc-700 text-zinc-900 dark:text-zinc-300 text-sm font-bold tracking-tight hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+              >
+                <Eye className="w-4 h-4" />
+                Details
+              </button>
+            </div>
+          );
+        }
+
         const isExpired = timeState.isExpired;
         const isActionable = oath.status === "active" && !isExpired;
         const isPendingAcceptance = oath.status === "pending";

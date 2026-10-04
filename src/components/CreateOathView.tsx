@@ -58,6 +58,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
   const [maxPlayers, setMaxPlayers] = useState<number>(4);
   const [stakeAmount, setStakeAmount] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [cadence, setCadence] = useState<"daily" | "once">("daily");
   const [socialPhone, setSocialPhone] = useState("");
   const [socialMessage, setSocialMessage] = useState("");
   const [nomineeEmail, setNomineeEmail] = useState("");
@@ -273,6 +274,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
       group_mode: oathType === "duo" || oathType === "squad" ? groupMode : undefined,
       opponent_id: oathType === "duo" && finalOpponentId ? finalOpponentId : undefined,
       opponent_ids: oathType === "squad" && finalSquadMembers.length > 0 ? finalSquadMembers.map(m => m.id) : undefined,
+      cadence,
     });
     setSubmitting(false);
     if (error) {
@@ -330,6 +332,42 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                 autoFocus
                 style={{ outline: "none", border: "none" }}
               />
+            </div>
+
+            {/* PROOF CADENCE SELECTOR */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em] font-bold block">
+                  Proof Cadence
+                </label>
+                <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-bold">
+                  {cadence === "daily" ? "Daily upload required" : "Single upload at deadline"}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <TypeButton
+                  icon={<Flame className="w-4 h-4 text-amber-500" />}
+                  label="Daily Proof"
+                  sublabel="Upload every 24h"
+                  isActive={cadence === "daily"}
+                  onClick={() => setCadence("daily")}
+                  onInfo={() => setInfoModal({
+                    title: "Daily Proof Cadence",
+                    desc: "You must submit verified proof every single day before the 24-hour daily cutoff. If you miss even one day's upload, the oath immediately fails, your stake is seized, and your loss streak increases.",
+                  })}
+                />
+                <TypeButton
+                  icon={<Target className="w-4 h-4 text-blue-500" />}
+                  label="One-Time Deadline"
+                  sublabel="Submit once by deadline"
+                  isActive={cadence === "once"}
+                  onClick={() => setCadence("once")}
+                  onInfo={() => setInfoModal({
+                    title: "One-Time Proof Deadline",
+                    desc: "You have until the final deadline to submit your proof. You only need to verify your achievement once on or before the timer expires.",
+                  })}
+                />
+              </div>
             </div>
 
             {/* OATH TYPE */}
@@ -552,9 +590,14 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
           <div className="space-y-6 fade-in">
             {/* DEADLINE */}
             <div className="border-2 border-zinc-950 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-950/50 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
-              <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.2em] mb-2 block">
-                Deadline (By when)
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.2em] block">
+                  {cadence === "daily" ? "Challenge Duration (Daily Proofs Required)" : "Final Deadline (One-Time Proof)"}
+                </label>
+                <span className="text-[10px] font-mono text-zinc-500 font-bold">
+                  {cadence === "daily" ? "Proof due every 24h" : "Single proof by date"}
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-zinc-500" />
                 <input
@@ -971,6 +1014,9 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                   <p className="text-base font-semibold text-zinc-900 dark:text-zinc-200 leading-relaxed">
                     &ldquo;I swear to{" "}
                     <span className="text-zinc-950 dark:text-zinc-50 font-black">{oathStatement}</span>
+                    <span className="text-amber-600 dark:text-amber-400 font-bold font-mono text-sm">
+                      {" "}[{cadence === "daily" ? "Daily Proofs" : "One-Time Proof"}]
+                    </span>
                     {deadline && (
                       <>
                         {" "}by{" "}

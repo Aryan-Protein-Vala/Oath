@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import type { Oath, WallEntry, Transaction, Proof, GroupMember, Wallet, OathType, VerificationMethod, ConsequenceType, ProofType, GroupMode, ProofStatus, Message } from "@/lib/types";
+import type { Oath, WallEntry, Transaction, Proof, GroupMember, Wallet, OathType, OathStatus, VerificationMethod, ConsequenceType, ProofType, GroupMode, ProofStatus, Message } from "@/lib/types";
 import {
   mockProfile,
   mockActiveOaths,
@@ -523,6 +523,7 @@ export async function createOath(data: {
   group_mode?: GroupMode;
   opponent_id?: string;
   opponent_ids?: string[]; // Multiple invites for squad
+  cadence?: "daily" | "once";
 }): Promise<{ oath?: Oath; error: string | null }> {
   const validStake = validateNonNegativeAmount(data.stake_amount);
   if (validStake === null) {
@@ -554,6 +555,14 @@ export async function createOath(data: {
 
     const initialStatus = (data.oath_type === "squad" || data.oath_type === "duo" || data.oath_type === "lobby") ? "pending" : "active";
     const demoOathId = `oath-${Date.now()}`;
+    const cadence = data.cadence ?? "daily";
+    const isDaily = cadence === "daily";
+    const totalDays = isDaily
+      ? Math.max(1, Math.ceil((deadlineMs - Date.now()) / (24 * 3600 * 1000)))
+      : 1;
+    const dailyDeadline = isDaily
+      ? new Date(Math.min(deadlineMs, Date.now() + 24 * 3600 * 1000)).toISOString()
+      : data.deadline;
 
     const newOath: Oath = {
       id: demoOathId,
@@ -573,6 +582,11 @@ export async function createOath(data: {
       max_players: data.max_players ?? (data.oath_type === "squad" ? 8 : data.oath_type === "lobby" ? 10 : data.oath_type === "duo" ? 2 : 1),
       group_mode: data.group_mode,
       opponent_id: data.opponent_id,
+      cadence,
+      total_days: totalDays,
+      current_day: 1,
+      current_streak: 0,
+      daily_deadline: dailyDeadline,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       members: (data.oath_type === "squad" || data.oath_type === "lobby" || data.oath_type === "duo") ? [
@@ -649,6 +663,7 @@ export async function createOath(data: {
     p_group_mode: data.group_mode ?? null,
     p_opponent_id: data.opponent_id ?? null,
     p_opponent_ids: data.opponent_ids ?? null,
+    p_cadence: data.cadence ?? "daily",
   });
   if (error || !oathId) return { error: error?.message ?? "Oath creation failed" };
 
@@ -1635,9 +1650,13 @@ export async function passDailyWork(oathId: string, note?: string): Promise<{ er
     const oath = oaths.find((o) => o.id === oathId);
     if (!oath) return { error: "Oath not found" };
 
-    const totalDays = oath.total_days ?? 1;
+    const cadence = oath.cadence ?? "daily";
+    let totalDays = Math.max(1, oath.total_days ?? 1);
+    if (cadence === "daily" && totalDays <= 1 && new Date(oath.deadline).getTime() > Date.now() + 24 * 3600 * 1000) {
+      totalDays = Math.max(2, Math.ceil((new Date(oath.deadline).getTime() - new Date(oath.created_at).getTime()) / (24 * 3600 * 1000)));
+    }
     const currentDay = oath.current_day ?? 1;
-    const isFinalDay = currentDay >= totalDays || totalDays <= 1;
+    const isFinalDay = cadence === "daily" ? (currentDay >= totalDays) : true;
 
     if (isFinalDay) {
       return settleOath(oathId, "success", note);
@@ -1651,9 +1670,11 @@ export async function passDailyWork(oathId: string, note?: string): Promise<{ er
           );
           return {
             ...o,
+            status: "active" as OathStatus,
+            total_days: totalDays,
             current_day: currentDay + 1,
             current_streak: (o.current_streak ?? 0) + 1,
-            daily_deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            daily_deadline: new Date(Math.min(new Date(o.deadline).getTime(), Date.now() + 24 * 60 * 60 * 1000)).toISOString(),
             proofs: updatedProofs,
           };
         }

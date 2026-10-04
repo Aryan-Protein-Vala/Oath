@@ -4,7 +4,6 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { RegionProvider } from "@/lib/region-context";
-import NomineeVerificationBar from "@/components/NomineeVerificationBar";
 import { ToastContainer } from "@/components/Toast";
 import { ConfirmationDialogContainer } from "@/components/ConfirmationModal";
 
@@ -50,7 +49,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
             <AuthProvider>
               {children}
-              <NomineeVerificationBar />
               <ToastContainer />
               <ConfirmationDialogContainer />
             </AuthProvider>
