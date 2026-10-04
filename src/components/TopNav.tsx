@@ -3,7 +3,7 @@
 import React from "react";
 
 import { useSyncExternalStore } from "react";
-import { Wallet, Plus, Bell, Sun, Moon, Zap, PenLine, Users, Skull, Crown, User } from "lucide-react";
+import { Wallet, Plus, Bell, Sun, Moon, Zap, PenLine, Users, User } from "lucide-react";
 import { useTheme } from "next-themes";
 import { formatCurrencyPrecise } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
@@ -56,9 +56,7 @@ export default function TopNav({
           <div className="hidden sm:flex items-center gap-0 border-2 border-zinc-950 dark:border-zinc-800 divide-x-2 divide-zinc-950 dark:divide-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
             <NavTab label="Active" isActive={currentView === "active"} onClick={() => onViewChange("active")} />
             <NavTab label="Create" isActive={currentView === "create"} onClick={() => onViewChange("create")} />
-            <NavTab label="Lobbies" isActive={currentView === "lobbies"} onClick={() => onViewChange("lobbies")} />
-            <NavTab label="Shame" isActive={currentView === "wall_shame"} onClick={() => onViewChange("wall_shame")} accent />
-            <NavTab label="Honor" isActive={currentView === "wall_honor"} onClick={() => onViewChange("wall_honor")} />
+            <NavTab label="Community & Lobbies" isActive={currentView === "community"} onClick={() => onViewChange("community")} />
           </div>
         </div>
 
@@ -150,9 +148,7 @@ export default function TopNav({
       <div className="flex sm:hidden items-center border-t-2 border-zinc-950 dark:border-zinc-800/50 divide-x-2 divide-zinc-950 dark:divide-zinc-800/50 bg-zinc-50 dark:bg-[#09090b]">
         <MobileNavTab icon={<Zap className="w-3.5 h-3.5" />} label="Active" isActive={currentView === "active"} onClick={() => onViewChange("active")} />
         <MobileNavTab icon={<PenLine className="w-3.5 h-3.5" />} label="Create" isActive={currentView === "create"} onClick={() => onViewChange("create")} />
-        <MobileNavTab icon={<Users className="w-3.5 h-3.5" />} label="Lobbies" isActive={currentView === "lobbies"} onClick={() => onViewChange("lobbies")} />
-        <MobileNavTab icon={<Skull className="w-3.5 h-3.5" />} label="Shame" isActive={currentView === "wall_shame"} onClick={() => onViewChange("wall_shame")} accent />
-        <MobileNavTab icon={<Crown className="w-3.5 h-3.5" />} label="Honor" isActive={currentView === "wall_honor"} onClick={() => onViewChange("wall_honor")} />
+        <MobileNavTab icon={<Users className="w-3.5 h-3.5" />} label="Community" isActive={currentView === "community"} onClick={() => onViewChange("community")} />
       </div>
     </nav>
   );

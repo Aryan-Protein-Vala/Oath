@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import TopNav from "@/components/TopNav";
 import ActiveOathsView from "@/components/ActiveOathsView";
 import CreateOathView from "@/components/CreateOathView";
-import LobbiesView from "@/components/LobbiesView";
-import WallView from "@/components/WallView";
+import CommunityView from "@/components/CommunityView";
 import ProfileView from "@/components/ProfileView";
 import LandingView from "@/components/LandingView";
 import WalletModal from "@/components/WalletModal";
@@ -24,7 +23,7 @@ import {
   mockTransactions,
 } from "@/lib/mock-data";
 
-type View = "active" | "create" | "lobbies" | "wall_shame" | "wall_honor" | "profile";
+type View = "active" | "create" | "community" | "profile";
 
 export default function Home() {
   const [currentView, setCurrentView] = useState<View>("active");
@@ -191,20 +190,18 @@ export default function Home() {
             onOathCreated={() => { setCurrentView("active"); refreshOaths(); refreshLobbies(); refreshWallet(); }}
           />
         )}
-        {currentView === "lobbies" && (
-          <LobbiesView
-            squads={activeLobbies}
-            wallet={activeWallet}
-            penaltyBoxUntil={activeProfile.penalty_box_until}
-            onJoined={() => { refreshOaths(); refreshLobbies(); refreshWallet(); }}
-            onCreateLobby={() => setCurrentView("create")}
+        {currentView === "community" && (
+          <CommunityView
+            lobbiesProps={{
+              squads: activeLobbies,
+              wallet: activeWallet,
+              penaltyBoxUntil: activeProfile.penalty_box_until,
+              onJoined: () => { refreshOaths(); refreshLobbies(); refreshWallet(); },
+              onCreateLobby: () => setCurrentView("create"),
+            }}
+            shameEntries={activeShame}
+            honorEntries={activeHonor}
           />
-        )}
-        {currentView === "wall_shame" && (
-          <WallView entries={activeShame} type="shame" />
-        )}
-        {currentView === "wall_honor" && (
-          <WallView entries={activeHonor} type="honor" />
         )}
         {currentView === "profile" && (
           <ProfileView

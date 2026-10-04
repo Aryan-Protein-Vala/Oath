@@ -108,6 +108,12 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
     );
   }
 
+  const actionItems = filteredOaths
+    .map((oath) => ({ oath, reason: getActionRequired(oath, user?.id, isReferee(oath)) }))
+    .filter((x): x is { oath: Oath; reason: ActionReason } => x.reason !== null);
+  const actionIds = new Set(actionItems.map((x) => x.oath.id));
+  const inFlightOaths = filteredOaths.filter((o) => !actionIds.has(o.id));
+
   return (
     <div className="flex-1 flex overflow-hidden" suppressHydrationWarning>
       {/* Sidebar — hidden on mobile when detail is shown */}
@@ -154,7 +160,41 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
             })}
           </div>
         </div>
-        {filteredOaths.map((oath) => (
+        <div className="border-b-2 border-red-300 dark:border-red-950/60 bg-red-50/40 dark:bg-red-950/10">
+          <div className="px-4 py-2 flex items-center gap-2">
+            {actionItems.length > 0 ? (
+              <>
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-600" />
+                </span>
+                <span className="text-[10px] font-mono font-black text-red-600 dark:text-red-500 uppercase tracking-widest">
+                  ACTION REQUIRED TODAY ({actionItems.length})
+                </span>
+              </>
+            ) : (
+              <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest">All caught up</span>
+            )}
+          </div>
+          {actionItems.map(({ oath, reason }) => (
+            <ActionRequiredRow
+              key={oath.id}
+              oath={oath}
+              reason={reason}
+              isSelected={selectedOath?.id === oath.id}
+              onClick={() => {
+                setSelectedOathId(oath.id);
+                setMobileShowDetail(true);
+              }}
+            />
+          ))}
+        </div>
+        {inFlightOaths.length > 0 && (
+          <div className="px-4 py-2 border-b border-zinc-200 dark:border-zinc-800 text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest">
+            IN FLIGHT ({inFlightOaths.length})
+          </div>
+        )}
+        {inFlightOaths.map((oath) => (
           <OathListItem
             key={oath.id}
             oath={oath}
@@ -287,6 +327,78 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
         </div>
       )}
     </div>
+  );
+}
+
+type ActionReason = { reason: string; timeLabel: string; urgent: boolean };
+
+function formatCompactTime(t: ReturnType<typeof getTimeRemaining>): string {
+  if (t.isExpired) return "EXP";
+  if (t.days > 0) return `${t.days}d`;
+  if (t.hours > 0) return `${t.hours}h ${t.minutes}m`;
+  return `${t.minutes}m`;
+}
+
+function getActionRequired(oath: Oath, userId: string | undefined, refereeDuty: boolean): ActionReason | null {
+  if (!userId) return null;
+  const dueAt = oath.daily_deadline || oath.deadline;
+  const time = getTimeRemaining(dueAt);
+  const timeLabel = formatCompactTime(time);
+  const proofs = oath.proofs ?? [];
+  const isChallenger = oath.creator_id === userId;
+  const isDuoOpponent = oath.oath_type === "duo" && oath.opponent_id === userId;
+  const isSquadMember = oath.oath_type === "squad" && Boolean(oath.members?.some((m) => m.user_id === userId));
+
+  // Reviewer duties first: someone else's proof is waiting on me
+  if (refereeDuty || isDuoOpponent || isSquadMember) {
+    const toReview = proofs.filter((p) => p.status === "pending_review" && p.submitted_by !== userId);
+    if (toReview.length > 0) {
+      const who = toReview[0].submitter?.username || oath.creator?.username;
+      return {
+        reason: `Review ${who ? `@${who}'s ` : ""}proof${toReview.length > 1 ? ` (${toReview.length})` : ""}`,
+        timeLabel,
+        urgent: true,
+      };
+    }
+  }
+
+  // Challenger duties
+  if (!refereeDuty && (isChallenger || isDuoOpponent || isSquadMember)) {
+    const mine = proofs.filter((p) => p.submitted_by === userId);
+    const latestMine = [...mine].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+    if (latestMine?.status === "needs_more_proof") {
+      return { reason: "More proof requested", timeLabel, urgent: true };
+    }
+    if (!time.isExpired && time.days === 0) {
+      const day = oath.current_day ?? 1;
+      const doneToday = mine.some(
+        (p) => (p.status === "pending_review" || p.status === "verified") && (p.day_number ?? day) === day
+      );
+      if (!doneToday) return { reason: "Proof due today", timeLabel, urgent: time.isUrgent };
+    }
+  }
+  return null;
+}
+
+function ActionRequiredRow({ oath, reason, isSelected, onClick }: { oath: Oath; reason: ActionReason; isSelected: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      suppressHydrationWarning
+      className={`w-full text-left px-4 py-2 border-b border-red-200 dark:border-red-950/40 transition-all ${
+        isSelected
+          ? "bg-red-50 dark:bg-red-950/30 shadow-[inset_4px_0_0_0_rgba(220,38,38,1)]"
+          : "hover:bg-red-50/60 dark:hover:bg-red-950/20"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate leading-tight">{oath.oath_statement}</p>
+          <p className="text-[10px] font-mono font-bold text-red-600 dark:text-red-500 uppercase truncate mt-0.5">{reason.reason}</p>
+        </div>
+        <span className="text-[10px] font-mono font-black stake-number text-red-600 dark:text-red-500 shrink-0">{reason.timeLabel}</span>
+      </div>
+    </button>
   );
 }
 
