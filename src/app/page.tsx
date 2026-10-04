@@ -131,7 +131,7 @@ export default function Home() {
   const activeProfile = profile ?? mockProfile;
   const activeWallet = wallet ?? mockWallet;
   const activeOaths = oaths;
-  const activeLobbies = isMockMode() ? (lobbies.length > 0 ? lobbies : mockSquadOaths) : lobbies;
+  const activeLobbies = (isMockMode() ? (lobbies.length > 0 ? lobbies : mockSquadOaths) : lobbies).filter((s) => s.oath_type === "lobby");
   const activeShame = isMockMode() ? (shameEntries.length > 0 ? shameEntries : mockWallOfShame) : shameEntries;
   const activeHonor = isMockMode() ? (honorEntries.length > 0 ? honorEntries : mockWallOfHonor) : honorEntries;
   const activeTx = isMockMode() ? (transactions.length > 0 ? transactions : mockTransactions) : transactions;

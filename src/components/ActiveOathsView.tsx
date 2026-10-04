@@ -1,16 +1,44 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronRight, User, Users, Upload, Eye, XCircle, Shield, AlertTriangle, X, Copy, ExternalLink, Check, Loader2, MessageSquare } from "lucide-react";
-import type { Oath } from "@/lib/types";
+import { ChevronRight, User, Users, Upload, Eye, XCircle, Shield, AlertTriangle, X, Copy, ExternalLink, Check, Loader2, MessageSquare, Clock } from "lucide-react";
+import type { Oath, ProofStatus } from "@/lib/types";
 import { getTimeRemaining, padZero, formatCurrency as utilsFormatCurrency, formatRelativeTime } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
 import { useAuth } from "@/lib/auth-context";
 import ProofUploadModal from "./ProofUploadModal";
 import ChatRoom from "./ChatRoom";
-import { forfeitOath, forfeitSquadMember, cancelPendingOath, peerReviewProof } from "@/lib/data-hooks";
+import { forfeitOath, forfeitSquadMember, cancelPendingOath, peerReviewProof, requestMoreProof, passDailyWork } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
 import { confirmAction } from "./ConfirmationModal";
+
+export function isNomineeRefereeForOath(oath: Oath, userId?: string, userEmail?: string, username?: string): boolean {
+  if (userId && oath.creator_id === userId) return false;
+  if (oath.oath_type === "solo") {
+    // In a solo oath, any viewing user other than the creator IS the nominee referee!
+    if (userId && oath.creator_id !== userId) return true;
+
+    const cleanUserEmail = userEmail?.toLowerCase();
+    const cleanUsername = username?.toLowerCase();
+    const byNominees = oath.nominees?.some((n) => {
+      if (userId && n.nominee_user_id === userId) return true;
+      if (cleanUserEmail && n.email && n.email.toLowerCase() === cleanUserEmail) return true;
+      if (cleanUsername && n.email) {
+        const cleanNomineeEmail = n.email.toLowerCase();
+        return cleanNomineeEmail === "@" + cleanUsername || cleanNomineeEmail === cleanUsername;
+      }
+      return false;
+    });
+    if (byNominees) return true;
+
+    if (cleanUserEmail && oath.nominee_email && oath.nominee_email.toLowerCase() === cleanUserEmail) return true;
+    if (cleanUsername && oath.nominee_email) {
+      const cleanNominee = oath.nominee_email.toLowerCase();
+      return cleanNominee === "@" + cleanUsername || cleanNominee === cleanUsername;
+    }
+  }
+  return false;
+}
 
 interface ActiveOathsViewProps {
   oaths: Oath[];
@@ -19,9 +47,15 @@ interface ActiveOathsViewProps {
 }
 
 export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick }: ActiveOathsViewProps) {
-  const [filterType, setFilterType] = useState<"all" | "solo" | "duo" | "squad" | "lobby">("all");
+  const { user, profile } = useAuth();
+  const [filterType, setFilterType] = useState<"all" | "solo" | "duo" | "squad" | "lobby" | "referee">("all");
+  
+  const isReferee = (o: Oath) => isNomineeRefereeForOath(o, user?.id, user?.email, profile?.username);
+
   const filteredOaths = oaths.filter((o) => {
     if (filterType === "all") return true;
+    if (filterType === "referee") return isReferee(o);
+    if (filterType === "solo") return o.oath_type === "solo" && !isReferee(o);
     return o.oath_type === filterType;
   });
 
@@ -33,6 +67,7 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
   const [showChatModal, setShowChatModal] = useState(false);
   const [showForfeitModal, setShowForfeitModal] = useState(false);
   const [showPeerReviewModal, setShowPeerReviewModal] = useState(false);
+  const [refereeAction, setRefereeAction] = useState<{ type: "need_more_proof" | "reject"; oath: Oath } | null>(null);
   // On mobile, track whether we're showing the detail panel or list
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
 
@@ -86,19 +121,37 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
             </span>
           </div>
           <div className="flex items-center gap-1 px-3 py-2 overflow-x-auto scrollbar-none">
-            {(["all", "solo", "duo", "squad", "lobby"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setFilterType(t)}
-                className={`px-2.5 py-1 text-[9px] sm:text-[10px] font-mono font-bold uppercase shrink-0 border transition-colors ${
-                  filterType === t
-                    ? "bg-zinc-950 text-white border-zinc-950 dark:bg-zinc-100 dark:text-zinc-950"
-                    : "border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-500"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
+            {(["all", "solo", "duo", "squad", "lobby", "referee"] as const)
+              .filter((t) => t !== "lobby" || oaths.some((o) => o.oath_type === "lobby"))
+              .map((t) => {
+              const refereeCount = oaths.filter(isReferee).length;
+              return (
+                <button
+                  key={t}
+                  onClick={() => setFilterType(t)}
+                  className={`px-2.5 py-1 text-[9px] sm:text-[10px] font-mono font-bold uppercase shrink-0 border transition-colors flex items-center gap-1.5 ${
+                    filterType === t
+                      ? t === "referee"
+                        ? "bg-amber-500 text-zinc-950 border-amber-500 font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                        : "bg-zinc-950 text-white border-zinc-950 dark:bg-zinc-100 dark:text-zinc-950"
+                      : "border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-500"
+                  }`}
+                >
+                  {t === "referee" ? (
+                    <>
+                      <span>Referee</span>
+                      {refereeCount > 0 && (
+                        <span className="px-1 py-0.2 text-[8px] bg-amber-400 text-zinc-950 font-black border border-amber-600">
+                          {refereeCount}
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    t
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
         {filteredOaths.map((oath) => (
@@ -106,6 +159,7 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
             key={oath.id}
             oath={oath}
             isSelected={selectedOath?.id === oath.id}
+            isReferee={isReferee(oath)}
             onClick={() => {
               setSelectedOathId(oath.id);
               setMobileShowDetail(true);
@@ -137,11 +191,35 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
 
           <OathCountdownCard
             oath={selectedOath}
+            isReferee={isReferee(selectedOath)}
             onSubmitProof={() => setShowProofModal(true)}
             onViewDetails={() => setShowDetailsModal(true)}
             onOpenChat={() => setShowChatModal(true)}
             onForfeit={() => setShowForfeitModal(true)}
             onPeerReview={() => setShowPeerReviewModal(true)}
+            onPassTodayWork={async (oathToPass) => {
+              const confirmed = await confirmAction({
+                title: "Pass Today's Work?",
+                message: `Verify and pass today's work for @${oathToPass.creator?.username || "Challenger"}? This will advance their streak to the next day.`,
+                confirmLabel: "Yes, Pass Today's Work",
+                cancelLabel: "Cancel",
+                variant: "default",
+              });
+              if (!confirmed) return;
+              const { error } = await passDailyWork(oathToPass.id, "Approved by Referee");
+              if (error) {
+                showToast(error, "error");
+              } else {
+                showToast("Today's work passed! Streak updated.", "success");
+                onProofSubmitted?.();
+              }
+            }}
+            onRequestMoreProof={(oathToReview) => {
+              setRefereeAction({ type: "need_more_proof", oath: oathToReview });
+            }}
+            onRejectProof={(oathToReview) => {
+              setRefereeAction({ type: "reject", oath: oathToReview });
+            }}
           />
 
           {showProofModal && (
@@ -162,7 +240,13 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
           {showChatModal && (
             <ChatRoom
               oath={selectedOath}
-              onClose={() => setShowChatModal(false)}
+              onClose={() => {
+                setShowChatModal(false);
+                onProofSubmitted?.();
+              }}
+              onProofUpdated={() => {
+                onProofSubmitted?.();
+              }}
             />
           )}
 
@@ -188,17 +272,34 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
               }}
             />
           )}
+
+          {refereeAction && (
+            <RefereeReviewModal
+              oath={refereeAction.oath}
+              type={refereeAction.type}
+              onClose={() => setRefereeAction(null)}
+              onSuccess={() => {
+                setRefereeAction(null);
+                onProofSubmitted?.();
+              }}
+            />
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function OathListItem({ oath, isSelected, onClick }: { oath: Oath; isSelected: boolean; onClick: () => void }) {
+function OathListItem({ oath, isSelected, isReferee, onClick }: { oath: Oath; isSelected: boolean; isReferee: boolean; onClick: () => void }) {
   const { region } = useRegion();
   const time = getTimeRemaining(oath.deadline);
-  const typeIcon =
-    oath.oath_type === "solo" ? <User className="w-3 h-3" /> : <Users className="w-3 h-3" />;
+  const typeIcon = isReferee ? (
+    <Shield className="w-3 h-3 text-amber-500" />
+  ) : oath.oath_type === "solo" ? (
+    <User className="w-3 h-3" />
+  ) : (
+    <Users className="w-3 h-3" />
+  );
 
   return (
     <button
@@ -206,21 +307,32 @@ function OathListItem({ oath, isSelected, onClick }: { oath: Oath; isSelected: b
       suppressHydrationWarning
       className={`w-full text-left px-4 py-3.5 border-b-2 border-zinc-200 dark:border-zinc-800/30 transition-all ${
         isSelected
-          ? "bg-zinc-200 dark:bg-zinc-900/80 shadow-[inset_4px_0_0_0_rgba(220,38,38,1)]"
+          ? isReferee
+            ? "bg-amber-50/80 dark:bg-amber-950/30 shadow-[inset_4px_0_0_0_rgba(245,158,11,1)]"
+            : "bg-zinc-200 dark:bg-zinc-900/80 shadow-[inset_4px_0_0_0_rgba(220,38,38,1)]"
           : "hover:bg-zinc-100 dark:hover:bg-zinc-900/40"
       }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
+          {isReferee && (
+            <span className="inline-block text-[9px] font-mono font-black uppercase tracking-widest px-1.5 py-0.5 bg-amber-400 text-zinc-950 dark:bg-amber-500 dark:text-zinc-950 mb-1 border border-amber-600">
+              REFEREE DUTY
+            </span>
+          )}
           <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate leading-tight">
             {oath.oath_statement}
           </p>
           <div className="flex items-center gap-2 mt-1.5">
             <span className="text-zinc-500">{typeIcon}</span>
-            <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 uppercase font-semibold">{oath.oath_type}</span>
+            <span className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 uppercase font-semibold">
+              {isReferee ? `Refereeing @${oath.creator?.username || "Challenger"}` : oath.oath_type}
+            </span>
             <span className="text-zinc-400">·</span>
             <span className="text-[10px] font-mono font-black text-zinc-800 dark:text-zinc-300 stake-number">
-              {utilsFormatCurrency(oath.stake_amount, region)}
+              {isReferee
+                ? `Challenger: ${utilsFormatCurrency(oath.stake_amount, region)}`
+                : utilsFormatCurrency(oath.stake_amount, region)}
             </span>
           </div>
         </div>
@@ -228,7 +340,7 @@ function OathListItem({ oath, isSelected, onClick }: { oath: Oath; isSelected: b
           <span className={`text-[10px] font-mono font-black stake-number ${time.isUrgent ? "text-red-600 dark:text-red-500" : "text-zinc-600 dark:text-zinc-400"}`}>
             {time.isExpired ? "EXP" : time.days > 0 ? `${time.days}d` : time.hours > 0 ? `${time.hours}h` : `${time.minutes}m`}
           </span>
-          <ChevronRight className={`w-3 h-3 mt-1 ${isSelected ? "text-zinc-800 dark:text-zinc-300" : "text-zinc-400 dark:text-zinc-600"}`} />
+          <ChevronRight className={`w-3 h-3 mt-1 ${isSelected ? (isReferee ? "text-amber-500" : "text-zinc-800 dark:text-zinc-300") : "text-zinc-400 dark:text-zinc-600"}`} />
         </div>
       </div>
     </button>
@@ -237,31 +349,51 @@ function OathListItem({ oath, isSelected, onClick }: { oath: Oath; isSelected: b
 
 function OathCountdownCard({
   oath,
+  isReferee,
   onSubmitProof,
   onViewDetails,
   onOpenChat,
   onForfeit,
   onPeerReview,
+  onPassTodayWork,
+  onRequestMoreProof,
+  onRejectProof,
 }: {
   oath: Oath;
+  isReferee: boolean;
   onSubmitProof: () => void;
   onViewDetails: () => void;
   onOpenChat: () => void;
   onForfeit: () => void;
   onPeerReview: () => void;
+  onPassTodayWork: (oath: Oath) => void;
+  onRequestMoreProof: (oath: Oath) => void;
+  onRejectProof: (oath: Oath) => void;
 }) {
   const { region } = useRegion();
   const { user, profile } = useAuth();
   const [now, setNow] = useState(() => Date.now());
   const [timeState, setTimeState] = useState(() => getTimeRemaining(oath.deadline));
 
+  const totalDays = oath.total_days ?? 1;
+  const currentDay = oath.current_day ?? 1;
+  const isMultiDay = totalDays > 1;
+  const dailyDeadline = oath.daily_deadline || oath.deadline;
+  const [todayTime, setTodayTime] = useState(() => getTimeRemaining(dailyDeadline));
+
+  const latestProof = oath.proofs?.find((p) => p.status === "pending_review") || oath.proofs?.[0];
+  const hasPendingProof = Boolean(oath.proofs?.some((p) => p.status === "pending_review"));
+  const needsMoreProof = Boolean(latestProof?.status === "needs_more_proof");
+  const isVerifiedToday = Boolean(latestProof?.status === "verified");
+
   useEffect(() => {
     const interval = setInterval(() => {
       setNow(Date.now());
       setTimeState(getTimeRemaining(oath.deadline));
+      setTodayTime(getTimeRemaining(dailyDeadline));
     }, 1000);
     return () => clearInterval(interval);
-  }, [oath.deadline]);
+  }, [oath.deadline, dailyDeadline]);
 
   const deadlineMs = new Date(oath.deadline).getTime();
   const createdMs = new Date(oath.created_at).getTime();
@@ -269,6 +401,89 @@ function OathCountdownCard({
   const progressElapsed = isNaN(createdMs) ? 0 : Math.max(0, now - createdMs);
   const progressPercent = Math.min(100, Math.max(0, (progressElapsed / progressTotal) * 100));
 
+  // --- REFEREE VIEW ---
+  if (isReferee) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center py-8 px-4 sm:px-8 relative overflow-y-auto bg-zinc-50 dark:bg-transparent" suppressHydrationWarning>
+        <div className="w-full max-w-xl bg-white dark:bg-zinc-900 border-4 border-zinc-950 dark:border-zinc-800 p-6 sm:p-8 shadow-[8px_8px_0px_0px_rgba(245,158,11,1)] dark:shadow-none text-center">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-400 text-zinc-950 font-mono font-black text-xs uppercase tracking-widest border-2 border-zinc-950 mb-6 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+            <Shield className="w-4 h-4 text-zinc-950" />
+            REFEREE DUTY: @{oath.creator?.username || "Challenger"}&apos;s Oath
+          </div>
+
+          {/* Statement */}
+          <h1 className="text-2xl sm:text-3xl font-black text-zinc-950 dark:text-zinc-50 tracking-tight leading-tight mb-6">
+            &ldquo;{oath.oath_statement}&rdquo;
+          </h1>
+
+          {/* Cadence progression if multi-day */}
+          {isMultiDay && (
+            <div className="mb-6 flex flex-col items-center">
+              <div className="flex items-center gap-1.5 mb-2">
+                {Array.from({ length: Math.min(totalDays, 14) }).map((_, idx) => {
+                  const dayNum = idx + 1;
+                  const isDone = dayNum < currentDay;
+                  const isCurrent = dayNum === currentDay;
+                  return (
+                    <div
+                      key={idx}
+                      className={`w-7 h-7 flex items-center justify-center border font-mono text-[9px] font-bold ${
+                        isDone
+                          ? "bg-emerald-500 text-white border-emerald-600"
+                          : isCurrent
+                          ? "bg-amber-500 text-zinc-950 border-amber-600 ring-2 ring-amber-400"
+                          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 border-zinc-300 dark:border-zinc-700"
+                      }`}
+                    >
+                      D{dayNum}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
+                Day {currentDay} of {totalDays} · Streak: {oath.current_streak ?? 0} days
+              </p>
+            </div>
+          )}
+
+          {/* Duty & Stake Box */}
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-500/80 mb-6 text-center">
+            <p className="text-xs sm:text-sm font-mono text-zinc-800 dark:text-zinc-200 leading-relaxed">
+              Challenger has staked{" "}
+              <span className="font-black text-zinc-950 dark:text-zinc-100 stake-number">
+                {utilsFormatCurrency(oath.stake_amount, region)}
+              </span>
+              . As referee, your job is to review their daily proofs in chat.
+            </p>
+            <p className="text-[10px] font-mono text-amber-700 dark:text-amber-400 font-bold mt-1.5">
+              You have $0 at risk · Challenger is held accountable by you
+            </p>
+          </div>
+
+          {/* Primary Action Button: Open Chat & Review Proofs */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              onClick={onOpenChat}
+              className="w-full sm:w-auto px-6 py-3.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 border-2 border-zinc-950 dark:border-zinc-700 text-sm font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+            >
+              <MessageSquare className="w-4 h-4 text-zinc-950" />
+              Open Chat &amp; Review Proofs
+            </button>
+            <button
+              onClick={onViewDetails}
+              className="w-full sm:w-auto px-5 py-3.5 border-2 border-zinc-950 dark:border-zinc-700 text-zinc-900 dark:text-zinc-300 text-sm font-bold tracking-tight hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none flex items-center justify-center gap-2"
+            >
+              <Eye className="w-4 h-4" />
+              Oath Details
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- CHALLENGER VIEW ---
   return (
     <div className="flex-1 flex flex-col items-center justify-start sm:justify-center py-6 sm:py-8 px-4 sm:px-8 relative overflow-y-auto bg-zinc-50 dark:bg-transparent" suppressHydrationWarning>
       {/* Crimson glow when urgent */}
@@ -289,7 +504,7 @@ function OathCountdownCard({
       </div>
 
       {/* Oath text */}
-      <div className="text-center mb-8 max-w-xl">
+      <div className="text-center mb-6 max-w-xl">
         <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-[0.2em] font-bold mb-3">I swore to</p>
         <h1 className="text-2xl sm:text-3xl font-black text-zinc-950 dark:text-zinc-50 tracking-tight leading-tight">
           {oath.oath_statement}
@@ -299,8 +514,41 @@ function OathCountdownCard({
         )}
       </div>
 
+      {/* Cadence progression */}
+      {isMultiDay && (
+        <div className="mb-6 flex flex-col items-center">
+          <div className="flex items-center gap-1.5 mb-2">
+            {Array.from({ length: Math.min(totalDays, 14) }).map((_, idx) => {
+              const dayNum = idx + 1;
+              const isDone = dayNum < currentDay;
+              const isCurrent = dayNum === currentDay;
+              return (
+                <div
+                  key={idx}
+                  className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center border font-mono text-[9px] font-bold ${
+                    isDone
+                      ? "bg-emerald-500 text-white border-emerald-600"
+                      : isCurrent
+                      ? "bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 border-zinc-950 dark:border-white ring-2 ring-amber-500"
+                      : "bg-zinc-100 dark:bg-zinc-900 text-zinc-400 border-zinc-300 dark:border-zinc-800"
+                  }`}
+                >
+                  D{dayNum}
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[11px] font-mono font-bold text-zinc-700 dark:text-zinc-300">
+            DAY {currentDay} OF {totalDays} · {oath.current_streak ?? 0} DAY STREAK
+          </p>
+          <p className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+            Today&apos;s proof due in {todayTime.hours}h {todayTime.minutes}m
+          </p>
+        </div>
+      )}
+
       {/* Countdown */}
-      <div className="mb-8">
+      <div className="mb-6">
         {timeState.isExpired ? (
           <p className="text-7xl sm:text-8xl font-black text-red-600 timer-display urgent-pulse tracking-tighter">
             EXPIRED
@@ -321,6 +569,22 @@ function OathCountdownCard({
           </div>
         )}
       </div>
+
+      {/* Needs more proof alert for challenger */}
+      {needsMoreProof && (
+        <div className="w-full max-w-md p-3.5 mb-6 bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 text-left fade-in">
+          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-mono font-bold text-xs uppercase mb-1">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+            Reviewer Requested More Proof:
+          </div>
+          <p className="text-xs font-mono text-zinc-900 dark:text-zinc-100 italic mb-2 leading-relaxed">
+            &ldquo;{latestProof?.review_note || "Please submit clearer evidence."}&rdquo;
+          </p>
+          <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400">
+            Please re-upload clearer evidence before today&apos;s deadline expires.
+          </p>
+        </div>
+      )}
 
       {/* Stake or Non-financial Consequence */}
       <div className="text-center mb-6">
@@ -367,15 +631,33 @@ function OathCountdownCard({
       {(() => {
         const isExpired = timeState.isExpired;
         const isActionable = oath.status === "active" && !isExpired;
-        const hasPendingProof = Boolean(oath.proofs?.some(p => p.status === "pending_review"));
-        const isApproved = Boolean(oath.proofs?.some(p => p.status === "verified"));
         const isPendingAcceptance = oath.status === "pending";
-        const isLockedOut = hasPendingProof || isApproved || isPendingAcceptance;
 
         const isDuoOpponentVerifier =
           oath.oath_type === "duo" &&
           (oath.opponent_id === user?.id || (oath.opponent?.username && oath.opponent.username === profile?.username)) &&
           oath.creator_id !== user?.id;
+
+        const chatProofLabel = (() => {
+          if (isDuoOpponentVerifier && hasPendingProof) {
+            return "Open Chat & Review Opponent Proof";
+          }
+          if (needsMoreProof) {
+            return "Open Chat & Re-upload Proof";
+          }
+          if (isPendingAcceptance) {
+            return oath.oath_type === "duo"
+              ? "Open Chat (Waiting for Opponent)"
+              : "Open Chat (Waiting for Squad)";
+          }
+          if (hasPendingProof) {
+            return "Open Chat (Proof In Review)";
+          }
+          if (isVerifiedToday) {
+            return "Open Chat (Today's Work Passed ✅)";
+          }
+          return "Open Chat to Upload Proof";
+        })();
 
         return (
           <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 w-full max-w-md px-2">
@@ -389,47 +671,19 @@ function OathCountdownCard({
               </button>
             ) : (
               <>
-                {isDuoOpponentVerifier && hasPendingProof ? (
-                  <button
-                    onClick={onPeerReview}
-                    className="relative flex items-center gap-2 px-5 py-2.5 text-sm font-black tracking-tight uppercase transition-all border-2 border-amber-500 bg-amber-500 text-zinc-950 hover:bg-amber-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
-                  >
-                    <Shield className="w-3.5 h-3.5 text-zinc-950" />
-                    Review Opponent Proof
-                    <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-600 border border-white"></span>
-                    </span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={onSubmitProof}
-                    disabled={!isActionable || isLockedOut}
-                    className={`flex items-center gap-2 px-5 py-2.5 text-sm font-black tracking-tight uppercase transition-colors border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none ${
-                      isActionable && !isLockedOut
-                        ? "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-zinc-950 dark:border-transparent"
-                        : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 border-zinc-300 dark:border-zinc-800 cursor-not-allowed shadow-none"
-                    }`}
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    {isPendingAcceptance
-                      ? (oath.oath_type === "duo" ? "Waiting for Opponent" : "Waiting for Squad")
-                      : hasPendingProof
-                      ? "Proof In Review"
-                      : isApproved
-                      ? "Proof Verified"
-                      : "Submit Proof"}
-                  </button>
-                )}
-                {oath.oath_type !== "solo" && (
-                  <button
-                    onClick={onOpenChat}
-                    className="flex items-center gap-2 px-5 py-2.5 border-2 border-zinc-950 dark:border-zinc-700 text-zinc-900 dark:text-zinc-300 text-sm font-bold tracking-tight hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    Chat
-                  </button>
-                )}
+                <button
+                  onClick={onOpenChat}
+                  className={`flex items-center gap-2 px-5 py-2.5 text-sm font-black tracking-tight uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none ${
+                    needsMoreProof
+                      ? "bg-amber-500 hover:bg-amber-400 text-zinc-950 border-amber-600 font-black animate-pulse"
+                      : isDuoOpponentVerifier && hasPendingProof
+                      ? "bg-amber-500 hover:bg-amber-400 text-zinc-950 border-amber-600 font-black"
+                      : "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-zinc-950 dark:border-transparent font-black"
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  {chatProofLabel}
+                </button>
                 <button
                   onClick={onViewDetails}
                   className="flex items-center gap-2 px-5 py-2.5 border-2 border-zinc-950 dark:border-zinc-700 text-zinc-900 dark:text-zinc-300 text-sm font-bold tracking-tight hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
@@ -898,6 +1152,129 @@ function PeerReviewModal({
               {showRejectInput ? "Confirm Reject (Fraud)" : "Reject (Fraud)"}
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RefereeReviewModal({
+  oath,
+  type,
+  onClose,
+  onSuccess,
+}: {
+  oath: Oath;
+  type: "need_more_proof" | "reject";
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [note, setNote] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const handleSubmit = async () => {
+    if (!note.trim()) {
+      showToast(
+        type === "need_more_proof"
+          ? "Please describe what additional proof you need."
+          : "Please specify a reason for rejecting this proof.",
+        "error"
+      );
+      return;
+    }
+    setLoading(true);
+    if (type === "need_more_proof") {
+      const { error } = await requestMoreProof(oath.id, note.trim());
+      setLoading(false);
+      if (error) {
+        showToast(error, "error");
+      } else {
+        showToast("Requested clearer proof from challenger.", "info");
+        onSuccess();
+        onClose();
+      }
+    } else {
+      const { error } = await peerReviewProof(oath.id, false, note.trim());
+      setLoading(false);
+      if (error) {
+        showToast(error, "error");
+      } else {
+        showToast("Proof rejected as fraudulent.", "error");
+        onSuccess();
+        onClose();
+      }
+    }
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+    >
+      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none text-left">
+        <div className="flex items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 pb-3 mb-4">
+          <div className="flex items-center gap-2">
+            {type === "need_more_proof" ? (
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+            ) : (
+              <XCircle className="w-5 h-5 text-red-600" />
+            )}
+            <h3 className="text-base font-black text-zinc-950 dark:text-zinc-50 uppercase tracking-tight">
+              {type === "need_more_proof" ? "Request More Proof" : "Reject Proof (Fraud)"}
+            </h3>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 mb-3">
+          {type === "need_more_proof"
+            ? "Specify what evidence the challenger needs to provide before you can pass today's work (e.g. angle, date stamp, gym timer, screen recording)."
+            : "Explain why this proof is fraudulent, staged, or violates the sworn oath statement."}
+        </p>
+
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder={
+            type === "need_more_proof"
+              ? "e.g. Please take a photo showing today's timestamp and wider room context..."
+              : "e.g. This photo is copied from online / reused from last week..."
+          }
+          className="w-full p-3 border-2 border-zinc-950 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-sm font-medium resize-none mb-4 focus:outline-none"
+          rows={3}
+          autoFocus
+        />
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className={`flex-1 py-3 text-xs font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-2 border-2 ${
+              type === "need_more_proof"
+                ? "bg-amber-500 hover:bg-amber-400 text-zinc-950 border-amber-600"
+                : "bg-red-600 hover:bg-red-700 text-white border-red-700"
+            } disabled:opacity-50`}
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            {type === "need_more_proof" ? "Send Request to Challenger" : "Confirm Rejection"}
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-3 border-2 border-zinc-950 dark:border-zinc-700 text-xs font-mono font-bold uppercase hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          >
+            Cancel
+          </button>
         </div>
       </div>
     </div>

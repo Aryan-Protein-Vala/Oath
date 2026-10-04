@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import type { Oath, GroupMember, Wallet } from "@/lib/types";
 import { formatCurrency as utilsFormatCurrency, getTimeRemaining, formatRelativeTime } from "@/lib/utils";
-import { joinSquad, castVote } from "@/lib/data-hooks";
+import { joinSquad, castVote, requestMoreProof } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
 import { confirmAction } from "./ConfirmationModal";
 import { useRegion } from "@/lib/region-context";
@@ -40,8 +40,11 @@ export default function LobbiesView({ squads, wallet, penaltyBoxUntil, onJoined,
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
+  // Strictly filter for public lobbies only (groups with oath_type === 'lobby')
+  const lobbies = squads.filter((s) => s.oath_type === "lobby");
+
   const isPenaltyBoxActive = !!penaltyBoxUntil && new Date(penaltyBoxUntil).getTime() > Date.now();
-  const selectedSquad = squads.find((s) => s.id === selectedSquadId) || null;
+  const selectedSquad = lobbies.find((s) => s.id === selectedSquadId) || null;
 
   return (
     <div className="flex-1 flex overflow-hidden">
@@ -53,15 +56,15 @@ export default function LobbiesView({ squads, wallet, penaltyBoxUntil, onJoined,
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-black tracking-tight text-zinc-950 dark:text-zinc-100">
-                ACCOUNTABILITY SQUADS
+                PUBLIC LOBBIES
               </h2>
               <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 tracking-wide mt-0.5 font-bold">
-                Shared accountability. If you fail, you forfeit your stake.
+                Open accountability lobbies. If you fail, you forfeit your stake.
               </p>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-mono font-bold text-zinc-700 dark:text-zinc-400 px-2 py-1 border border-zinc-400 dark:border-zinc-800">
-                {squads.length} open
+                {lobbies.length} open
               </span>
               {onCreateLobby && (
                 <button
@@ -89,7 +92,7 @@ export default function LobbiesView({ squads, wallet, penaltyBoxUntil, onJoined,
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {squads.map((squad, index) => (
+          {lobbies.map((squad, index) => (
             <SquadCard
               key={squad.id}
               squad={squad}
@@ -102,11 +105,11 @@ export default function LobbiesView({ squads, wallet, penaltyBoxUntil, onJoined,
             />
           ))}
 
-          {squads.length === 0 && (
+          {lobbies.length === 0 && (
             <div className="flex flex-col items-center justify-center h-64 p-6 gap-4">
               <div className="text-center">
                 <p className="text-zinc-800 dark:text-zinc-400 text-sm font-bold font-mono">No open lobbies</p>
-                <p className="text-zinc-500 text-xs font-mono mt-1">Be the first to create a Squad oath</p>
+                <p className="text-zinc-500 text-xs font-mono mt-1">Be the first to create a public lobby</p>
               </div>
               {onCreateLobby && (
                 <button
@@ -240,6 +243,14 @@ function SquadCard({
                   : `${time.hours}h left`}
               </span>
             </div>
+
+            {(squad.total_days ?? 1) > 1 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] font-mono px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold border border-amber-300 dark:border-amber-800">
+                  Day {squad.current_day || 1}/{squad.total_days}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Player avatars */}
@@ -319,10 +330,12 @@ function SquadDetail({
   const spotsLeft = Math.max(0, squad.max_players - memberCount);
   const poolTotal = memberCount * squad.stake_amount;
   const isUserMember = squad.members?.some((m) => m.user_id === user?.id) || squad.creator_id === user?.id;
+  const dailyDeadline = squad.daily_deadline || squad.deadline;
+  const todayTime = getTimeRemaining(dailyDeadline);
 
   const handleJoin = async () => {
     if (isPenaltyBoxActive) {
-      showToast(`Account locked in Penalty Box until ${new Date(penaltyBoxUntil!).toLocaleDateString()}. Joining squads and lobbies is suspended.`, "error");
+      showToast(`Account locked in Penalty Box until ${new Date(penaltyBoxUntil!).toLocaleDateString()}. Joining lobbies is suspended.`, "error");
       return;
     }
     const isLobby = squad.oath_type === "lobby";
@@ -330,12 +343,10 @@ function SquadDetail({
     const fee = isLobby ? Math.round(stake * 0.10 * 100) / 100 : 0;
     const totalDeduction = stake + fee;
 
-    const message = isLobby
-      ? `Join this lobby challenge? Base buy-in stake is ${utilsFormatCurrency(stake, region)} + 10% platform protocol fee (${utilsFormatCurrency(fee, region)}) = Total ${utilsFormatCurrency(totalDeduction, region)} charged from your wallet. Your ${utilsFormatCurrency(stake, region)} stake is locked in escrow until deadline verification.`
-      : `Join this accountability squad? Your stake of ${utilsFormatCurrency(stake, region)} will be locked in escrow until deadline verification.`;
+    const message = `Join this lobby challenge? Base buy-in stake is ${utilsFormatCurrency(stake, region)} + 10% platform protocol fee (${utilsFormatCurrency(fee, region)}) = Total ${utilsFormatCurrency(totalDeduction, region)} charged from your wallet. Your ${utilsFormatCurrency(stake, region)} stake is locked in escrow until deadline verification.`;
 
     const confirmed = await confirmAction({
-      title: isLobby ? "Join Public Lobby?" : "Join Accountability Squad?",
+      title: "Join Public Lobby?",
       message,
       confirmLabel: `Join & Pay ${utilsFormatCurrency(totalDeduction, region)}`,
       cancelLabel: "Cancel",
@@ -349,7 +360,7 @@ function SquadDetail({
     if (error) {
       showToast(error, "error");
     } else {
-      showToast(isLobby ? "Joined Lobby! Stake locked in escrow." : "Joined accountability squad!", "success");
+      showToast("Joined Lobby! Stake locked in escrow.", "success");
       onJoined?.();
     }
   };
@@ -370,7 +381,7 @@ function SquadDetail({
       <div className="px-5 py-4 border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-white dark:bg-transparent">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest">
-            Squad Detail
+            Lobby Detail
           </span>
           <button
             onClick={onClose}
@@ -403,11 +414,23 @@ function SquadDetail({
         </div>
       </div>
 
+      {/* Daily Cadence & Streak Bar */}
+      {(squad.total_days ?? 1) > 1 && (
+        <div className="px-5 py-2.5 bg-zinc-100 dark:bg-zinc-900 border-b-2 border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs font-mono">
+          <span className="font-bold text-zinc-900 dark:text-zinc-100">
+            📅 DAY {squad.current_day || 1} OF {squad.total_days} · STREAK: {squad.current_streak ?? 0} DAYS
+          </span>
+          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase">
+            Today&apos;s Proof Due in {todayTime.hours}h {todayTime.minutes}m
+          </span>
+        </div>
+      )}
+
       {/* Members List — Task Log Feed */}
       <div className="flex-1 overflow-y-auto">
         <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-800/30 bg-zinc-100 dark:bg-transparent">
           <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-widest">
-            Squad Log & Proof Verifications
+            Lobby Log & Proof Verifications
           </span>
         </div>
 
@@ -442,7 +465,7 @@ function SquadDetail({
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             <span className="text-[11px] font-mono font-bold text-zinc-900 dark:text-zinc-200 uppercase truncate">
-              In this {squad.oath_type === "lobby" ? "lobby" : "squad"}
+              In this lobby
             </span>
           </div>
           <button
@@ -474,7 +497,7 @@ function SquadDetail({
               className="w-full flex items-center justify-center gap-2 py-3.5 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 text-sm font-black tracking-tight uppercase hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors disabled:opacity-50 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-              {loading ? "Joining..." : squad.oath_type === "lobby" ? `Join Lobby (${utilsFormatCurrency(squad.stake_amount * 1.1, region)})` : `Join Squad (${utilsFormatCurrency(squad.stake_amount, region)})`}
+              {loading ? "Joining..." : `Join Lobby (${utilsFormatCurrency(squad.stake_amount * 1.1, region)})`}
             </button>
           )}
         </div>
@@ -516,7 +539,7 @@ function SquadDetail({
                 Inspect Proof Submission
               </h4>
               <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 mb-3 font-bold">
-                Submitted by @{inspectingMember.user?.username || "squad_member"}{inspectingMember.stake_amount > 0 ? ` · Stake: ${utilsFormatCurrency(inspectingMember.stake_amount, region)}` : ''}
+                Submitted by @{inspectingMember.user?.username || "lobby_member"}{inspectingMember.stake_amount > 0 ? ` · Stake: ${utilsFormatCurrency(inspectingMember.stake_amount, region)}` : ''}
               </p>
 
               {/* 24-hour review timer */}
@@ -581,7 +604,7 @@ function SquadDetail({
 
                 {!proof && (
                   <div className="p-3 border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 text-xs leading-relaxed font-mono">
-                    Member verified task completion for &ldquo;{squad.oath_statement}&rdquo;. Evidence logged in immutable squad registry.
+                    Member verified task completion for &ldquo;{squad.oath_statement}&rdquo;. Evidence logged in immutable lobby registry.
                   </div>
                 )}
 
@@ -597,9 +620,26 @@ function SquadDetail({
                     handleVote(inspectingMember.id, true);
                     setInspectingMember(null);
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs font-black uppercase tracking-wider hover:bg-zinc-800 min-h-[44px] sm:min-h-0"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider min-h-[44px] sm:min-h-0"
                 >
-                  <ThumbsUp className="w-3.5 h-3.5" /> Approve Proof
+                  <ThumbsUp className="w-3.5 h-3.5" /> Pass Today&apos;s Work
+                </button>
+                <button
+                  onClick={async () => {
+                    const note = window.prompt("What additional proof is needed from this member? (e.g. clearer photo, timestamp, video)");
+                    if (!note || !note.trim()) return;
+                    const { error } = await requestMoreProof(squad.id, note.trim());
+                    if (error) {
+                      showToast(error, "error");
+                    } else {
+                      showToast("Requested more proof from member.", "info");
+                      setInspectingMember(null);
+                      onJoined?.();
+                    }
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black uppercase tracking-wider min-h-[44px] sm:min-h-0"
+                >
+                  <Zap className="w-3.5 h-3.5" /> Need More Proof
                 </button>
                 <button
                   onClick={() => {

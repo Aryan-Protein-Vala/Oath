@@ -6,7 +6,7 @@ export type OathType = "solo" | "duo" | "squad" | "lobby";
 export type OathStatus = "pending" | "active" | "completed" | "failed" | "disputed" | "cancelled";
 export type VerificationMethod = "nominee" | "peer" | "quorum" | "app_blocking";
 export type ConsequenceType = "fiat" | "social_ransom" | "app_blocking" | "combined" | "anti_charity" | "public_shame" | "shared_oath" | "physical_debt" | "mutual_destruction" | "deadweight_tag" | "squad_lockdown";
-export type ProofStatus = "pending_review" | "verified" | "rejected" | "disputed";
+export type ProofStatus = "pending_review" | "verified" | "rejected" | "disputed" | "needs_more_proof";
 export type ProofType = "photo" | "video" | "screenshot" | "link" | "text";
 export type TransactionType = "deposit" | "withdrawal" | "escrow_lock" | "escrow_release" | "penalty" | "reward" | "house_cut";
 export type WallType = "shame" | "honor";
@@ -73,6 +73,11 @@ export interface Oath {
   completed_at?: string;
   failed_at?: string;
   failure_excuse?: string;
+  cadence?: string;
+  total_days?: number;
+  current_day?: number;
+  current_streak?: number;
+  daily_deadline?: string;
   created_at: string;
   updated_at: string;
   // Computed / UI-only
@@ -110,6 +115,8 @@ export interface GroupMember {
   is_active_participant: boolean;
   voted_by?: string[];
   votes_rejected?: number;
+  current_day?: number;
+  day_streak?: number;
 }
 
 export interface Proof {
@@ -125,6 +132,7 @@ export interface Proof {
   review_note?: string;
   reviewed_at?: string;
   review_deadline?: string;
+  day_number?: number;
   created_at: string;
 }
 

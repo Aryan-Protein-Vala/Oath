@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import type { Oath, WallEntry, Transaction, Proof, GroupMember, Wallet, OathType, VerificationMethod, ConsequenceType, ProofType, GroupMode, ProofStatus } from "@/lib/types";
+import type { Oath, WallEntry, Transaction, Proof, GroupMember, Wallet, OathType, VerificationMethod, ConsequenceType, ProofType, GroupMode, ProofStatus, Message } from "@/lib/types";
 import {
   mockProfile,
   mockActiveOaths,
@@ -47,7 +47,18 @@ export function getMockSquads(): Oath[] {
   if (typeof window === "undefined") return mockSquadOaths;
   try {
     const saved = localStorage.getItem("oath_mock_squads");
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item: Oath) => {
+          if (item.id === "o-010" || item.id === "o-011" || item.id === "o-012") {
+            return { ...item, oath_type: "lobby" as const };
+          }
+          return item;
+        });
+      }
+      return parsed;
+    }
   } catch {}
   return mockSquadOaths;
 }
@@ -95,6 +106,22 @@ export function setMockWall(type: "shame" | "honor", entries: WallEntry[]) {
 export function setMockWallet(wallet: Wallet) {
   if (typeof window !== "undefined") {
     localStorage.setItem("oath_mock_wallet", JSON.stringify(wallet));
+    notifyDataUpdated();
+  }
+}
+
+export function getMockMessages(oathId: string): Message[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const saved = localStorage.getItem(`oath_mock_messages_${oathId}`);
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+}
+
+export function setMockMessages(oathId: string, messages: Message[]) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(`oath_mock_messages_${oathId}`, JSON.stringify(messages));
     notifyDataUpdated();
   }
 }
@@ -200,13 +227,13 @@ export function useOaths() {
 // ---- useSquadLobbies — fetch open squad pools ----
 export function useSquadLobbies() {
   const { user } = useAuth();
-  const [lobbies, setLobbies] = useState<Oath[]>(() => isMockMode() ? getMockSquads() : []);
+  const [lobbies, setLobbies] = useState<Oath[]>(() => isMockMode() ? getMockSquads().filter((s) => s.oath_type === "lobby") : []);
   const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
 
   const loadData = useCallback(async () => {
     if (isMockMode()) {
-      setLobbies(getMockSquads());
+      setLobbies(getMockSquads().filter((s) => s.oath_type === "lobby"));
       setLoading(false);
       return;
     }
@@ -223,7 +250,7 @@ export function useSquadLobbies() {
           creator:profiles!oaths_creator_id_fkey(*),
           members:group_members(*, user:profiles(*))
         `)
-        .in("oath_type", ["squad", "lobby"])
+        .eq("oath_type", "lobby")
         .in("status", ["pending", "active"])
         .order("created_at", { ascending: false });
 
@@ -785,6 +812,19 @@ export async function submitProof(data: {
     });
     setMockSquads(updatedSquads);
 
+    const mockMsg: Message = {
+      id: `msg-${Date.now()}`,
+      oath_id: data.oath_id,
+      sender_id: ADMIN_MOCK_USER.id,
+      content: data.proof_url || data.proof_text || "Submitted Daily Proof",
+      type: "proof",
+      proof_id: newProof.id,
+      created_at: new Date().toISOString(),
+      sender: { ...mockProfile, username: "DemoUser" },
+    };
+    const currentMsgs = getMockMessages(data.oath_id);
+    setMockMessages(data.oath_id, [...currentMsgs, mockMsg]);
+
     return { proof: newProof, error: null };
   }
 
@@ -798,6 +838,20 @@ export async function submitProof(data: {
     p_proof_text: data.proof_text ?? null,
   });
   if (error || !proofId) return { error: error?.message ?? "Proof submission failed" };
+
+  // Post proof directly into chat messages so peers and referees see it in chat
+  try {
+    await supabase.from("messages").insert({
+      oath_id: data.oath_id,
+      sender_id: user.id,
+      content: data.proof_url || data.proof_text || "Submitted Daily Proof",
+      type: "proof",
+      proof_id: proofId,
+    });
+  } catch (msgErr) {
+    console.warn("Could not insert chat message for proof:", msgErr);
+  }
+
   notifyDataUpdated();
   return {
     proof: {
@@ -907,6 +961,8 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
   notifyDataUpdated();
   return { error: null };
 }
+
+export const joinLobby = joinSquad;
 
 // ---- castVote ----
 export async function castVote(targetId: string, oathId: string, vote: boolean) {
@@ -1050,7 +1106,15 @@ export async function forfeitSquadMember(oathId: string) {
 // ---- uploadProofFile ----
 export async function uploadProofFile(file: File, oathId: string): Promise<string | null> {
   if (file.size <= 0 || file.size > 10 * 1024 * 1024) return null;
-  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm"]);
+  const allowedTypes = new Set([
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "video/mp4",
+    "video/webm",
+    "video/quicktime",
+  ]);
   if (!allowedTypes.has(file.type)) return null;
   if (isMockMode()) {
     try { return URL.createObjectURL(file); } catch { return null; }
@@ -1058,11 +1122,31 @@ export async function uploadProofFile(file: File, oathId: string): Promise<strin
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
-  const extensionByType: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "video/mp4": "mp4", "video/webm": "webm" };
-  const path = `${oathId}/${user.id}/${crypto.randomUUID()}.${extensionByType[file.type]}`;
-  const { error } = await supabase.storage.from("oath-proofs").upload(path, file, { contentType: file.type, upsert: false });
-  if (error) return null;
-  return path;
+  const extensionByType: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "video/mp4": "mp4",
+    "video/webm": "webm",
+    "video/quicktime": "mov",
+  };
+  const ext = extensionByType[file.type] || file.name.split('.').pop() || "bin";
+  const path = `${oathId}/${user.id}/${crypto.randomUUID()}.${ext}`;
+
+  let uploadBucket = "oath-proofs";
+  let uploadRes = await supabase.storage.from("oath-proofs").upload(path, file, { contentType: file.type, upsert: false });
+  if (uploadRes.error) {
+    const fallbackRes = await supabase.storage.from("proofs").upload(path, file, { contentType: file.type, upsert: false });
+    if (!fallbackRes.error) {
+      uploadBucket = "proofs";
+      uploadRes = fallbackRes;
+    }
+  }
+  if (uploadRes.error) return null;
+
+  const { data: urlData } = supabase.storage.from(uploadBucket).getPublicUrl(path);
+  return urlData?.publicUrl || path;
 }
 
 // ---- createDuoChallenge ----
@@ -1509,6 +1593,89 @@ export async function peerReviewProof(oathId: string, approve: boolean, note?: s
   if (error) return { error: error.message };
   notifyDataUpdated();
   return { error: null };
+}
+
+// ---- requestMoreProof — reviewer requests clearer evidence ----
+export async function requestMoreProof(oathId: string, note: string): Promise<{ error: string | null }> {
+  if (isMockMode()) {
+    const oaths = getMockOaths();
+    const updatedOaths = oaths.map((o) => {
+      if (o.id === oathId) {
+        const updatedProofs = o.proofs?.map((p, idx) =>
+          idx === 0 || p.status === "pending_review"
+            ? { ...p, status: "needs_more_proof" as ProofStatus, review_note: note, reviewed_at: new Date().toISOString() }
+            : p
+        );
+        return { ...o, proofs: updatedProofs };
+      }
+      return o;
+    });
+    setMockOaths(updatedOaths);
+    notifyDataUpdated();
+    return { error: null };
+  }
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { error } = await supabase.rpc("request_more_proof", {
+    p_oath_id: oathId,
+    p_note: note,
+  });
+  if (error) return { error: error.message };
+  notifyDataUpdated();
+  return { error: null };
+}
+
+// ---- passDailyWork — referee/opponent/quorum approves today's proof and advances cadence ----
+export async function passDailyWork(oathId: string, note?: string): Promise<{ error: string | null; data?: any }> {
+  if (isMockMode()) {
+    const oaths = getMockOaths();
+    const oath = oaths.find((o) => o.id === oathId);
+    if (!oath) return { error: "Oath not found" };
+
+    const totalDays = oath.total_days ?? 1;
+    const currentDay = oath.current_day ?? 1;
+    const isFinalDay = currentDay >= totalDays || totalDays <= 1;
+
+    if (isFinalDay) {
+      return settleOath(oathId, "success", note);
+    } else {
+      const updatedOaths = oaths.map((o) => {
+        if (o.id === oathId) {
+          const updatedProofs = o.proofs?.map((p, idx) =>
+            idx === 0 || p.status === "pending_review" || p.status === "needs_more_proof"
+              ? { ...p, status: "verified" as ProofStatus, review_note: note ?? "Passed", reviewed_at: new Date().toISOString() }
+              : p
+          );
+          return {
+            ...o,
+            current_day: currentDay + 1,
+            current_streak: (o.current_streak ?? 0) + 1,
+            daily_deadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            proofs: updatedProofs,
+          };
+        }
+        return o;
+      });
+      setMockOaths(updatedOaths);
+      notifyDataUpdated();
+      return { error: null, data: { status: "active", current_day: currentDay + 1 } };
+    }
+  }
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data, error } = await supabase.rpc("pass_today_work", {
+    p_oath_id: oathId,
+    p_note: note ?? null,
+  });
+  if (error) return { error: error.message };
+  notifyDataUpdated();
+  return { error: null, data };
 }
 export async function searchUsersByUsername(query: string): Promise<Array<{ id: string; username: string; display_name?: string }>> {
   if (isMockMode()) {
