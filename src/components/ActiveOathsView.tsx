@@ -15,9 +15,6 @@ import { confirmAction } from "./ConfirmationModal";
 export function isNomineeRefereeForOath(oath: Oath, userId?: string, userEmail?: string, username?: string): boolean {
   if (userId && oath.creator_id === userId) return false;
   if (oath.oath_type === "solo") {
-    // In a solo oath, any viewing user other than the creator IS the nominee referee!
-    if (userId && oath.creator_id !== userId) return true;
-
     const cleanUserEmail = userEmail?.toLowerCase();
     const cleanUsername = username?.toLowerCase();
     const byNominees = oath.nominees?.some((n) => {
@@ -333,10 +330,11 @@ function getActionRequired(oath: Oath, userId: string | undefined, refereeDuty: 
   const proofs = oath.proofs ?? [];
   const isChallenger = oath.creator_id === userId;
   const isDuoOpponent = oath.oath_type === "duo" && oath.opponent_id === userId;
-  const isSquadMember = oath.oath_type === "squad" && Boolean(oath.members?.some((m) => m.user_id === userId));
+  const isSquadMember = (oath.oath_type === "squad" || oath.oath_type === "lobby") && Boolean(oath.members?.some((m) => m.user_id === userId));
 
   // Reviewer duties first: someone else's proof is waiting on me
-  if (refereeDuty || isDuoOpponent || isSquadMember) {
+  const canReviewPeers = refereeDuty || (oath.oath_type === "duo" && (isChallenger || isDuoOpponent)) || isSquadMember;
+  if (canReviewPeers) {
     const toReview = proofs.filter((p) => p.status === "pending_review" && p.submitted_by !== userId);
     if (toReview.length > 0) {
       const who = toReview[0].submitter?.username || oath.creator?.username;
@@ -355,12 +353,12 @@ function getActionRequired(oath: Oath, userId: string | undefined, refereeDuty: 
     if (latestMine?.status === "needs_more_proof") {
       return { reason: "More proof requested", timeLabel, urgent: true };
     }
-    if (!time.isExpired && time.days === 0) {
+    if (!time.isExpired) {
       const day = oath.current_day ?? 1;
       const doneToday = mine.some(
         (p) => (p.status === "pending_review" || p.status === "verified") && (p.day_number ?? day) === day
       );
-      if (!doneToday) return { reason: "Proof due today", timeLabel, urgent: time.isUrgent };
+      if (!doneToday) return { reason: "Proof due today", timeLabel, urgent: time.isUrgent || time.days === 0 };
     }
   }
   return null;
@@ -482,7 +480,10 @@ function OathCountdownCard({
 
   const latestProof = oath.proofs?.find((p) => p.status === "pending_review") || oath.proofs?.[0];
   const hasPendingProof = Boolean(oath.proofs?.some((p) => p.status === "pending_review"));
-  const needsMoreProof = Boolean(latestProof?.status === "needs_more_proof");
+  const hasProofToReview = Boolean(
+    oath.proofs?.some((p) => p.status === "pending_review" && p.submitted_by !== user?.id)
+  );
+  const needsMoreProof = Boolean(latestProof?.status === "needs_more_proof" && latestProof?.submitted_by === user?.id);
   const isVerifiedToday = Boolean(latestProof?.status === "verified");
 
   useEffect(() => {
@@ -714,9 +715,17 @@ function OathCountdownCard({
           (oath.opponent_id === user?.id || (oath.opponent?.username && oath.opponent.username === profile?.username)) &&
           oath.creator_id !== user?.id;
 
+        const isDuoCreatorVerifier =
+          oath.oath_type === "duo" &&
+          oath.creator_id === user?.id &&
+          hasProofToReview;
+
         const chatProofLabel = (() => {
-          if (isDuoOpponentVerifier && hasPendingProof) {
+          if ((isDuoOpponentVerifier || isDuoCreatorVerifier) && hasProofToReview) {
             return "Open Chat & Review Opponent Proof";
+          }
+          if ((oath.oath_type === "squad" || oath.oath_type === "lobby") && hasProofToReview) {
+            return "Open Chat & Review Squad Proof";
           }
           if (needsMoreProof) {
             return "Open Chat & Re-upload Proof";
@@ -753,7 +762,7 @@ function OathCountdownCard({
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
                   {chatProofLabel}
-                  {(hasPendingProof || needsMoreProof) && (
+                  {(hasProofToReview || needsMoreProof) && (
                     <span className="absolute -top-1.5 -right-1.5 flex h-3 w-3">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600 border-2 border-white dark:border-zinc-950" />

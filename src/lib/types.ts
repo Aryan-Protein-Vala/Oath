@@ -179,7 +179,7 @@ export interface Message {
 export interface Notification {
   id: string;
   user_id: string;
-  type: "invite" | "invite_duo" | "invite_squad" | "invite_lobby" | "verify_proof" | "system";
+  type: "invite" | "invite_duo" | "invite_squad" | "invite_lobby" | "invite_nominee" | "verify_proof" | "system";
   title?: string;
   message?: string;
   oath_id?: string;

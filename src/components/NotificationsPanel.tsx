@@ -118,7 +118,7 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
                   </div>
                 </div>
 
-                {notif.status === "pending" && notif.type.startsWith("invite") && (
+                {notif.status === "pending" && (notif.type === "invite_duo" || notif.type === "invite_squad" || notif.type === "invite_lobby" || notif.type === "invite") && (
                   <div className="flex items-center gap-2 mt-4">
                     <button
                       onClick={() => handleAction(notif, "accepted")}
@@ -134,6 +134,23 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
                       title="Reject"
                     >
                       <XCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                {notif.status === "pending" && notif.type === "invite_nominee" && (
+                  <div className="flex items-center gap-2 mt-4">
+                    <a
+                      href={`/verify?token=${notif.oath_id}`}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-bold uppercase hover:bg-zinc-800 dark:hover:bg-white"
+                    >
+                      View Assigned Oath &rarr;
+                    </a>
+                    <button
+                      onClick={() => handleAction(notif, "read")}
+                      className="px-2.5 py-1 text-[10px] font-mono border border-zinc-400 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-800 uppercase"
+                    >
+                      Acknowledge
                     </button>
                   </div>
                 )}

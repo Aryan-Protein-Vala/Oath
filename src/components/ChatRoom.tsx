@@ -315,7 +315,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !user || hasPendingProof) return;
+    if (!inputText.trim() || !user) return;
 
     const content = inputText.trim();
     setInputText("");
@@ -647,7 +647,9 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
               <Lock className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-mono font-black uppercase tracking-wide leading-snug">
-                  CHAT PAUSED — Proof submitted by @{pendingSubmitterName}. Awaiting reviewer verdict ([Pass Today&apos;s Work], [Need More Proof], or [Reject]). Messaging is paused until reviewed.
+                  {canReviewPendingProof
+                    ? `REVIEW REQUIRED — Proof submitted by @${pendingSubmitterName}. Please submit your verdict ([Pass Today's Work], [Need More Proof], or [Reject]).`
+                    : `PROOF IN REVIEW — Day proof submitted by @${pendingSubmitterName}. Awaiting reviewer verdict. You can use the chat below to provide additional context.`}
                 </p>
 
                 {/* Reviewer Action Buttons right on the banner */}
@@ -710,7 +712,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                 onClick={() => setShowProofUploadModal(true)}
                 disabled={hasPendingProof}
                 className="px-3 sm:px-4 py-3 border-2 border-zinc-950 dark:border-transparent bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 font-mono font-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
-                title={hasPendingProof ? "Chat is paused until pending proof is reviewed" : "Upload Daily Proof"}
+                title={hasPendingProof ? "Proof already uploaded and pending review" : "Upload Daily Proof"}
               >
                 <Camera className="w-5 h-5 shrink-0" />
                 <span className="hidden sm:inline text-xs font-black uppercase tracking-wider">Upload Proof</span>
@@ -720,17 +722,12 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              disabled={hasPendingProof}
-              placeholder={
-                hasPendingProof
-                  ? "Chat paused — awaiting proof verdict..."
-                  : "Send motivation or message..."
-              }
-              className="flex-1 px-3 sm:px-4 py-3 border-2 border-zinc-950 dark:border-zinc-800 bg-transparent text-zinc-950 dark:text-zinc-100 font-mono text-base sm:text-sm focus:outline-none focus:bg-zinc-50 dark:focus:bg-zinc-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              placeholder="Send message or provide context..."
+              className="flex-1 px-3 sm:px-4 py-3 border-2 border-zinc-950 dark:border-zinc-800 bg-transparent text-zinc-950 dark:text-zinc-100 font-mono text-base sm:text-sm focus:outline-none focus:bg-zinc-50 dark:focus:bg-zinc-900/50"
             />
             <button
               type="submit"
-              disabled={hasPendingProof || !inputText.trim()}
+              disabled={!inputText.trim()}
               className="px-4 sm:px-6 py-3 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-2 border-zinc-950 dark:border-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-black uppercase tracking-wider text-sm flex items-center gap-2 shrink-0"
             >
               <Send className="w-4 h-4" />

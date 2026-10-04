@@ -695,6 +695,26 @@ export async function createOath(data: {
       message: `${user.user_metadata?.username || "Someone"} challenged you to a duo oath: "${data.oath_statement}"`,
     });
   }
+
+  if (data.verification_method === "nominee" && data.nominee_email) {
+    const cleanUsername = data.nominee_email.replace(/^@/, "").trim().toLowerCase();
+    const { data: refereeProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .ilike("username", cleanUsername)
+      .maybeSingle();
+
+    if (refereeProfile && refereeProfile.id !== user.id) {
+      await supabase.from("notifications").insert({
+        user_id: refereeProfile.id,
+        oath_id: oathId,
+        type: "invite_nominee",
+        title: "Referee Assignment",
+        actor_id: user.id,
+        message: `@${user.user_metadata?.username || "Someone"} appointed you as accountability referee for: "${data.oath_statement}"`,
+      });
+    }
+  }
   
   if (readError || !oath) return { error: readError?.message ?? "Oath was created but could not be loaded. Refresh to view it." };
   notifyDataUpdated();

@@ -83,7 +83,26 @@ export default function SimplifiedPage() {
   const isRefereeForOath = (oath: Oath): boolean => {
     if (!user) return false;
     if (oath.creator_id === user.id) return false;
-    if (oath.oath_type === "solo") return true; // Nominee referee
+    if (oath.oath_type === "solo") {
+      const cleanUserEmail = user.email?.toLowerCase();
+      const cleanUsername = profile?.username?.toLowerCase();
+      const byNominees = oath.nominees?.some((n) => {
+        if (n.nominee_user_id === user.id) return true;
+        if (cleanUserEmail && n.email && n.email.toLowerCase() === cleanUserEmail) return true;
+        if (cleanUsername && n.email) {
+          const cleanNomineeEmail = n.email.toLowerCase();
+          return cleanNomineeEmail === "@" + cleanUsername || cleanNomineeEmail === cleanUsername;
+        }
+        return false;
+      });
+      if (byNominees) return true;
+      if (cleanUserEmail && oath.nominee_email && oath.nominee_email.toLowerCase() === cleanUserEmail) return true;
+      if (cleanUsername && oath.nominee_email) {
+        const cleanNominee = oath.nominee_email.toLowerCase();
+        return cleanNominee === "@" + cleanUsername || cleanNominee === cleanUsername;
+      }
+      return false;
+    }
     if (oath.oath_type === "duo" && oath.opponent_id === user.id) return true;
     return false;
   };
@@ -100,7 +119,8 @@ export default function SimplifiedPage() {
 
       const isReferee = isRefereeForOath(oath);
       const isCreator = oath.creator_id === user?.id;
-      const latestProof = oath.proofs && oath.proofs.length > 0 ? oath.proofs[0] : null;
+      const pendingProof = oath.proofs?.find((p) => p.status === "pending_review");
+      const latestProof = pendingProof || (oath.proofs && [...oath.proofs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]);
 
       if (isReferee) {
         // As a referee, action is required IF there is a pending proof
