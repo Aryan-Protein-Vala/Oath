@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Check, X } from "lucide-react";
 import type { ToastMessage } from "@/lib/types";
 
 // ============================================================
@@ -68,10 +69,10 @@ export function ToastContainer() {
             onClick={() => dismissToast(toast.id)}
           >
             {toast.type === "error" && (
-              <span className="text-red-500 text-lg font-mono font-bold shrink-0">✕</span>
+              <X className="w-4 h-4 text-red-500 shrink-0" />
             )}
             {toast.type === "success" && (
-              <span className="text-zinc-400 text-lg font-mono font-bold shrink-0">✓</span>
+              <Check className="w-4 h-4 text-zinc-300 shrink-0" />
             )}
             <span className="text-sm font-medium tracking-tight">{toast.message}</span>
           </div>

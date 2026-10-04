@@ -16,6 +16,8 @@ import {
   MessageSquare,
   ExternalLink,
   ArrowLeft,
+  Calendar,
+  AlertTriangle,
 } from "lucide-react";
 import type { Oath, GroupMember, Wallet } from "@/lib/types";
 import { formatCurrency as utilsFormatCurrency, getTimeRemaining, formatRelativeTime } from "@/lib/utils";
@@ -417,10 +419,10 @@ function SquadDetail({
       {/* Daily Cadence & Streak Bar */}
       {(squad.total_days ?? 1) > 1 && (
         <div className="px-5 py-2.5 bg-zinc-100 dark:bg-zinc-900 border-b-2 border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs font-mono">
-          <span className="font-bold text-zinc-900 dark:text-zinc-100">
-            📅 DAY {squad.current_day || 1} OF {squad.total_days} · STREAK: {squad.current_streak ?? 0} DAYS
+          <span className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5" /> DAY {squad.current_day || 1} OF {squad.total_days} · STREAK: {squad.current_streak ?? 0} DAYS
           </span>
-          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase">
+          <span className="text-[10px] text-zinc-600 dark:text-zinc-400 font-bold uppercase">
             Today&apos;s Proof Due in {todayTime.hours}h {todayTime.minutes}m
           </span>
         </div>
@@ -483,8 +485,8 @@ function SquadDetail({
         <div className="px-5 py-4 border-t-2 border-zinc-950 dark:border-zinc-800/40 bg-white dark:bg-transparent shrink-0 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {isPenaltyBoxActive ? (
             <div className="p-3 bg-red-500/10 border-2 border-red-500/30 text-center">
-              <p className="text-xs font-mono font-bold text-red-500 uppercase tracking-wider">
-                🚨 Benched in Penalty Box
+              <p className="text-xs font-mono font-bold text-red-500 uppercase tracking-wider flex items-center justify-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5" /> Benched in Penalty Box
               </p>
               <p className="text-[11px] font-mono text-zinc-500 mt-0.5">
                 Account suspended until {new Date(penaltyBoxUntil!).toLocaleDateString()} {new Date(penaltyBoxUntil!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -543,11 +545,12 @@ function SquadDetail({
               </p>
 
               {/* 24-hour review timer */}
-              <div className="p-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800/60 flex items-center justify-between text-xs font-mono mb-3">
-                <span className="text-amber-800 dark:text-amber-300 font-bold">
-                  ⏳ 24h Review Window: {hours}h {mins}m {secs}s remaining
+              <div className="p-2.5 bg-zinc-100 dark:bg-zinc-800 border-2 border-zinc-950 dark:border-zinc-700 flex items-center justify-between text-xs font-mono mb-3">
+                <span className="text-zinc-900 dark:text-zinc-100 font-bold flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-red-600" />
+                  24h Review Window: {hours}h {mins}m {secs}s remaining
                 </span>
-                <span className="text-[10px] text-amber-700 dark:text-amber-400 uppercase tracking-wider font-semibold">
+                <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
                   Voting Window
                 </span>
               </div>

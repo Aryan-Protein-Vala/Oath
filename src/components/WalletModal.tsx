@@ -11,6 +11,7 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
+  Lock,
 } from "lucide-react";
 import { depositFunds, withdrawFunds, isMockMode } from "@/lib/data-hooks";
 import { createClient } from "@/lib/supabase/client";
@@ -32,7 +33,7 @@ type ModalTab = "overview" | "deposit" | "withdraw";
 const TX_ICON: Record<string, React.ReactNode> = {
   deposit: <TrendingUp className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />,
   withdrawal: <TrendingDown className="w-3.5 h-3.5 text-red-600" />,
-  escrow_lock: <DollarSign className="w-3.5 h-3.5 text-zinc-500" />,
+  escrow_lock: <Lock className="w-3.5 h-3.5 text-zinc-500" />,
   escrow_release: <DollarSign className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />,
   penalty: <TrendingDown className="w-3.5 h-3.5 text-red-600" />,
   reward: <TrendingUp className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-200" />,
@@ -582,7 +583,7 @@ function TxRow({ tx, region }: { tx: Transaction; region: Region }) {
       <span className={`text-xs sm:text-sm font-black stake-number shrink-0 ${
         isCredit ? "text-zinc-900 dark:text-zinc-200" : isLock ? "text-zinc-500 dark:text-zinc-400 font-mono" : isDebit ? "text-red-600" : "text-zinc-500"
       }`}>
-        {isCredit ? "+" : isLock ? "🔒 " : isDebit ? "-" : ""}{formatCurrency(tx.amount, region)}
+        {isCredit ? "+" : isDebit ? "-" : ""}{formatCurrency(tx.amount, region)}
       </span>
     </div>
   );

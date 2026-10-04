@@ -394,7 +394,7 @@ function OathListItem({ oath, isSelected, isReferee, onClick }: { oath: Oath; is
   const targetDeadline = isDaily ? (oath.daily_deadline || oath.deadline) : oath.deadline;
   const time = getTimeRemaining(targetDeadline);
   const typeIcon = isReferee ? (
-    <Shield className="w-3 h-3 text-amber-500" />
+    <Shield className="w-3 h-3 text-zinc-900 dark:text-zinc-100" />
   ) : oath.oath_type === "solo" ? (
     <User className="w-3 h-3" />
   ) : (
@@ -407,17 +407,15 @@ function OathListItem({ oath, isSelected, isReferee, onClick }: { oath: Oath; is
       suppressHydrationWarning
       className={`w-full text-left px-4 py-3.5 border-b-2 border-zinc-200 dark:border-zinc-800/30 transition-all ${
         isSelected
-          ? isReferee
-            ? "bg-amber-50/80 dark:bg-amber-950/30 shadow-[inset_4px_0_0_0_rgba(245,158,11,1)]"
-            : "bg-zinc-200 dark:bg-zinc-900/80 shadow-[inset_4px_0_0_0_rgba(220,38,38,1)]"
+          ? "bg-zinc-200 dark:bg-zinc-900/80 shadow-[inset_4px_0_0_0_rgba(220,38,38,1)]"
           : "hover:bg-zinc-100 dark:hover:bg-zinc-900/40"
       }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           {isReferee && (
-            <span className="inline-block text-[9px] font-mono font-black uppercase tracking-widest px-1.5 py-0.5 bg-amber-400 text-zinc-950 dark:bg-amber-500 dark:text-zinc-950 mb-1 border border-amber-600">
-              REFEREE DUTY
+            <span className="inline-flex items-center gap-1 text-[9px] font-mono font-black uppercase tracking-widest px-1.5 py-0.5 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 mb-1 border border-zinc-950 dark:border-zinc-700">
+              <Shield className="w-2.5 h-2.5" /> REFEREE
             </span>
           )}
           <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate leading-tight">
@@ -440,7 +438,7 @@ function OathListItem({ oath, isSelected, isReferee, onClick }: { oath: Oath; is
           <span className={`text-[10px] font-mono font-black stake-number ${time.isUrgent ? "text-red-600 dark:text-red-500" : "text-zinc-600 dark:text-zinc-400"}`}>
             {time.isExpired ? "EXP" : time.days > 0 ? `${time.days}d` : time.hours > 0 ? `${time.hours}h` : `${time.minutes}m`}
           </span>
-          <ChevronRight className={`w-3 h-3 mt-1 ${isSelected ? (isReferee ? "text-amber-500" : "text-zinc-800 dark:text-zinc-300") : "text-zinc-400 dark:text-zinc-600"}`} />
+          <ChevronRight className={`w-3 h-3 mt-1 ${isSelected ? "text-zinc-800 dark:text-zinc-300" : "text-zinc-400 dark:text-zinc-600"}`} />
         </div>
       </div>
     </button>
@@ -515,20 +513,20 @@ function OathCountdownCard({
         }`}>
           {oath.status}
         </span>
-        <span className={`text-[9px] font-mono font-bold uppercase tracking-widest px-2.5 py-1 border ${
+        <span className={`text-[9px] font-mono font-black uppercase tracking-widest px-2.5 py-1 border-2 ${
           isReferee
-            ? "border-amber-500 bg-amber-400 text-zinc-950 font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-            : "text-zinc-600 dark:text-zinc-500 border-zinc-300 dark:border-zinc-800"
+            ? "border-zinc-950 dark:border-zinc-700 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+            : "text-zinc-700 dark:text-zinc-300 border-zinc-950 dark:border-zinc-800"
         }`}>
-          {isReferee ? "REFEREE DUTY" : oath.verification_method.replace(/_/g, " ")}
+          {isReferee ? "REFEREE" : oath.verification_method.replace(/_/g, " ")}
         </span>
       </div>
 
       {/* Oath text */}
       <div className="text-center mb-6 max-w-xl">
         {isReferee ? (
-          <p className="text-[10px] font-mono text-amber-600 dark:text-amber-400 uppercase tracking-[0.2em] font-black mb-3 flex items-center justify-center gap-1.5">
-            <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+          <p className="text-[10px] font-mono text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] font-black mb-3 flex items-center justify-center gap-1.5">
+            <Shield className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100 shrink-0" />
             REFEREE FOR @{oath.creator?.username || "CHALLENGER"}&apos;S OATH
           </p>
         ) : (
@@ -559,7 +557,7 @@ function OathCountdownCard({
                     isDone
                       ? "bg-emerald-500 text-white border-emerald-600"
                       : isCurrent
-                      ? "bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 border-zinc-950 dark:border-white ring-2 ring-amber-500"
+                      ? "bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 border-zinc-950 dark:border-white ring-2 ring-red-600"
                       : "bg-zinc-100 dark:bg-zinc-900 text-zinc-400 border-zinc-300 dark:border-zinc-800"
                   }`}
                 >
@@ -615,9 +613,9 @@ function OathCountdownCard({
 
       {/* Needs more proof alert for challenger */}
       {needsMoreProof && (
-        <div className="w-full max-w-md p-3.5 mb-6 bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 text-left fade-in">
-          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-mono font-bold text-xs uppercase mb-1">
-            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+        <div className="w-full max-w-md p-3.5 mb-6 bg-red-50 dark:bg-red-950/20 border-2 border-red-600 dark:border-red-500/30 text-left shadow-[2px_2px_0px_0px_rgba(220,38,38,1)] dark:shadow-none fade-in">
+          <div className="flex items-center gap-2 text-red-700 dark:text-red-400 font-mono font-bold text-xs uppercase mb-1">
+            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
             Reviewer Requested More Proof:
           </div>
           <p className="text-xs font-mono text-zinc-900 dark:text-zinc-100 italic mb-2 leading-relaxed">
@@ -640,7 +638,7 @@ function OathCountdownCard({
               {utilsFormatCurrency(oath.stake_amount, region)}
             </p>
             {isReferee && (
-              <p className="text-[10px] font-mono text-amber-700 dark:text-amber-400 font-bold mt-1">
+              <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 font-bold mt-1">
                 You have $0 at risk · Challenger is held accountable by you
               </p>
             )}
@@ -685,14 +683,16 @@ function OathCountdownCard({
             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 w-full max-w-md px-2">
               <button
                 onClick={onOpenChat}
-                className={`flex items-center gap-2 px-6 py-3 text-sm font-black tracking-tight uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none ${
-                  hasPendingProof
-                    ? "bg-amber-500 hover:bg-amber-400 text-zinc-950 border-amber-600 animate-pulse"
-                    : "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-zinc-950 dark:border-transparent font-black"
-                }`}
+                className="relative flex items-center gap-2 px-6 py-3 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-2 border-zinc-950 dark:border-transparent text-sm font-black tracking-tight uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none transition-all active:translate-y-0.5"
               >
                 <MessageSquare className="w-4 h-4" />
-                {hasPendingProof ? "Chat and Proof (Review Pending)" : "Chat and Proof"}
+                Chat and Proof
+                {hasPendingProof && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600 border-2 border-white dark:border-zinc-950" />
+                  </span>
+                )}
               </button>
               <button
                 onClick={onViewDetails}
@@ -730,7 +730,7 @@ function OathCountdownCard({
             return "Open Chat (Proof In Review)";
           }
           if (isVerifiedToday) {
-            return "Open Chat (Today's Work Passed ✅)";
+            return "Open Chat (Today's Work Passed)";
           }
           return "Open Chat to Upload Proof";
         })();
@@ -749,16 +749,16 @@ function OathCountdownCard({
               <>
                 <button
                   onClick={onOpenChat}
-                  className={`flex items-center gap-2 px-5 py-2.5 text-sm font-black tracking-tight uppercase transition-all border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none ${
-                    needsMoreProof
-                      ? "bg-amber-500 hover:bg-amber-400 text-zinc-950 border-amber-600 font-black animate-pulse"
-                      : isDuoOpponentVerifier && hasPendingProof
-                      ? "bg-amber-500 hover:bg-amber-400 text-zinc-950 border-amber-600 font-black"
-                      : "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-zinc-950 dark:border-transparent font-black"
-                  }`}
+                  className="relative flex items-center gap-2 px-5 py-2.5 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-2 border-zinc-950 dark:border-transparent text-sm font-black tracking-tight uppercase transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none active:translate-y-0.5"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
                   {chatProofLabel}
+                  {(hasPendingProof || needsMoreProof) && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600 border-2 border-white dark:border-zinc-950" />
+                    </span>
+                  )}
                 </button>
                 <button
                   onClick={onViewDetails}
@@ -1130,12 +1130,13 @@ function PeerReviewModal({
           </div>
 
           {/* 24-hour review timer */}
-          <div className="p-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800/60 flex items-center justify-between text-xs font-mono">
-            <span className="text-amber-800 dark:text-amber-300 font-bold">
-              ⏳ 24h Review Window: {hours}h {mins}m {secs}s remaining
+          <div className="p-2.5 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 flex items-center justify-between text-xs font-mono">
+            <span className="flex items-center gap-1.5 text-zinc-900 dark:text-zinc-100 font-bold">
+              <Clock className="w-3.5 h-3.5 text-red-600" />
+              24h Review Window: {hours}h {mins}m {secs}s
             </span>
-            <span className="text-[10px] text-amber-700 dark:text-amber-400 uppercase tracking-wider font-semibold">
-              Review or forfeit on expiry
+            <span className="text-[10px] text-zinc-600 dark:text-zinc-400 uppercase tracking-wider font-semibold">
+              Action required
             </span>
           </div>
 
@@ -1166,7 +1167,7 @@ function PeerReviewModal({
             )}
 
             {proof?.proof_text && (
-              <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border-l-4 border-amber-500 text-xs font-mono text-zinc-800 dark:text-zinc-200">
+              <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border-l-4 border-zinc-950 dark:border-zinc-700 text-xs font-mono text-zinc-800 dark:text-zinc-200">
                 <p className="font-bold text-[10px] uppercase text-zinc-500 mb-1">Statement / Notes:</p>
                 <p className="italic leading-relaxed">&ldquo;{proof.proof_text}&rdquo;</p>
               </div>
@@ -1300,7 +1301,7 @@ function RefereeReviewModal({
         <div className="flex items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 pb-3 mb-4">
           <div className="flex items-center gap-2">
             {type === "need_more_proof" ? (
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              <AlertTriangle className="w-5 h-5 text-zinc-900 dark:text-zinc-100" />
             ) : (
               <XCircle className="w-5 h-5 text-red-600" />
             )}
@@ -1338,7 +1339,7 @@ function RefereeReviewModal({
             disabled={loading}
             className={`flex-1 py-3 text-xs font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-2 border-2 ${
               type === "need_more_proof"
-                ? "bg-amber-500 hover:bg-amber-400 text-zinc-950 border-amber-600"
+                ? "bg-zinc-950 hover:bg-zinc-800 text-white dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200 border-zinc-950 dark:border-transparent"
                 : "bg-red-600 hover:bg-red-700 text-white border-red-700"
             } disabled:opacity-50`}
           >

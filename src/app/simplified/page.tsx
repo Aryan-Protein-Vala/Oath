@@ -29,7 +29,8 @@ import {
   Info,
   DollarSign,
   TrendingUp,
-  Skull
+  Skull,
+  Repeat
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -134,7 +135,7 @@ export default function SimplifiedPage() {
           inFlight.push({
             oath,
             role: "challenger",
-            statusText: "Today's milestone verified ✅ Next opens tomorrow"
+            statusText: "Today's milestone verified. Next opens tomorrow"
           });
         } else {
           // Proof due today!
@@ -252,7 +253,7 @@ export default function SimplifiedPage() {
                   : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100"
               }`}
             >
-              🎯 Dashboard ({actionRequiredOaths.length > 0 ? `🔴 ${actionRequiredOaths.length}` : "0"})
+              Dashboard ({actionRequiredOaths.length > 0 ? actionRequiredOaths.length : "0"})
             </button>
             <button
               onClick={() => setActiveTab("create")}
@@ -262,7 +263,7 @@ export default function SimplifiedPage() {
                   : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100"
               }`}
             >
-              ⚡ New Oath
+              New Oath
             </button>
             <button
               onClick={() => setActiveTab("community")}
@@ -272,7 +273,7 @@ export default function SimplifiedPage() {
                   : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100"
               }`}
             >
-              🌐 Community & Lobbies
+              Community & Lobbies
             </button>
           </nav>
         </div>
@@ -306,7 +307,7 @@ export default function SimplifiedPage() {
               : "text-zinc-500"
           }`}
         >
-          🎯 Dashboard {actionRequiredOaths.length > 0 && `(🔴 ${actionRequiredOaths.length})`}
+          Dashboard {actionRequiredOaths.length > 0 && `(${actionRequiredOaths.length})`}
         </button>
         <button
           onClick={() => setActiveTab("create")}
@@ -316,7 +317,7 @@ export default function SimplifiedPage() {
               : "text-zinc-500"
           }`}
         >
-          ⚡ New Oath
+          New Oath
         </button>
         <button
           onClick={() => setActiveTab("community")}
@@ -326,7 +327,7 @@ export default function SimplifiedPage() {
               : "text-zinc-500"
           }`}
         >
-          🌐 Lobbies
+          Lobbies
         </button>
       </div>
 
@@ -348,8 +349,18 @@ export default function SimplifiedPage() {
                 <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block mb-1">
                   Action Required
                 </span>
-                <span className={`text-xl sm:text-2xl font-black font-mono ${actionRequiredOaths.length > 0 ? "text-amber-500" : "text-emerald-500"}`}>
-                  {actionRequiredOaths.length > 0 ? `🔴 ${actionRequiredOaths.length}` : "None ✅"}
+                <span className={`text-xl sm:text-2xl font-black font-mono flex items-center gap-1.5 ${actionRequiredOaths.length > 0 ? "text-amber-500" : "text-emerald-500"}`}>
+                  {actionRequiredOaths.length > 0 ? (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-600 inline-block animate-pulse" />
+                      {actionRequiredOaths.length}
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-5 h-5 text-emerald-500 inline-block" />
+                      None
+                    </>
+                  )}
                 </span>
               </div>
               <div className="col-span-2 sm:col-span-1 p-3.5 bg-white dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
@@ -363,7 +374,7 @@ export default function SimplifiedPage() {
             </div>
 
             {/* ============================================================ */}
-            {/* LANE 1: 🔴 ACTION REQUIRED (YOUR TURN) */}
+            {/* LANE 1: ACTION REQUIRED (YOUR TURN) */}
             {/* ============================================================ */}
             <section className="space-y-4">
               <div className="flex items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 pb-2">
@@ -459,7 +470,17 @@ export default function SimplifiedPage() {
                                         : "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 border-zinc-300 dark:border-zinc-700"
                                     }`}
                                   >
-                                    {isPassed ? "✅ D" + dayNum : isToday ? "⚡ D" + dayNum : "○ D" + dayNum}
+                                    {isPassed ? (
+                                      <span className="flex items-center justify-center gap-0.5">
+                                        <Check className="w-2.5 h-2.5 inline" /> D{dayNum}
+                                      </span>
+                                    ) : isToday ? (
+                                      <span className="flex items-center justify-center gap-0.5">
+                                        <Zap className="w-2.5 h-2.5 inline" /> D{dayNum}
+                                      </span>
+                                    ) : (
+                                      <span>D{dayNum}</span>
+                                    )}
                                   </div>
                                 );
                               })}
@@ -516,7 +537,7 @@ export default function SimplifiedPage() {
             </section>
 
             {/* ============================================================ */}
-            {/* LANE 2: ⚪ IN FLIGHT (WATCHING / WAITING) */}
+            {/* LANE 2: IN FLIGHT (WATCHING / WAITING) */}
             {/* ============================================================ */}
             <section className="space-y-4">
               <div className="flex items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 pb-2">
@@ -854,7 +875,9 @@ function SimplifiedCreationWizard({ onSuccess }: { onSuccess: () => void }) {
                     : "border-zinc-300 dark:border-zinc-800 text-zinc-500"
                 }`}
               >
-                ⚡ Single Deadline
+                <span className="flex items-center gap-1.5 font-black">
+                  <Zap className="w-3.5 h-3.5 text-zinc-950 dark:text-zinc-100" /> Single Deadline
+                </span>
                 <span className="block text-[10px] text-zinc-500 font-normal mt-0.5">
                   Complete the target by one final cutoff.
                 </span>
@@ -868,7 +891,9 @@ function SimplifiedCreationWizard({ onSuccess }: { onSuccess: () => void }) {
                     : "border-zinc-300 dark:border-zinc-800 text-zinc-500"
                 }`}
               >
-                🔁 Daily Streak Punch-Card
+                <span className="flex items-center gap-1.5 font-black">
+                  <Repeat className="w-3.5 h-3.5 text-zinc-950 dark:text-zinc-100" /> Daily Streak Punch-Card
+                </span>
                 <span className="block text-[10px] text-zinc-500 font-normal mt-0.5">
                   Submit proof every 24h to protect streak.
                 </span>
@@ -923,7 +948,9 @@ function SimplifiedCreationWizard({ onSuccess }: { onSuccess: () => void }) {
                 mode === "solo" ? "border-zinc-950 dark:border-zinc-100 bg-zinc-100 dark:bg-zinc-800 font-black" : "border-zinc-300 dark:border-zinc-800"
               }`}
             >
-              👤 Solo + Nominee Referee
+              <span className="flex items-center gap-1.5 font-black">
+                <User className="w-3.5 h-3.5" /> Solo + Nominee Referee
+              </span>
               <span className="block text-[10px] text-zinc-500 font-normal mt-0.5">
                 A nominated friend approves each day in chat.
               </span>
@@ -935,7 +962,9 @@ function SimplifiedCreationWizard({ onSuccess }: { onSuccess: () => void }) {
                 mode === "duo" ? "border-zinc-950 dark:border-zinc-100 bg-zinc-100 dark:bg-zinc-800 font-black" : "border-zinc-300 dark:border-zinc-800"
               }`}
             >
-              ⚔️ Duo 1-on-1 Duel
+              <span className="flex items-center gap-1.5 font-black">
+                <Swords className="w-3.5 h-3.5" /> Duo 1-on-1 Duel
+              </span>
               <span className="block text-[10px] text-zinc-500 font-normal mt-0.5">
                 Head-to-head match. Winner takes the pot.
               </span>
@@ -947,7 +976,9 @@ function SimplifiedCreationWizard({ onSuccess }: { onSuccess: () => void }) {
                 mode === "squad" ? "border-zinc-950 dark:border-zinc-100 bg-zinc-100 dark:bg-zinc-800 font-black" : "border-zinc-300 dark:border-zinc-800"
               }`}
             >
-              👥 Private Squad
+              <span className="flex items-center gap-1.5 font-black">
+                <Users className="w-3.5 h-3.5" /> Private Squad
+              </span>
               <span className="block text-[10px] text-zinc-500 font-normal mt-0.5">
                 Weakest Link or Survival group voting.
               </span>
@@ -959,7 +990,9 @@ function SimplifiedCreationWizard({ onSuccess }: { onSuccess: () => void }) {
                 mode === "lobby" ? "border-zinc-950 dark:border-zinc-100 bg-zinc-100 dark:bg-zinc-800 font-black" : "border-zinc-300 dark:border-zinc-800"
               }`}
             >
-              🌐 Open Public Lobby
+              <span className="flex items-center gap-1.5 font-black">
+                <Globe className="w-3.5 h-3.5" /> Open Public Lobby
+              </span>
               <span className="block text-[10px] text-zinc-500 font-normal mt-0.5">
                 Anyone on Oath can join and stake buy-in.
               </span>

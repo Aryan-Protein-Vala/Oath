@@ -945,8 +945,9 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                         {formatRegionCurrency(totalChargedUsd)}
                       </span>
                     </div>
-                    <div className="text-[9px] text-zinc-500 dark:text-zinc-400 pt-0.5 leading-normal">
-                      ✓ Non-refundable 10% platform fee is retained by Oath. Winners receive 100% of their escrow pot ({formatRegionCurrency(totalStakeUsd)}). If you fail, your stake is lost and the 10% fee stays with Oath.
+                    <div className="text-[9px] text-zinc-500 dark:text-zinc-400 pt-0.5 leading-normal flex items-start gap-1">
+                      <Check className="w-3 h-3 text-zinc-500 shrink-0 mt-0.5" />
+                      <span>Non-refundable 10% platform fee is retained by Oath. Winners receive 100% of their escrow pot ({formatRegionCurrency(totalStakeUsd)}). If you fail, your stake is lost and the 10% fee stays with Oath.</span>
                     </div>
                   </div>
                 )}
@@ -1040,8 +1041,11 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
               )}
 
               {multiplier > 1 && isFinancial && (
-                <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 mb-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
-                  💡 <strong>Leader Covers Pot:</strong> You lock the full pot upfront ({multiplier} × {formatRegionCurrency(stakeUsd)} = <strong>{formatRegionCurrency(totalStakeUsd)}</strong> + 10% platform fee = <strong>{formatRegionCurrency(totalChargedUsd)}</strong>). Your {oathType === "duo" ? "opponent joins" : "squad members join"} 100% free!
+                <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 mb-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none flex items-start gap-2">
+                  <Info className="w-4 h-4 text-zinc-900 dark:text-zinc-100 shrink-0 mt-0.5" />
+                  <div>
+                    <strong>Leader Covers Pot:</strong> You lock the full pot upfront ({multiplier} × {formatRegionCurrency(stakeUsd)} = <strong>{formatRegionCurrency(totalStakeUsd)}</strong> + 10% platform fee = <strong>{formatRegionCurrency(totalChargedUsd)}</strong>). Your {oathType === "duo" ? "opponent joins" : "squad members join"} 100% free!
+                  </div>
                 </div>
               )}
 

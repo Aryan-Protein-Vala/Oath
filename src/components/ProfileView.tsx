@@ -131,8 +131,11 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
 
         {/* Loss streak warning if approaching lockout */}
         {lossStreak > 0 && !isPenaltyBoxActive && (
-          <div className="px-4 py-2 bg-amber-500/10 border-b-2 border-zinc-200 dark:border-zinc-800/40 flex items-center justify-between text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400">
-            <span>⚠️ {lossStreak} consecutive fail{lossStreak > 1 ? "s" : ""}</span>
+          <div className="px-4 py-2 bg-red-500/10 border-b-2 border-zinc-200 dark:border-zinc-800/40 flex items-center justify-between text-[10px] font-mono font-bold text-red-600 dark:text-red-400">
+            <span className="flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              {lossStreak} consecutive fail{lossStreak > 1 ? "s" : ""}
+            </span>
             <span>{3 - lossStreak} more to Penalty Box</span>
           </div>
         )}

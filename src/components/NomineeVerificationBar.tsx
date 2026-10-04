@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Shield, Check, X, Loader2, ExternalLink } from "lucide-react";
+import { Shield, Check, X, Loader2, ExternalLink, Clock } from "lucide-react";
 import { useOaths, settleOath } from "@/lib/data-hooks";
 import { useAuth } from "@/lib/auth-context";
 import { showToast } from "./Toast";
@@ -115,8 +115,9 @@ export default function NomineeVerificationBar() {
               </div>
             )}
             {/* 24-hour countdown timer */}
-            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-mono font-bold text-amber-400 dark:text-amber-600">
-              <span>⏳ 24h Review Window: {hoursRemaining}h {minsRemaining}m left · Review or stake is lost (on peers, not on us)</span>
+            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-mono font-bold text-zinc-300 dark:text-zinc-400">
+              <Clock className="w-3.5 h-3.5 text-red-500 shrink-0" />
+              <span>24h Review Window: {hoursRemaining}h {minsRemaining}m left · Review or stake is lost (on peers, not on us)</span>
             </div>
           </div>
         </div>

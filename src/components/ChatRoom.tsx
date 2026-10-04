@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Clock,
   ExternalLink,
+  Lock,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Message, Oath, Proof } from "@/lib/types";
@@ -374,7 +375,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
     } else {
       const targetProofId = (msgOrProof as Message)?.proof_id || (msgOrProof as Proof)?.id || pendingProof?.id;
       await postSystemChatMessage(
-        `✅ @${reviewerUsername} approved today's work! Streak updated. Chat unlocked.`,
+        `@${reviewerUsername} approved today's work. Streak updated. Chat unlocked.`,
         targetProofId
       );
       showToast("Today's work passed! Streak updated. Chat unlocked.", "success");
@@ -407,7 +408,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
       } else {
         const targetProofId = reviewAction.message?.proof_id || reviewAction.proof?.id || pendingProof?.id;
         await postSystemChatMessage(
-          `⚠️ @${reviewerUsername} requested more proof: ${note}. Chat unlocked.`,
+          `@${reviewerUsername} requested more proof: "${note}". Chat unlocked.`,
           targetProofId
         );
         showToast("Requested more proof. Chat unlocked.", "info");
@@ -425,7 +426,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
       } else {
         const targetProofId = reviewAction.message?.proof_id || reviewAction.proof?.id || pendingProof?.id;
         await postSystemChatMessage(
-          `❌ @${reviewerUsername} rejected proof: ${note}. Chat unlocked.`,
+          `@${reviewerUsername} rejected proof: "${note}". Chat unlocked.`,
           targetProofId
         );
         showToast("Proof rejected. Chat unlocked.", "error");
@@ -562,19 +563,19 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                           </div>
                           <div>
                             {proofStatus === "verified" ? (
-                              <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500 text-[10px] font-mono font-bold uppercase">
-                                ✅ Verified
+                              <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 text-[10px] font-mono font-bold uppercase inline-flex items-center gap-1">
+                                <Check className="w-3 h-3" /> Verified
                               </span>
                             ) : proofStatus === "needs_more_proof" ? (
-                              <span className="px-2 py-0.5 bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500 text-[10px] font-mono font-bold uppercase">
-                                ⚠️ More Proof Requested
+                              <span className="px-2 py-0.5 bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-200 border border-zinc-400 dark:border-zinc-700 text-[10px] font-mono font-bold uppercase inline-flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" /> More Proof Requested
                               </span>
                             ) : proofStatus === "rejected" ? (
-                              <span className="px-2 py-0.5 bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500 text-[10px] font-mono font-bold uppercase">
-                                ❌ Rejected
+                              <span className="px-2 py-0.5 bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/40 text-[10px] font-mono font-bold uppercase inline-flex items-center gap-1">
+                                <X className="w-3 h-3" /> Rejected
                               </span>
                             ) : (
-                              <span className="px-2 py-0.5 bg-amber-500/20 text-amber-500 border border-amber-500/40 text-[10px] font-mono font-bold uppercase flex items-center gap-1">
+                              <span className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-700 text-[10px] font-mono font-bold uppercase flex items-center gap-1">
                                 <Clock className="w-3 h-3" /> Awaiting Review
                               </span>
                             )}
@@ -588,7 +589,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                               type="button"
                               onClick={() => handlePassProof(msg)}
                               disabled={actionLoading}
-                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                              className="px-2.5 py-1.5 bg-zinc-950 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-zinc-200 font-mono text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors border border-zinc-950 dark:border-zinc-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
                             >
                               <Check className="w-3.5 h-3.5" /> Pass Today&apos;s Work
                             </button>
@@ -599,7 +600,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                                 setReviewNote("");
                               }}
                               disabled={actionLoading}
-                              className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-mono text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                              className="px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100 font-mono text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors border border-zinc-400 dark:border-zinc-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
                             >
                               <AlertTriangle className="w-3.5 h-3.5" /> Need More Proof
                             </button>
@@ -610,7 +611,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                                 setReviewNote("");
                               }}
                               disabled={actionLoading}
-                              className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white font-mono text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                              className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white font-mono text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors border border-red-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
                             >
                               <X className="w-3.5 h-3.5" /> Reject
                             </button>
@@ -641,9 +642,9 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
 
         {/* Pinned Proof Review Banner */}
         {hasPendingProof && (
-          <div className="bg-amber-500 text-zinc-950 px-4 py-3 border-t-2 sm:border-t-4 border-zinc-950 dark:border-zinc-800 shadow-[0_-2px_10px_rgba(0,0,0,0.15)] shrink-0">
+          <div className="bg-zinc-950 text-white dark:bg-[#0c0c0e] dark:text-zinc-100 px-4 py-3 border-t-2 sm:border-t-4 border-red-600 shadow-[0_-2px_10px_rgba(0,0,0,0.2)] shrink-0">
             <div className="flex items-start gap-2.5">
-              <span className="text-base shrink-0 leading-none mt-0.5">🔒</span>
+              <Lock className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-mono font-black uppercase tracking-wide leading-snug">
                   CHAT PAUSED — Proof submitted by @{pendingSubmitterName}. Awaiting reviewer verdict ([Pass Today&apos;s Work], [Need More Proof], or [Reject]). Messaging is paused until reviewed.
@@ -651,17 +652,17 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
 
                 {/* Reviewer Action Buttons right on the banner */}
                 {canReviewPendingProof && (
-                  <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-zinc-950/20">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-900 mr-1">
+                  <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-zinc-800">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-400 mr-1">
                       Your Verdict:
                     </span>
                     <button
                       type="button"
                       onClick={() => handlePassProof(pendingProofMessage || pendingProof)}
                       disabled={actionLoading}
-                      className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                      className="px-2.5 py-1 bg-white hover:bg-zinc-200 text-zinc-950 font-mono text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors border-2 border-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                     >
-                      <Check className="w-3 h-3" /> Pass Today&apos;s Work
+                      <Check className="w-3 h-3 text-emerald-600" /> Pass Today&apos;s Work
                     </button>
                     <button
                       type="button"
@@ -674,9 +675,9 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                         setReviewNote("");
                       }}
                       disabled={actionLoading}
-                      className="px-2.5 py-1 bg-zinc-950 hover:bg-zinc-800 text-amber-400 font-mono text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                      className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 font-mono text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors border-2 border-zinc-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                     >
-                      <AlertTriangle className="w-3 h-3" /> Need More Proof
+                      <AlertTriangle className="w-3 h-3 text-zinc-400" /> Need More Proof
                     </button>
                     <button
                       type="button"
@@ -689,7 +690,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                         setReviewNote("");
                       }}
                       disabled={actionLoading}
-                      className="px-2.5 py-1 bg-red-700 hover:bg-red-800 text-white font-mono text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                      className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white font-mono text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors border-2 border-red-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                     >
                       <X className="w-3 h-3" /> Reject
                     </button>
@@ -708,7 +709,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                 type="button"
                 onClick={() => setShowProofUploadModal(true)}
                 disabled={hasPendingProof}
-                className="px-3 sm:px-4 py-3 border-2 border-zinc-950 dark:border-zinc-800 bg-amber-400 dark:bg-amber-500 hover:bg-amber-300 dark:hover:bg-amber-400 text-zinc-950 font-mono font-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                className="px-3 sm:px-4 py-3 border-2 border-zinc-950 dark:border-transparent bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 font-mono font-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
                 title={hasPendingProof ? "Chat is paused until pending proof is reviewed" : "Upload Daily Proof"}
               >
                 <Camera className="w-5 h-5 shrink-0" />
@@ -722,7 +723,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
               disabled={hasPendingProof}
               placeholder={
                 hasPendingProof
-                  ? "🔒 Chat paused — awaiting proof verdict..."
+                  ? "Chat paused — awaiting proof verdict..."
                   : "Send motivation or message..."
               }
               className="flex-1 px-3 sm:px-4 py-3 border-2 border-zinc-950 dark:border-zinc-800 bg-transparent text-zinc-950 dark:text-zinc-100 font-mono text-base sm:text-sm focus:outline-none focus:bg-zinc-50 dark:focus:bg-zinc-900/50 disabled:opacity-50 disabled:cursor-not-allowed"

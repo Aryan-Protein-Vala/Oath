@@ -181,9 +181,10 @@ export function ConfirmationDialogContainer() {
 
         {/* Optional Danger Warning Banner */}
         {dialog.dangerWarning && (
-          <div className="mb-4 px-3 py-2 bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-900/50 flex items-center gap-2">
+          <div className="mb-4 px-3 py-2 bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-900/50 flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
             <span className="text-[10px] font-mono font-bold uppercase text-red-700 dark:text-red-400 tracking-wider">
-              ⚠ {dialog.dangerWarning}
+              {dialog.dangerWarning}
             </span>
           </div>
         )}
@@ -322,9 +323,10 @@ export function ConfirmationModal({
         </div>
 
         {dangerWarning && (
-          <div className="mb-4 px-3 py-2 bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-900/50 flex items-center gap-2">
+          <div className="mb-4 px-3 py-2 bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-900/50 flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
             <span className="text-[10px] font-mono font-bold uppercase text-red-700 dark:text-red-400 tracking-wider">
-              ⚠ {dangerWarning}
+              {dangerWarning}
             </span>
           </div>
         )}

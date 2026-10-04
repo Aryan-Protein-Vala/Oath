@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Users, DollarSign, Calendar, Target, Plus, Shield } from "lucide-react";
+import { X, Users, DollarSign, Calendar, Target, Plus, Shield, AlertTriangle, Check } from "lucide-react";
 import { createOath } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
 import { formatCurrency, convertToUSD, convertToLocal } from "@/lib/utils";
@@ -100,8 +100,8 @@ export default function CreateLobbyModal({ walletBalance, penaltyBoxUntil, onClo
         <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-5 sm:space-y-6">
           {isPenaltyBoxActive && (
             <div className="p-3 bg-red-500/10 border-2 border-red-500/30 text-center">
-              <p className="text-xs font-mono font-bold text-red-500 uppercase tracking-wider">
-                🚨 Benched in Penalty Box
+              <p className="text-xs font-mono font-bold text-red-500 uppercase tracking-wider flex items-center justify-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5" /> Benched in Penalty Box
               </p>
               <p className="text-[11px] font-mono text-zinc-500 mt-0.5">
                 Account suspended until {new Date(penaltyBoxUntil!).toLocaleDateString()} {new Date(penaltyBoxUntil!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -189,8 +189,9 @@ export default function CreateLobbyModal({ walletBalance, penaltyBoxUntil, onClo
                   {formatCurrency(totalChargedUsd, region)}
                 </span>
               </div>
-              <div className="text-[9px] text-zinc-500 dark:text-zinc-400 pt-0.5 leading-relaxed">
-                ✓ Non-refundable 10% platform fee is retained by Oath. Winners recover 100% of their buy-in stake. If failed, the buy-in is forfeited and the 10% fee remains with Oath.
+              <div className="text-[9px] text-zinc-500 dark:text-zinc-400 pt-0.5 leading-relaxed flex items-start gap-1">
+                <Check className="w-3 h-3 text-zinc-500 shrink-0 mt-0.5" />
+                <span>Non-refundable 10% platform fee is retained by Oath. Winners recover 100% of their buy-in stake. If failed, the buy-in is forfeited and the 10% fee remains with Oath.</span>
               </div>
             </div>
           )}
