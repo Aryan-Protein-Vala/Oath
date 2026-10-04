@@ -625,7 +625,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                 <input
                   type="text"
                   placeholder="Or enter custom despised cause / organization..."
-                  value={antiCharityCause}
+                  value={["Opposing Political Party", "Scientology Foundation", "Anti-Renewable Coal PAC", "Tobacco Research Institute"].includes(antiCharityCause) ? "" : antiCharityCause}
                   onChange={(e) => setAntiCharityCause(e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-zinc-950 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none focus:border-red-600 transition-colors"
                 />
