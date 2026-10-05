@@ -481,7 +481,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
   return (
     <>
       <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 transition-opacity" onClick={onClose} />
-      <div className="fixed inset-0 sm:inset-4 md:inset-x-[10%] md:inset-y-[5%] bg-white dark:bg-[#0a0a0f] border-0 sm:border-4 border-zinc-950 dark:border-zinc-800 z-50 shadow-none sm:shadow-[16px_16px_0px_0px_rgba(9,9,11,1)] dark:shadow-none flex flex-col fade-in h-[100dvh] sm:h-auto">
+      <div className="fixed inset-0 sm:inset-4 md:inset-x-[10%] md:inset-y-[5%] bg-white dark:bg-[#0a0a0f] border-0 sm:border-4 border-zinc-950 dark:border-zinc-800 z-50 shadow-none sm:shadow-[16px_16px_0px_0px_rgba(9,9,11,1)] dark:shadow-none flex flex-col fade-in h-full sm:h-auto">
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b-2 sm:border-b-4 border-zinc-950 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900/40 shrink-0 gap-3 sm:gap-4">
@@ -510,7 +510,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
         </div>
 
         {/* Chat Area */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 bg-zinc-50 dark:bg-transparent">
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 bg-zinc-50 dark:bg-transparent">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="w-8 h-8 animate-spin text-zinc-300" />
