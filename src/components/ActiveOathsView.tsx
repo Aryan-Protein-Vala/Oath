@@ -606,13 +606,13 @@ function OathCountdownCard({
       </div>
 
       {/* Countdown */}
-      <div className="mb-6">
+      <div className="mb-6 w-full flex flex-col items-center">
         {timeState.isExpired ? (
           <p className="text-7xl sm:text-8xl font-black text-red-600 timer-display urgent-pulse tracking-tighter">
             EXPIRED
           </p>
         ) : (
-          <div className="flex items-baseline gap-1 sm:gap-2">
+          <div className="flex items-baseline justify-center w-full gap-1 sm:gap-2">
             {timeState.days > 0 && (
               <>
                 <TimeUnit value={timeState.days} label="DAYS" large />
