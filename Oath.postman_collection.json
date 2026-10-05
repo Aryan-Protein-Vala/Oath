@@ -964,7 +964,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"p_oath_statement\":\"Postman Duo Challenge: 10km run battle\",\"p_deadline\":\"2026-10-04T10:11:53.098Z\",\"p_oath_type\":\"duo\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
+              "raw": "{\"p_oath_statement\":\"Postman Duo Challenge: 10km run battle\",\"p_deadline\":\"2026-10-10T10:11:53.098Z\",\"p_oath_type\":\"duo\",\"p_verification_method\":\"peer\",\"p_consequence_type\":\"fiat\",\"p_stake_amount\":5,\"p_group_mode\":\"survival\"}"
             },
             "url": {
               "raw": "{{supabaseUrl}}/rest/v1/rpc/create_oath_with_stake",
