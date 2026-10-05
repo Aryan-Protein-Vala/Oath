@@ -337,7 +337,8 @@ function getActionRequired(oath: Oath, userId: string | undefined, refereeDuty: 
   }
 
   if (oath.status !== "active") return null;
-  const dueAt = oath.daily_deadline || oath.deadline;
+  const currentMember = oath.members?.find((m) => m.user_id === userId);
+  const dueAt = currentMember?.daily_deadline || oath.daily_deadline || oath.deadline;
   const time = getTimeRemaining(dueAt);
   const timeLabel = formatCompactTime(time);
   const proofs = oath.proofs ?? [];
@@ -368,19 +369,19 @@ function getActionRequired(oath: Oath, userId: string | undefined, refereeDuty: 
     }
     if (!time.isExpired) {
       const now = new Date();
-      const isSameUtcDay = (dateStr?: string | null) => {
+      const isSameLocalDay = (dateStr?: string | null) => {
         if (!dateStr) return false;
         const d = new Date(dateStr);
-        return d.getUTCFullYear() === now.getUTCFullYear() &&
-               d.getUTCMonth() === now.getUTCMonth() &&
-               d.getUTCDate() === now.getUTCDate();
+        return d.getFullYear() === now.getFullYear() &&
+               d.getMonth() === now.getMonth() &&
+               d.getDate() === now.getDate();
       };
 
-      const member = oath.members?.find((m) => m.user_id === userId);
+      const member = currentMember;
       const isVerifiedToday = Boolean(
-        (member?.last_verified_at && isSameUtcDay(member.last_verified_at)) ||
-        (isChallenger && oath.last_verified_at && isSameUtcDay(oath.last_verified_at)) ||
-        mine.some((p) => p.status === "verified" && isSameUtcDay(p.reviewed_at || p.created_at))
+        (member?.last_verified_at && isSameLocalDay(member.last_verified_at)) ||
+        (isChallenger && oath.last_verified_at && isSameLocalDay(oath.last_verified_at)) ||
+        mine.some((p) => p.status === "verified" && isSameLocalDay(p.reviewed_at || p.created_at))
       );
 
       if (isVerifiedToday) {
@@ -518,9 +519,10 @@ function OathCountdownCard({
 
   const totalDays = oath.total_days ?? 1;
   const currentDay = oath.current_day ?? 1;
+  const currentMember = oath.members?.find((m) => m.user_id === user?.id);
   const isMultiDay = totalDays > 1;
   const isDaily = oath.cadence === "daily" || isMultiDay;
-  const dailyDeadline = oath.daily_deadline || oath.deadline;
+  const dailyDeadline = currentMember?.daily_deadline || oath.daily_deadline || oath.deadline;
   const targetDeadline = isDaily ? dailyDeadline : oath.deadline;
   const [timeState, setTimeState] = useState(() => getTimeRemaining(targetDeadline));
 
@@ -531,21 +533,20 @@ function OathCountdownCard({
   );
   const needsMoreProof = Boolean(latestProof?.status === "needs_more_proof" && latestProof?.submitted_by === user?.id);
 
-  const nowUtc = new Date();
-  const isSameUtcDay = (dateStr?: string | null) => {
+  const nowLocal = new Date();
+  const isSameLocalDay = (dateStr?: string | null) => {
     if (!dateStr) return false;
     const d = new Date(dateStr);
     return (
-      d.getUTCFullYear() === nowUtc.getUTCFullYear() &&
-      d.getUTCMonth() === nowUtc.getUTCMonth() &&
-      d.getUTCDate() === nowUtc.getUTCDate()
+      d.getFullYear() === nowLocal.getFullYear() &&
+      d.getMonth() === nowLocal.getMonth() &&
+      d.getDate() === nowLocal.getDate()
     );
   };
-  const currentMember = oath.members?.find((m) => m.user_id === user?.id);
   const isVerifiedToday = Boolean(
-    (currentMember?.last_verified_at && isSameUtcDay(currentMember.last_verified_at)) ||
-    (oath.creator_id === user?.id && oath.last_verified_at && isSameUtcDay(oath.last_verified_at)) ||
-    oath.proofs?.some((p) => p.submitted_by === user?.id && p.status === "verified" && isSameUtcDay(p.reviewed_at || p.created_at))
+    (currentMember?.last_verified_at && isSameLocalDay(currentMember.last_verified_at)) ||
+    (oath.creator_id === user?.id && oath.last_verified_at && isSameLocalDay(oath.last_verified_at)) ||
+    oath.proofs?.some((p) => p.submitted_by === user?.id && p.status === "verified" && isSameLocalDay(p.reviewed_at || p.created_at))
   );
 
   const isPendingAcceptance = oath.status === "pending";
@@ -656,7 +657,7 @@ function OathCountdownCard({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {oath.members.map((m) => {
               const isMemberVerifiedToday = Boolean(
-                m.last_verified_at && isSameUtcDay(m.last_verified_at)
+                m.last_verified_at && isSameLocalDay(m.last_verified_at)
               );
               const hasPending = oath.proofs?.some(
                 (p) => p.submitted_by === m.user_id && p.status === "pending_review"
@@ -823,7 +824,7 @@ function OathCountdownCard({
             )}
             <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 mt-2 text-center">
               {isDaily
-                ? `Daily proof window · Final deadline: ${new Date(oath.deadline).toLocaleDateString()}`
+                ? `Daily proof window · Resets at 12:00 AM local midnight (${Intl.DateTimeFormat().resolvedOptions().timeZone || "local"}) · Final: ${new Date(oath.deadline).toLocaleDateString()}`
                 : `Single verification · Complete deadline: ${new Date(oath.deadline).toLocaleDateString()}`}
             </p>
           </div>

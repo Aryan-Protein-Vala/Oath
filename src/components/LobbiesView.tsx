@@ -331,8 +331,9 @@ function SquadDetail({
   const memberCount = squad.members?.length ?? 0;
   const spotsLeft = Math.max(0, squad.max_players - memberCount);
   const poolTotal = memberCount * squad.stake_amount;
-  const isUserMember = squad.members?.some((m) => m.user_id === user?.id) || squad.creator_id === user?.id;
-  const dailyDeadline = squad.daily_deadline || squad.deadline;
+  const currentMember = squad.members?.find((m) => m.user_id === user?.id);
+  const isUserMember = Boolean(currentMember) || squad.creator_id === user?.id;
+  const dailyDeadline = currentMember?.daily_deadline || squad.daily_deadline || squad.deadline;
   const todayTime = getTimeRemaining(dailyDeadline);
   const joinedMembersCount = squad.members?.filter(m => m.status === 'joined').length ?? (squad.min_players ?? 2);
   const dynamicQuorum = Math.max(1, joinedMembersCount - 1);

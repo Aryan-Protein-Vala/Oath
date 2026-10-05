@@ -685,6 +685,7 @@ export async function createOath(data: {
     p_opponent_id: data.opponent_id ?? null,
     p_opponent_ids: data.opponent_ids ?? null,
     p_cadence: data.cadence ?? "daily",
+    p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   });
   if (error || !oathId) return { error: error?.message ?? "Oath creation failed" };
 
@@ -1056,7 +1057,11 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
-  const { error } = await supabase.rpc("join_squad", { p_oath_id: oathId, p_stake_amount: stakeAmount });
+  const { error } = await supabase.rpc("join_squad", {
+    p_oath_id: oathId,
+    p_stake_amount: stakeAmount,
+    p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  });
   if (error) return { error: error.message };
   notifyDataUpdated();
   return { error: null };
@@ -1357,6 +1362,8 @@ export async function createDuoChallenge(data: {
     p_max_players: 2,
     p_opponent_id: opponentId,
     p_group_mode: data.group_mode ?? "survival",
+    p_cadence: "daily",
+    p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   });
   if (error || !oathId) return { error: error?.message ?? "Challenge creation failed" };
   const { data: oath, error: readError } = await supabase.from("oaths").select("*").eq("id", oathId).single();
@@ -1465,7 +1472,10 @@ export async function acceptDuoChallenge(oathId: string) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
-  const { error } = await supabase.rpc("accept_duo_challenge", { p_oath_id: oathId });
+  const { error } = await supabase.rpc("accept_duo_challenge", {
+    p_oath_id: oathId,
+    p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  });
   if (error) return { error: error.message };
   notifyDataUpdated();
   return { error: null };

@@ -328,17 +328,17 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
     }
 
     const now = new Date();
-    const isSameUtcDay = (dateStr?: string | null) => {
+    const isSameLocalDay = (dateStr?: string | null) => {
       if (!dateStr) return false;
       const d = new Date(dateStr);
-      return d.getUTCFullYear() === now.getUTCFullYear() &&
-             d.getUTCMonth() === now.getUTCMonth() &&
-             d.getUTCDate() === now.getUTCDate();
+      return d.getFullYear() === now.getFullYear() &&
+             d.getMonth() === now.getMonth() &&
+             d.getDate() === now.getDate();
     };
 
     if (oath.oath_type === "solo") {
-      const verifiedToday = isSameUtcDay(oath.last_verified_at) ||
-        proofs.some(p => p.submitted_by === user.id && p.status === "verified" && isSameUtcDay(p.reviewed_at || p.created_at));
+      const verifiedToday = isSameLocalDay(oath.last_verified_at) ||
+        proofs.some(p => p.submitted_by === user.id && p.status === "verified" && isSameLocalDay(p.reviewed_at || p.created_at));
       return {
         isCompletedToday: Boolean(verifiedToday),
         currentStreak: oath.current_streak ?? 0,
@@ -348,8 +348,8 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
       const member = oath.members?.find((m) => m.user_id === user.id);
       const memberStreak = member?.day_streak ?? 0;
       const memberDay = member?.current_day ?? 1;
-      const verifiedToday = (member?.last_verified_at && isSameUtcDay(member.last_verified_at)) ||
-        proofs.some(p => p.submitted_by === user.id && p.status === "verified" && isSameUtcDay(p.reviewed_at || p.created_at));
+      const verifiedToday = (member?.last_verified_at && isSameLocalDay(member.last_verified_at)) ||
+        proofs.some(p => p.submitted_by === user.id && p.status === "verified" && isSameLocalDay(p.reviewed_at || p.created_at));
       return {
         isCompletedToday: Boolean(verifiedToday),
         currentStreak: memberStreak,

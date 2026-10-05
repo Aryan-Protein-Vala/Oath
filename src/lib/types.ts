@@ -78,6 +78,7 @@ export interface Oath {
   current_day?: number;
   current_streak?: number;
   daily_deadline?: string;
+  timezone?: string;
   last_verified_at?: string;
   created_at: string;
   updated_at: string;
@@ -120,6 +121,8 @@ export interface GroupMember {
   day_streak?: number;
   last_verified_day?: number;
   last_verified_at?: string;
+  daily_deadline?: string;
+  timezone?: string;
 }
 
 export interface Proof {

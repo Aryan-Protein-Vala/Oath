@@ -374,7 +374,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                   onClick={() => setCadence("daily")}
                   onInfo={() => setInfoModal({
                     title: "Daily Proof Cadence",
-                    desc: "You must submit verified proof every single day before the 24-hour daily cutoff. If you miss even one day's upload, the oath immediately fails, your stake is seized, and your loss streak increases.",
+                    desc: "You must submit verified proof every single day before 12:00 AM midnight in your local timezone. In multiplayer challenges (Duo/Squad/Lobby), each member follows their own country's 12:00 AM midnight. If you miss even one day's upload, the oath immediately fails, your stake is seized, and your loss streak increases.",
                   })}
                 />
                 <TypeButton
@@ -627,7 +627,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                   {cadence === "daily" ? "Challenge Duration (Daily Proofs Required)" : "Final Deadline (One-Time Proof)"}
                 </label>
                 <span className="text-[10px] font-mono text-zinc-500 font-bold">
-                  {cadence === "daily" ? "Proof due every 24h" : "Single proof by date"}
+                  {cadence === "daily" ? "Proof due every night by 12:00 AM local time" : "Single proof by date"}
                 </span>
               </div>
               <div className="flex items-center gap-2">
