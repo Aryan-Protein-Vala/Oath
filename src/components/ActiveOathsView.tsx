@@ -567,7 +567,7 @@ function OathCountdownCard({
       {/* Cadence progression */}
       {isMultiDay && (
         <div className="mb-6 flex flex-col items-center">
-          <div className="flex items-center gap-1.5 mb-2">
+          <div className="flex flex-wrap justify-center items-center gap-1.5 mb-2 w-full px-2 sm:px-0">
             {Array.from({ length: Math.min(totalDays, 14) }).map((_, idx) => {
               const dayNum = idx + 1;
               const isDone = dayNum < currentDay;
