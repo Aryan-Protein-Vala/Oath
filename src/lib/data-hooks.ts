@@ -598,9 +598,31 @@ export async function createOath(data: {
           status: "joined",
           proof_submitted: false,
           votes_received: 0,
-          votes_needed: data.oath_type === "duo" ? 1 : 3,
+          votes_needed: 1,
           is_active_participant: false,
-        }
+        },
+        ...(data.oath_type === "duo" && data.opponent_id ? [{
+          id: `gm-opp-${Date.now()}`,
+          oath_id: demoOathId,
+          user_id: data.opponent_id,
+          stake_amount: validStake,
+          status: "invited" as const,
+          proof_submitted: false,
+          votes_received: 0,
+          votes_needed: 1,
+          is_active_participant: false,
+        }] : []),
+        ...(data.oath_type === "squad" && data.opponent_ids ? data.opponent_ids.map((oppId, idx) => ({
+          id: `gm-squad-${idx}-${Date.now()}`,
+          oath_id: demoOathId,
+          user_id: oppId,
+          stake_amount: validStake,
+          status: "invited" as const,
+          proof_submitted: false,
+          votes_received: 0,
+          votes_needed: 1,
+          is_active_participant: false,
+        })) : [])
       ] : undefined,
     };
 
@@ -948,26 +970,65 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
       setMockTransactions([newTx, feeTx, ...getMockTransactions()]);
     }
 
-    const newMember: GroupMember = {
-      id: `gm-${Date.now()}`,
-      oath_id: oathId,
-      user_id: ADMIN_MOCK_USER.id,
-      user: { ...mockProfile, username: "DemoUser" },
-      stake_amount: stakeAmount,
-      status: "joined",
-      proof_submitted: false,
-      votes_received: 0,
-      votes_needed: 3,
-      is_active_participant: false,
-    };
+    let updatedMembers = [...(target.members ?? [])];
+    const existingIndex = updatedMembers.findIndex(m => m.user_id === ADMIN_MOCK_USER.id);
+    if (existingIndex >= 0) {
+      updatedMembers[existingIndex] = {
+        ...updatedMembers[existingIndex],
+        status: "joined",
+        stake_amount: stakeAmount,
+      };
+    } else {
+      updatedMembers.push({
+        id: `gm-${Date.now()}`,
+        oath_id: oathId,
+        user_id: ADMIN_MOCK_USER.id,
+        user: { ...mockProfile, username: "DemoUser" },
+        stake_amount: stakeAmount,
+        status: "joined",
+        proof_submitted: false,
+        votes_received: 0,
+        votes_needed: 1,
+        is_active_participant: false,
+      });
+    }
+
+    const hasPendingInvites = updatedMembers.some(m => m.status === "invited");
+    const joinedCount = updatedMembers.filter(m => m.status === "joined").length;
+    const shouldActivate = target.status === "pending" && (
+      target.oath_type === "squad" 
+        ? (!hasPendingInvites && joinedCount >= 2)
+        : (joinedCount >= (target.min_players ?? 2))
+    );
+
+    const isDaily = target.cadence === "daily";
+    const newDeadline = isDaily
+      ? new Date(Date.now() + Math.max(1, target.total_days || 1) * 86400000).toISOString()
+      : new Date(Date.now() + Math.max(86400000, new Date(target.deadline).getTime() - new Date(target.created_at).getTime())).toISOString();
+    const newDailyDeadline = isDaily
+      ? new Date(Date.now() + 86400000).toISOString()
+      : newDeadline;
+
+    if (shouldActivate) {
+      updatedMembers = updatedMembers.map(m => ({
+        ...m,
+        current_day: 1,
+        day_streak: 0,
+        proof_submitted: false,
+        votes_received: 0,
+      }));
+    }
 
     const updatedSquads = squads.map((s) => {
       if (s.id === oathId) {
-        const updatedMembers = [...(s.members ?? []), newMember];
-        const minReached = updatedMembers.length >= (s.min_players ?? 4);
         return {
           ...s,
-          status: minReached ? ("active" as const) : s.status,
+          status: shouldActivate ? ("active" as const) : s.status,
+          created_at: shouldActivate ? new Date().toISOString() : s.created_at,
+          deadline: shouldActivate ? newDeadline : s.deadline,
+          daily_deadline: shouldActivate ? newDailyDeadline : s.daily_deadline,
+          current_day: shouldActivate ? 1 : s.current_day,
+          current_streak: shouldActivate ? 0 : s.current_streak,
           members: updatedMembers,
         };
       }
@@ -978,8 +1039,13 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
     const allOaths = getMockOaths();
     const updatedOaths = allOaths.map(o => o.id === oathId ? {
       ...o,
-      status: (o.members?.length ?? 0) + 1 >= (o.min_players ?? 2) ? ("active" as const) : o.status,
-      members: [...(o.members ?? []), newMember],
+      status: shouldActivate ? ("active" as const) : o.status,
+      created_at: shouldActivate ? new Date().toISOString() : o.created_at,
+      deadline: shouldActivate ? newDeadline : o.deadline,
+      daily_deadline: shouldActivate ? newDailyDeadline : o.daily_deadline,
+      current_day: shouldActivate ? 1 : o.current_day,
+      current_streak: shouldActivate ? 0 : o.current_streak,
+      members: updatedMembers,
     } : o);
     setMockOaths(updatedOaths);
 
@@ -1021,20 +1087,51 @@ export async function castVote(targetId: string, oathId: string, vote: boolean) 
       return { error: "You have already voted on this proof." };
     }
 
+    const joinedMembers = squad.members?.filter(m => m.status === 'joined') || [];
+    const dynamicQuorum = Math.max(1, joinedMembers.length - 1);
+
     const updatedSquads = squads.map((s) => {
       if (s.id === oathId) {
         const updatedMembers = s.members?.map((m) => {
           if (m.id === targetId || m.user_id === targetId) {
             const votesReceived = m.votes_received + (vote ? 1 : 0);
             const votesRejected = (m.votes_rejected ?? 0) + (vote ? 0 : 1);
-            const isCompleted = votesReceived >= Math.max(1, m.votes_needed);
-            const isFailed = votesRejected >= Math.max(1, m.votes_needed);
+            const isApproved = votesReceived >= dynamicQuorum;
+            const isRejected = votesRejected >= 1;
+
+            if (isApproved) {
+              const isDaily = s.cadence === "daily";
+              const nextDay = (m.current_day ?? 1) + 1;
+              const allDone = nextDay > (s.total_days ?? 1);
+              return {
+                ...m,
+                votes_received: 0,
+                votes_rejected: 0,
+                votes_needed: dynamicQuorum,
+                status: (allDone || !isDaily) ? ("completed" as const) : m.status,
+                current_day: isDaily ? nextDay : m.current_day,
+                day_streak: (m.day_streak ?? 0) + 1,
+                proof_submitted: false,
+                voted_by: [],
+              };
+            }
+
+            if (isRejected) {
+              return {
+                ...m,
+                votes_received: 0,
+                votes_rejected: 0,
+                votes_needed: dynamicQuorum,
+                proof_submitted: false,
+                voted_by: [],
+              };
+            }
+
             return {
               ...m,
               votes_received: votesReceived,
               votes_rejected: votesRejected,
-              status: isCompleted ? ("completed" as const) : isFailed ? ("failed" as const) : m.status,
-              is_active_participant: isCompleted,
+              votes_needed: dynamicQuorum,
               voted_by: [...(m.voted_by || []), currentUserId],
             };
           }
@@ -1315,11 +1412,47 @@ export async function acceptDuoChallenge(oathId: string) {
 
     const updatedOaths = oaths.map((o) => {
       if (o.id === oathId) {
+        const isDaily = o.cadence === "daily";
+        const newDeadline = isDaily
+          ? new Date(Date.now() + Math.max(1, o.total_days || 1) * 86400000).toISOString()
+          : new Date(Date.now() + Math.max(86400000, new Date(o.deadline).getTime() - new Date(o.created_at).getTime())).toISOString();
+        const newDailyDeadline = isDaily
+          ? new Date(Date.now() + 86400000).toISOString()
+          : newDeadline;
+
+        const updatedMembers = o.members?.map((m) => {
+          if (m.user_id === ADMIN_MOCK_USER.id || m.status === "invited") {
+            return {
+              ...m,
+              status: "joined" as const,
+              user_id: ADMIN_MOCK_USER.id,
+              user: { ...mockProfile, username: "DemoUser" },
+              current_day: 1,
+              day_streak: 0,
+              proof_submitted: false,
+              votes_received: 0,
+            };
+          }
+          return {
+            ...m,
+            current_day: 1,
+            day_streak: 0,
+            proof_submitted: false,
+            votes_received: 0,
+          };
+        });
+
         return {
           ...o,
           status: "active" as const,
           opponent_id: ADMIN_MOCK_USER.id,
           opponent: { ...mockProfile, username: "DemoUser" },
+          created_at: new Date().toISOString(),
+          deadline: newDeadline,
+          daily_deadline: newDailyDeadline,
+          current_day: 1,
+          current_streak: 0,
+          members: updatedMembers,
         };
       }
       return o;

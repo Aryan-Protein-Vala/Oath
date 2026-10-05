@@ -8,7 +8,7 @@ import { useRegion } from "@/lib/region-context";
 import { useAuth } from "@/lib/auth-context";
 import ProofUploadModal from "./ProofUploadModal";
 import ChatRoom from "./ChatRoom";
-import { forfeitOath, forfeitSquadMember, cancelPendingOath, peerReviewProof, requestMoreProof, passDailyWork } from "@/lib/data-hooks";
+import { forfeitOath, forfeitSquadMember, cancelPendingOath, peerReviewProof, requestMoreProof, passDailyWork, acceptDuoChallenge, joinSquad } from "@/lib/data-hooks";
 import { showToast } from "./Toast";
 import { confirmAction } from "./ConfirmationModal";
 
@@ -323,7 +323,20 @@ function formatCompactTime(t: ReturnType<typeof getTimeRemaining>): string {
 }
 
 function getActionRequired(oath: Oath, userId: string | undefined, refereeDuty: boolean): ActionReason | null {
-  if (!userId || oath.status !== "active") return null;
+  if (!userId) return null;
+
+  // Pending invitations needing acceptance from the current user
+  if (oath.status === "pending") {
+    if (oath.oath_type === "duo" && (oath.opponent_id === userId || oath.members?.some(m => m.user_id === userId && m.status === "invited"))) {
+      return { reason: "Accept duo challenge", timeLabel: "INVITE", urgent: true };
+    }
+    if ((oath.oath_type === "squad" || oath.oath_type === "lobby") && oath.members?.some(m => m.user_id === userId && m.status === "invited")) {
+      return { reason: "Join squad challenge", timeLabel: "INVITE", urgent: true };
+    }
+    return null;
+  }
+
+  if (oath.status !== "active") return null;
   const dueAt = oath.daily_deadline || oath.deadline;
   const time = getTimeRemaining(dueAt);
   const timeLabel = formatCompactTime(time);
@@ -460,9 +473,15 @@ function OathListItem({ oath, isSelected, isReferee, onClick }: { oath: Oath; is
           </div>
         </div>
         <div className="flex flex-col items-end shrink-0">
-          <span className={`text-[10px] font-mono font-black stake-number ${time.isUrgent ? "text-red-600 dark:text-red-500" : "text-zinc-600 dark:text-zinc-400"}`}>
-            {time.isExpired ? "EXP" : time.days > 0 ? `${time.days}d` : time.hours > 0 ? `${time.hours}h` : `${time.minutes}m`}
-          </span>
+          {oath.status === "pending" ? (
+            <span className="text-[9px] font-mono font-black uppercase text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 border border-amber-500/50">
+              PENDING
+            </span>
+          ) : (
+            <span className={`text-[10px] font-mono font-black stake-number ${time.isUrgent ? "text-red-600 dark:text-red-500" : "text-zinc-600 dark:text-zinc-400"}`}>
+              {time.isExpired ? "EXP" : time.days > 0 ? `${time.days}d` : time.hours > 0 ? `${time.hours}h` : `${time.minutes}m`}
+            </span>
+          )}
           <ChevronRight className={`w-3 h-3 mt-1 ${isSelected ? "text-zinc-800 dark:text-zinc-300" : "text-zinc-400 dark:text-zinc-600"}`} />
         </div>
       </div>
@@ -529,24 +548,34 @@ function OathCountdownCard({
     oath.proofs?.some((p) => p.submitted_by === user?.id && p.status === "verified" && isSameUtcDay(p.reviewed_at || p.created_at))
   );
 
+  const isPendingAcceptance = oath.status === "pending";
+  const isDuoOpponentVerifier =
+    oath.oath_type === "duo" &&
+    (oath.opponent_id === user?.id || (oath.opponent?.username && oath.opponent.username === profile?.username)) &&
+    oath.creator_id !== user?.id;
+  const isDuoCreator = oath.oath_type === "duo" && oath.creator_id === user?.id;
+  const isSquadInvitedMember = (oath.oath_type === "squad" || oath.oath_type === "lobby") &&
+    Boolean(oath.members?.some((m) => m.user_id === user?.id && m.status === "invited"));
+
   useEffect(() => {
+    if (isPendingAcceptance) return;
     const interval = setInterval(() => {
       setNow(Date.now());
       setTimeState(getTimeRemaining(targetDeadline));
     }, 1000);
     return () => clearInterval(interval);
-  }, [targetDeadline]);
+  }, [targetDeadline, isPendingAcceptance]);
 
   const deadlineMs = new Date(targetDeadline).getTime();
   const createdMs = new Date(oath.created_at).getTime();
   const progressTotal = isNaN(deadlineMs) || isNaN(createdMs) ? 1 : Math.max(1, deadlineMs - createdMs);
   const progressElapsed = isNaN(createdMs) ? 0 : Math.max(0, now - createdMs);
-  const progressPercent = Math.min(100, Math.max(0, (progressElapsed / progressTotal) * 100));
+  const progressPercent = isPendingAcceptance ? 0 : Math.min(100, Math.max(0, (progressElapsed / progressTotal) * 100));
 
   return (
     <div className="flex-1 flex flex-col items-center justify-start sm:justify-center py-6 sm:py-8 px-4 sm:px-8 relative overflow-y-auto bg-zinc-50 dark:bg-transparent" suppressHydrationWarning>
       {/* Crimson glow when urgent */}
-      {timeState.isUrgent && (
+      {timeState.isUrgent && !isPendingAcceptance && (
         <div className="absolute inset-0 pointer-events-none crimson-glow" />
       )}
 
@@ -644,7 +673,9 @@ function OathCountdownCard({
                     <span className="text-[10px] font-bold px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200">
                       D{m.current_day ?? 1}
                     </span>
-                    {isMemberVerifiedToday ? (
+                    {m.status === "invited" ? (
+                      <span className="text-[9px] font-black text-amber-500 uppercase">Invited</span>
+                    ) : isMemberVerifiedToday ? (
                       <span className="text-[9px] font-black text-emerald-600 uppercase">Verified</span>
                     ) : hasPending ? (
                       <span className="text-[9px] font-black text-amber-500 uppercase">In Review</span>
@@ -659,44 +690,145 @@ function OathCountdownCard({
         </div>
       )}
 
-      {/* Countdown Header */}
-      <div className="text-center mb-2">
-        <span className={`text-[10px] font-mono font-black uppercase tracking-widest px-2.5 py-1 border ${
-          timeState.isUrgent
-            ? "border-red-600 text-red-600 bg-red-50 dark:bg-red-950/30"
-            : "border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400"
-        }`}>
-          {isDaily ? `DAY ${currentDay} OF ${totalDays} · TIME REMAINING TODAY` : "TIME REMAINING UNTIL DEADLINE"}
-        </span>
-      </div>
-
-      {/* Countdown */}
-      <div className="mb-6 w-full flex flex-col items-center">
-        {timeState.isExpired ? (
-          <p className="text-7xl sm:text-8xl font-black text-red-600 timer-display urgent-pulse tracking-tighter">
-            EXPIRED
-          </p>
-        ) : (
-          <div className="flex items-baseline justify-center w-full gap-1 sm:gap-2">
-            {timeState.days > 0 && (
-              <>
-                <TimeUnit value={timeState.days} label="DAYS" large />
-                <Sep urgent={timeState.isUrgent} large />
-              </>
-            )}
-            <TimeUnit value={timeState.hours} label="HRS" large={timeState.days === 0} urgent={timeState.isUrgent && timeState.days === 0} />
-            <Sep urgent={timeState.isUrgent} large={timeState.days === 0} />
-            <TimeUnit value={timeState.minutes} label="MIN" large={timeState.days === 0} urgent={timeState.isUrgent && timeState.days === 0} />
-            <Sep urgent={timeState.isUrgent} large={timeState.days === 0} />
-            <TimeUnit value={timeState.seconds} label="SEC" large={timeState.days === 0} urgent={timeState.isUrgent && timeState.days === 0} />
+      {/* Countdown or Pending Acceptance Banner */}
+      {isPendingAcceptance ? (
+        <div className="w-full max-w-md p-5 mb-6 border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
+          {oath.oath_type === "duo" ? (
+            isDuoOpponentVerifier ? (
+              <div className="space-y-3">
+                <span className="inline-block text-[10px] font-mono font-black uppercase tracking-widest px-2.5 py-1 border border-amber-600 text-amber-600 bg-amber-50 dark:bg-amber-950/30">
+                  DUO CHALLENGE INVITE RECEIVED
+                </span>
+                <p className="text-base font-black text-zinc-950 dark:text-zinc-50">
+                  @{oath.creator?.username || "Challenger"} challenged you to a duel!
+                </p>
+                <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400">
+                  Stake: {utilsFormatCurrency(oath.stake_amount, region)} · Countdown timer will begin once you accept.
+                </p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await acceptDuoChallenge(oath.id);
+                    if (res?.error) {
+                      showToast(res.error, "error");
+                    } else {
+                      showToast("Duo challenge accepted! The timer has begun.", "success");
+                    }
+                  }}
+                  className="px-6 py-3 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 font-black uppercase tracking-tight text-xs border-2 border-zinc-950 dark:border-transparent hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5"
+                >
+                  Accept Duo Challenge ({utilsFormatCurrency(oath.stake_amount, region)})
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <span className="inline-block text-[10px] font-mono font-black uppercase tracking-widest px-2.5 py-1 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
+                  WAITING FOR OPPONENT ACCEPTANCE
+                </span>
+                <p className="text-xs font-mono text-zinc-700 dark:text-zinc-300 leading-relaxed font-bold">
+                  Challenge sent to @{oath.opponent?.username || "opponent"}.
+                </p>
+                <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                  The Day 1 countdown timer will officially begin the moment your opponent accepts and locks their stake.
+                </p>
+              </div>
+            )
+          ) : oath.oath_type === "squad" ? (
+            isSquadInvitedMember ? (
+              <div className="space-y-3">
+                <span className="inline-block text-[10px] font-mono font-black uppercase tracking-widest px-2.5 py-1 border border-amber-600 text-amber-600 bg-amber-50 dark:bg-amber-950/30">
+                  SQUAD INVITATION RECEIVED
+                </span>
+                <p className="text-base font-black text-zinc-950 dark:text-zinc-50">
+                  You are invited to join @{oath.creator?.username || "Leader"}&apos;s squad!
+                </p>
+                <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400">
+                  Buy-in: {utilsFormatCurrency(oath.stake_amount, region)} · Challenge starts once everyone joins.
+                </p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await joinSquad(oath.id, oath.stake_amount);
+                    if (res?.error) {
+                      showToast(res.error, "error");
+                    } else {
+                      showToast("Joined squad! Waiting for remaining members.", "success");
+                    }
+                  }}
+                  className="px-6 py-3 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 font-black uppercase tracking-tight text-xs border-2 border-zinc-950 dark:border-transparent hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5"
+                >
+                  Join Squad ({utilsFormatCurrency(oath.stake_amount, region)})
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <span className="inline-block text-[10px] font-mono font-black uppercase tracking-widest px-2.5 py-1 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
+                  WAITING FOR ALL SQUAD MEMBERS TO JOIN ({oath.members?.filter(m => m.status === 'joined').length || 1}/{oath.members?.length || oath.min_players || 2} JOINED)
+                </span>
+                <p className="text-xs font-mono text-zinc-700 dark:text-zinc-300 leading-relaxed font-bold">
+                  All invited friends must accept before Day 1 begins.
+                </p>
+                <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                  Countdown timer is paused and will start only once everyone has accepted their invitations.
+                </p>
+              </div>
+            )
+          ) : (
+            <div className="space-y-2">
+              <span className="inline-block text-[10px] font-mono font-black uppercase tracking-widest px-2.5 py-1 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
+                WAITING FOR LOBBY TO FILL ({oath.members?.filter(m => m.status === 'joined').length || 1}/{oath.min_players ?? 2} PLAYERS)
+              </span>
+              <p className="text-xs font-mono text-zinc-700 dark:text-zinc-300 leading-relaxed font-bold">
+                Lobby auto-starts when {oath.min_players ?? 2} players have joined.
+              </p>
+              <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                The timer will begin as soon as minimum players are reached.
+              </p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Countdown Header */}
+          <div className="text-center mb-2">
+            <span className={`text-[10px] font-mono font-black uppercase tracking-widest px-2.5 py-1 border ${
+              timeState.isUrgent
+                ? "border-red-600 text-red-600 bg-red-50 dark:bg-red-950/30"
+                : "border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400"
+            }`}>
+              {isDaily ? `DAY ${currentDay} OF ${totalDays} · TIME REMAINING TODAY` : "TIME REMAINING UNTIL DEADLINE"}
+            </span>
           </div>
-        )}
-        <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 mt-2 text-center">
-          {isDaily
-            ? `Daily proof window · Final deadline: ${new Date(oath.deadline).toLocaleDateString()}`
-            : `Single verification · Complete deadline: ${new Date(oath.deadline).toLocaleDateString()}`}
-        </p>
-      </div>
+
+          {/* Countdown */}
+          <div className="mb-6 w-full flex flex-col items-center">
+            {timeState.isExpired ? (
+              <p className="text-7xl sm:text-8xl font-black text-red-600 timer-display urgent-pulse tracking-tighter">
+                EXPIRED
+              </p>
+            ) : (
+              <div className="flex items-baseline justify-center w-full gap-1 sm:gap-2">
+                {timeState.days > 0 && (
+                  <>
+                    <TimeUnit value={timeState.days} label="DAYS" large />
+                    <Sep urgent={timeState.isUrgent} large />
+                  </>
+                )}
+                <TimeUnit value={timeState.hours} label="HRS" large={timeState.days === 0} urgent={timeState.isUrgent && timeState.days === 0} />
+                <Sep urgent={timeState.isUrgent} large={timeState.days === 0} />
+                <TimeUnit value={timeState.minutes} label="MIN" large={timeState.days === 0} urgent={timeState.isUrgent && timeState.days === 0} />
+                <Sep urgent={timeState.isUrgent} large={timeState.days === 0} />
+                <TimeUnit value={timeState.seconds} label="SEC" large={timeState.days === 0} urgent={timeState.isUrgent && timeState.days === 0} />
+              </div>
+            )}
+            <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 mt-2 text-center">
+              {isDaily
+                ? `Daily proof window · Final deadline: ${new Date(oath.deadline).toLocaleDateString()}`
+                : `Single verification · Complete deadline: ${new Date(oath.deadline).toLocaleDateString()}`}
+            </p>
+          </div>
+        </>
+      )}
 
       {/* Needs more proof alert for challenger */}
       {needsMoreProof && (
@@ -862,18 +994,50 @@ function OathCountdownCard({
                   <Eye className="w-3.5 h-3.5" />
                   Details
                 </button>
-                <button
-                  onClick={onForfeit}
-                  disabled={!isActionable}
-                  className={`flex items-center gap-2 px-4 py-2.5 border-2 text-xs font-black uppercase tracking-tight transition-colors shadow-[2px_2px_0px_0px_rgba(220,38,38,1)] dark:shadow-none ${
-                    isActionable
-                      ? "border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                      : "border-zinc-300 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600 cursor-not-allowed shadow-none"
-                  }`}
-                >
-                  <XCircle className="w-3.5 h-3.5" />
-                  Forfeit
-                </button>
+                {isPendingAcceptance && isDuoOpponentVerifier && (
+                  <button
+                    onClick={async () => {
+                      const res = await acceptDuoChallenge(oath.id);
+                      if (res?.error) {
+                        showToast(res.error, "error");
+                      } else {
+                        showToast("Duo challenge accepted! The timer has begun.", "success");
+                      }
+                    }}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-zinc-950 border-2 border-amber-600 text-sm font-black tracking-tight uppercase transition-all shadow-[2px_2px_0px_0px_rgba(217,119,6,1)] active:translate-y-0.5"
+                  >
+                    Accept Duel
+                  </button>
+                )}
+                {isPendingAcceptance && isSquadInvitedMember && (
+                  <button
+                    onClick={async () => {
+                      const res = await joinSquad(oath.id, oath.stake_amount);
+                      if (res?.error) {
+                        showToast(res.error, "error");
+                      } else {
+                        showToast("Joined squad! Waiting for remaining members.", "success");
+                      }
+                    }}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-zinc-950 border-2 border-amber-600 text-sm font-black tracking-tight uppercase transition-all shadow-[2px_2px_0px_0px_rgba(217,119,6,1)] active:translate-y-0.5"
+                  >
+                    Join Squad
+                  </button>
+                )}
+                {!isPendingAcceptance && (
+                  <button
+                    onClick={onForfeit}
+                    disabled={!isActionable}
+                    className={`flex items-center gap-2 px-4 py-2.5 border-2 text-xs font-black uppercase tracking-tight transition-colors shadow-[2px_2px_0px_0px_rgba(220,38,38,1)] dark:shadow-none ${
+                      isActionable
+                        ? "border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                        : "border-zinc-300 dark:border-zinc-800 text-zinc-400 dark:text-zinc-600 cursor-not-allowed shadow-none"
+                    }`}
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    Forfeit
+                  </button>
+                )}
                 {isPendingAcceptance && oath.creator_id === user?.id && (
                   <button
                     onClick={async () => {

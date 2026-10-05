@@ -334,6 +334,8 @@ function SquadDetail({
   const isUserMember = squad.members?.some((m) => m.user_id === user?.id) || squad.creator_id === user?.id;
   const dailyDeadline = squad.daily_deadline || squad.deadline;
   const todayTime = getTimeRemaining(dailyDeadline);
+  const joinedMembersCount = squad.members?.filter(m => m.status === 'joined').length ?? (squad.min_players ?? 2);
+  const dynamicQuorum = Math.max(1, joinedMembersCount - 1);
 
   const handleJoin = async () => {
     if (isPenaltyBoxActive) {
@@ -430,9 +432,12 @@ function SquadDetail({
 
       {/* Members List — Task Log Feed */}
       <div className="flex-1 overflow-y-auto">
-        <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-800/30 bg-zinc-100 dark:bg-transparent">
+        <div className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-800/30 bg-zinc-100 dark:bg-transparent flex flex-wrap items-center justify-between gap-1">
           <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-widest">
             Lobby Log & Proof Verifications
+          </span>
+          <span className="text-[10px] font-mono font-bold text-zinc-500">
+            Quorum: {dynamicQuorum} approval{dynamicQuorum === 1 ? '' : 's'} needed per proof
           </span>
         </div>
 
@@ -442,6 +447,7 @@ function SquadDetail({
             member={member}
             index={index}
             currentUserId={user?.id}
+            dynamicQuorum={dynamicQuorum}
             onVote={handleVote}
             onInspectProof={() => setInspectingMember(member)}
           />
@@ -615,7 +621,7 @@ function SquadDetail({
                 )}
 
                 <div className="flex items-center justify-between mt-3 pt-2 border-t border-zinc-300 dark:border-zinc-800 text-[11px] text-zinc-500 font-bold">
-                  <span>Quorum: {inspectingMember.votes_received} / {inspectingMember.votes_needed} votes</span>
+                  <span>Quorum: {inspectingMember.votes_received} / {dynamicQuorum} votes ({dynamicQuorum} other member{dynamicQuorum === 1 ? '' : 's'})</span>
                   <span className="uppercase text-zinc-900 dark:text-zinc-200">{inspectingMember.status}</span>
                 </div>
               </div>
@@ -682,12 +688,14 @@ function MemberLogEntry({
   member,
   index,
   currentUserId,
+  dynamicQuorum = 1,
   onVote,
   onInspectProof,
 }: {
   member: GroupMember;
   index: number;
   currentUserId?: string;
+  dynamicQuorum?: number;
   onVote: (memberId: string, vote: boolean) => void;
   onInspectProof?: () => void;
 }) {
@@ -738,7 +746,7 @@ function MemberLogEntry({
         {member.proof_submitted && !isConcluded && (
           <div className="flex items-center gap-1.5 mr-2">
             <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
-              {member.votes_received}/{member.votes_needed}
+              {member.votes_received}/{dynamicQuorum}
             </span>
             {isCurrentUser ? (
               <span className="text-[9px] font-mono text-zinc-500 italic px-1">

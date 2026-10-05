@@ -17,7 +17,8 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { Message, Oath, Proof } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
-import { formatRelativeTime } from "@/lib/utils";
+import { formatRelativeTime, formatCurrency as utilsFormatCurrency } from "@/lib/utils";
+import { useRegion } from "@/lib/region-context";
 import { showToast } from "./Toast";
 import { confirmAction } from "./ConfirmationModal";
 import { isNomineeRefereeForOath } from "./ActiveOathsView";
@@ -26,6 +27,7 @@ import {
   passDailyWork,
   requestMoreProof,
   peerReviewProof,
+  acceptDuoChallenge,
   isMockMode,
   getMockMessages,
   setMockMessages,
@@ -49,6 +51,7 @@ const isLink = (url: string) =>
 
 export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProps) {
   const { user, profile } = useAuth();
+  const { region } = useRegion();
   const [messages, setMessages] = useState<Message[]>([]);
   const [proofs, setProofs] = useState<Proof[]>(oath.proofs || []);
   const [inputText, setInputText] = useState("");
@@ -63,6 +66,26 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
   const [reviewNote, setReviewNote] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
+
+  const isDuoOpponent =
+    oath.oath_type === "duo" &&
+    (oath.opponent_id === user?.id || (oath.opponent?.username && oath.opponent.username === profile?.username)) &&
+    oath.creator_id !== user?.id;
+
+  const handleAcceptDuo = async () => {
+    setActionLoading(true);
+    try {
+      const res = await acceptDuoChallenge(oath.id);
+      if (res?.error) {
+        showToast(res.error, "error");
+      } else {
+        showToast("Duo challenge accepted! The timer has begun.", "success");
+        onProofUpdated?.();
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const fetchProofs = useCallback(async () => {
     if (isMockMode()) {
@@ -700,6 +723,28 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
           )}
         </div>
 
+        {/* Pinned Challenge Pending Banner */}
+        {oath.status === "pending" && (
+          <div className="bg-zinc-950 text-white dark:bg-[#0c0c0e] dark:text-zinc-100 px-4 py-3 border-t-2 sm:border-t-4 border-amber-500 shadow-[0_-2px_10px_rgba(0,0,0,0.2)] shrink-0 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+              <p className="text-xs font-mono font-bold uppercase tracking-wide">
+                ⏳ Challenge Pending — Waiting for all members to accept before starting. Day 1 timer begins once everyone accepts.
+              </p>
+            </div>
+            {isDuoOpponent && (
+              <button
+                type="button"
+                onClick={handleAcceptDuo}
+                disabled={actionLoading}
+                className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-mono text-[10px] font-black uppercase tracking-wider transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 disabled:opacity-50"
+              >
+                Accept Challenge ({utilsFormatCurrency(oath.stake_amount, region)})
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Pinned Proof Review Banner */}
         {hasPendingProof && (
           <div className="bg-zinc-950 text-white dark:bg-[#0c0c0e] dark:text-zinc-100 px-4 py-3 border-t-2 sm:border-t-4 border-red-600 shadow-[0_-2px_10px_rgba(0,0,0,0.2)] shrink-0">
@@ -793,10 +838,12 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
               <button
                 type="button"
                 onClick={() => setShowProofUploadModal(true)}
-                disabled={hasPendingMine || userDailyState.isCompletedToday}
+                disabled={oath.status === "pending" || hasPendingMine || userDailyState.isCompletedToday}
                 className="px-3 sm:px-4 py-3 border-2 border-zinc-950 dark:border-transparent bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 font-mono font-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
                 title={
-                  hasPendingMine
+                  oath.status === "pending"
+                    ? "Challenge is pending acceptance from all participants. Proof uploads will open once active."
+                    : hasPendingMine
                     ? "Your proof is already uploaded and pending review"
                     : userDailyState.isCompletedToday
                     ? `Today's proof complete (Streak: ${userDailyState.currentStreak}). Day ${userDailyState.currentDay} opens at midnight.`
@@ -805,7 +852,11 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
               >
                 <Camera className="w-5 h-5 shrink-0" />
                 <span className="hidden sm:inline text-xs font-black uppercase tracking-wider">
-                  {userDailyState.isCompletedToday ? `Day ${userDailyState.currentStreak} Done` : "Upload Proof"}
+                  {oath.status === "pending"
+                    ? "Pending"
+                    : userDailyState.isCompletedToday
+                    ? `Day ${userDailyState.currentStreak} Done`
+                    : "Upload Proof"}
                 </span>
               </button>
             )}
