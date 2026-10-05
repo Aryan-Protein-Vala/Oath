@@ -163,7 +163,7 @@ function AuthForm() {
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border-2 border-red-600 text-red-700 dark:text-red-300 text-xs font-mono font-bold flex items-start gap-2">
+          <div role="alert" aria-live="polite" className="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border-2 border-red-600 text-red-700 dark:text-red-300 text-xs font-mono font-bold flex items-start gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -173,16 +173,20 @@ function AuthForm() {
           {/* Username (signup only) */}
           {mode === "signup" && (
             <div className="fade-in">
-              <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.15em] mb-1.5 block">
+              <label htmlFor="auth-username" className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.15em] mb-1.5 block">
                 Username
               </label>
               <input
+                id="auth-username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="iron_will"
                 className="w-full px-3.5 py-3 text-base sm:text-sm font-medium border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 focus:border-red-600 dark:focus:border-zinc-500 outline-none transition-colors text-zinc-950 dark:text-zinc-50 shadow-[3px_3px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
                 autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
                 required
               />
             </div>
@@ -190,33 +194,41 @@ function AuthForm() {
 
           {/* Email */}
           <div>
-            <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.15em] mb-1.5 block">
+            <label htmlFor="auth-email" className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.15em] mb-1.5 block">
               Email Address
             </label>
             <input
+              id="auth-email"
               type="email"
+              inputMode="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@domain.com"
               className="w-full px-3.5 py-3 text-base sm:text-sm font-medium border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 focus:border-red-600 dark:focus:border-zinc-500 outline-none transition-colors text-zinc-950 dark:text-zinc-50 shadow-[3px_3px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
               autoComplete="email"
+              autoCapitalize="none"
+              spellCheck="false"
               required
             />
           </div>
 
           {/* Password */}
           <div>
-            <label className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.15em] mb-1.5 block">
+            <label htmlFor="auth-password" className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-[0.15em] mb-1.5 block">
               Password {mode === "signup" && <span className="text-[9px] text-zinc-400">(min 8 chars)</span>}
             </label>
             <div className="relative">
               <input
+                id="auth-password"
                 type={showPw ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="w-full px-3.5 py-3 pr-11 text-base sm:text-sm font-medium border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950/50 focus:border-red-600 dark:focus:border-zinc-500 outline-none transition-colors text-zinc-950 dark:text-zinc-50 shadow-[3px_3px_0px_0px_rgba(9,9,11,1)] dark:shadow-none"
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                autoCapitalize="none"
+                autoCorrect="off"
+                minLength={mode === "signup" ? 8 : undefined}
                 required
               />
               <button

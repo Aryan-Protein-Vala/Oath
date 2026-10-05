@@ -66,11 +66,13 @@ export default function WallView({ entries, type }: WallViewProps) {
         </div>
 
         {/* Bottom Sentinel */}
-        <div className="py-8 text-center">
-          <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-600 tracking-widest uppercase font-bold">
-            {isShame ? "— End of disgrace —" : "— End of record —"}
-          </span>
-        </div>
+        {entries.length > 0 && (
+          <div className="py-8 text-center">
+            <span className="text-[10px] font-mono text-zinc-500 dark:text-zinc-600 tracking-widest uppercase font-bold">
+              {isShame ? "— End of disgrace —" : "— End of record —"}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

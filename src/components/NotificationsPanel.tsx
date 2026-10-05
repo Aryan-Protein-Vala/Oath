@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { X, Check, XCircle, Bell, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Notification } from "@/lib/types";
@@ -24,12 +25,12 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
     if (!user) return;
     const { data, error } = await supabase
       .from("notifications")
-      .select("*")
+      .select("*, oath:oaths(*)")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
     if (!error && data) {
-      setNotifications(data);
+      setNotifications(data as unknown as Notification[]);
     }
     setLoading(false);
   }, [user, supabase]);
@@ -56,39 +57,43 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
 
   const handleAction = async (notif: Notification, status: "accepted" | "rejected" | "read") => {
     setProcessingId(notif.id);
-    if (status === "accepted" && notif.oath_id) {
-      if (notif.type === "invite_duo") {
-        const { error } = await acceptDuoChallenge(notif.oath_id);
-        if (error) {
-          if (error.toLowerCase().includes("insufficient") || error.toLowerCase().includes("balance")) {
-            showToast("Insufficient balance. Put money first, then only you can approve.", "error");
-          } else {
-            showToast(error, "error");
+    try {
+      if (status === "accepted" && notif.oath_id) {
+        if (notif.type === "invite_duo") {
+          const { error } = await acceptDuoChallenge(notif.oath_id);
+          if (error) {
+            if (error.toLowerCase().includes("insufficient") || error.toLowerCase().includes("balance")) {
+              showToast("Insufficient balance. Put money first, then only you can approve.", "error");
+            } else {
+              showToast(error, "error");
+            }
+            return;
           }
-          setProcessingId(null);
-          return;
-        }
-        showToast("Accepted Duo Challenge! Stay accountable.", "success");
-      } else if (notif.type === "invite_squad" || notif.type === "invite_lobby" || notif.type === "invite") {
-        const { error } = await joinSquad(notif.oath_id, notif.oath?.stake_amount ?? 0);
-        if (error) {
-          if (error.toLowerCase().includes("insufficient") || error.toLowerCase().includes("balance")) {
-            showToast("Insufficient balance. Put money first, then only you can approve.", "error");
-          } else {
-            showToast(error, "error");
+          showToast("Accepted Duo Challenge! Stay accountable.", "success");
+        } else if (notif.type === "invite_squad" || notif.type === "invite_lobby" || notif.type === "invite") {
+          const { error } = await joinSquad(notif.oath_id, notif.oath?.stake_amount ?? 0);
+          if (error) {
+            if (error.toLowerCase().includes("insufficient") || error.toLowerCase().includes("balance")) {
+              showToast("Insufficient balance. Put money first, then only you can approve.", "error");
+            } else {
+              showToast(error, "error");
+            }
+            return;
           }
-          setProcessingId(null);
-          return;
+          showToast("Joined Accountability Squad!", "success");
         }
-        showToast("Joined Accountability Squad!", "success");
+      } else if (status === "rejected") {
+        showToast("Invitation declined.", "info");
       }
-    } else if (status === "rejected") {
-      showToast("Invitation declined.", "info");
-    }
 
-    await supabase.from("notifications").update({ status }).eq("id", notif.id);
-    setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, status } : n)));
-    setProcessingId(null);
+      await supabase.from("notifications").update({ status }).eq("id", notif.id);
+      setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, status } : n)));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update notification";
+      showToast(msg, "error");
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   return (
@@ -148,12 +153,12 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
 
                 {notif.status === "pending" && notif.type === "invite_nominee" && (
                   <div className="flex items-center gap-2 mt-4">
-                    <a
+                    <Link
                       href={`/verify?token=${notif.oath_id}`}
                       className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-bold uppercase hover:bg-zinc-800 dark:hover:bg-white"
                     >
                       View Assigned Oath &rarr;
-                    </a>
+                    </Link>
                     <button
                       onClick={() => handleAction(notif, "read")}
                       className="px-2.5 py-1 text-[10px] font-mono border border-zinc-400 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-800 uppercase"
@@ -165,12 +170,12 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
 
                 {notif.status === "pending" && notif.type === "verify_proof" && (
                   <div className="flex items-center gap-2 mt-4">
-                    <a
+                    <Link
                       href={`/verify?token=${notif.oath_id}`}
                       className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-red-600 text-white text-xs font-bold uppercase hover:bg-red-700 transition-colors"
                     >
                       Review Proof Evidence &rarr;
-                    </a>
+                    </Link>
                     <button
                       onClick={() => handleAction(notif, "read")}
                       className="px-2.5 py-1 text-[10px] font-mono border border-zinc-400 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-800 uppercase"

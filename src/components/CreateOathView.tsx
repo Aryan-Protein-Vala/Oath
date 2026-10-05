@@ -112,12 +112,15 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
         return;
       }
       const results = await searchUsersByUsername(query);
-      setNomineeSuggestions(results);
-      setShowNomineeSuggestions(results.length > 0);
+      const filtered = results.filter(
+        (u) => u.id !== user?.id && u.username.toLowerCase() !== user?.user_metadata?.username?.toLowerCase()
+      );
+      setNomineeSuggestions(filtered);
+      setShowNomineeSuggestions(filtered.length > 0);
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [nomineeEmail, verificationMethod]);
+  }, [nomineeEmail, verificationMethod, user]);
 
   useEffect(() => {
     if (oathType !== "duo" && oathType !== "squad") return;
@@ -243,6 +246,24 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
       const match = results.find(u => u.username.toLowerCase() === clean.toLowerCase());
       if (match?.id) {
         finalOpponentId = match.id;
+      }
+    }
+
+    if (oathType === "duo" && finalOpponentId && finalOpponentId === user?.id) {
+      showToast("You cannot challenge yourself.", "error");
+      setSubmitting(false);
+      return;
+    }
+
+    if (verificationMethod === "nominee") {
+      const cleanNominee = nomineeEmail.replace("@", "").trim().toLowerCase();
+      if (
+        cleanNominee === user?.user_metadata?.username?.toLowerCase() ||
+        (user?.email && nomineeEmail.trim().toLowerCase() === user.email.toLowerCase())
+      ) {
+        showToast("You cannot select yourself as nominee referee.", "error");
+        setSubmitting(false);
+        return;
       }
     }
 
@@ -570,8 +591,19 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                     showToast("You need to swear to something.", "error");
                     return;
                   }
-                  if (oathType === "duo" && !opponentUsername.trim() && !opponentId) {
-                    showToast("Please enter an opponent @username for this duel.", "error");
+                  if (oathType === "duo") {
+                    if (!opponentUsername.trim() && !opponentId) {
+                      showToast("Please enter an opponent @username for this duel.", "error");
+                      return;
+                    }
+                    const clean = opponentUsername.replace("@", "").trim().toLowerCase();
+                    if (clean === user?.user_metadata?.username?.toLowerCase() || opponentId === user?.id) {
+                      showToast("You cannot challenge yourself.", "error");
+                      return;
+                    }
+                  }
+                  if (oathType === "squad" && squadMembers.length === 0 && !opponentUsername.trim()) {
+                    showToast("Please invite at least 1 member to your squad.", "error");
                     return;
                   }
                   setCurrentStep(2);

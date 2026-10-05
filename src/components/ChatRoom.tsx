@@ -261,9 +261,14 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
         return isNomineeRefereeForOath(oath, user.id, user.email, profile?.username);
       }
       if (oath.oath_type === "duo") {
+        if (submitterId) {
+          return (submitterId === oath.creator_id && user.id === oath.opponent_id) ||
+                 (submitterId === oath.opponent_id && user.id === oath.creator_id);
+        }
         return oath.opponent_id === user.id || oath.creator_id === user.id;
       }
       if (oath.oath_type === "squad" || oath.oath_type === "lobby") {
+        if (submitterId && submitterId === user.id) return false;
         return Boolean(oath.members?.some((m) => m.user_id === user.id) || oath.creator_id === user.id);
       }
       return false;
@@ -274,6 +279,24 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
   const canReviewPendingProof = canReview(
     pendingProofMessage?.sender_id || pendingProof?.submitted_by
   );
+
+  // Check if current user has their own pending proof
+  const hasPendingMine = useMemo(() => {
+    if (!user) return false;
+    return proofs.some((p) => p.submitted_by === user.id && p.status === "pending_review") ||
+      messages.some((m) => m.type === "proof" && m.sender_id === user.id && !reviewedProofIds.has(m.proof_id ?? ""));
+  }, [user, proofs, messages, reviewedProofIds]);
+
+  // Check if current user's latest proof was rejected
+  const latestUserRejectedProof = useMemo(() => {
+    if (!user) return null;
+    const userProofs = proofs.filter((p) => p.submitted_by === user.id);
+    const sorted = [...userProofs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    if (sorted[0]?.status === "rejected") {
+      return sorted[0];
+    }
+    return null;
+  }, [user, proofs]);
 
   // Check if current user has already completed today's proof and is on a break until midnight
   const userDailyState = useMemo(() => {
@@ -481,11 +504,11 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
   return (
     <>
       <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 transition-opacity" onClick={onClose} />
-      <div className="fixed inset-0 sm:inset-4 md:inset-x-[10%] md:inset-y-[5%] bg-white dark:bg-[#0a0a0f] border-0 sm:border-4 border-zinc-950 dark:border-zinc-800 z-50 shadow-none sm:shadow-[16px_16px_0px_0px_rgba(9,9,11,1)] dark:shadow-none flex flex-col fade-in h-full sm:h-auto">
+      <div className="fixed inset-0 sm:inset-4 md:inset-x-[10%] md:inset-y-[5%] bg-white dark:bg-[#0a0a0f] border-0 sm:border-4 border-zinc-950 dark:border-zinc-800 z-50 shadow-none sm:shadow-[16px_16px_0px_0px_rgba(9,9,11,1)] dark:shadow-none flex flex-col fade-in h-[100dvh] sm:h-auto max-h-[100dvh]">
         
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b-2 sm:border-b-4 border-zinc-950 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900/40 shrink-0 gap-3 sm:gap-4">
-          <div className="flex-1 min-w-0 pr-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b-2 sm:border-b-4 border-zinc-950 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900/40 shrink-0 gap-3 sm:gap-4 relative">
+          <div className="flex-1 min-w-0 pr-10 sm:pr-2">
             <div className="flex items-center gap-2 mb-1">
               <span className={`px-2 py-0.5 text-[10px] font-mono font-black uppercase tracking-widest shrink-0 ${isLobby ? "bg-indigo-500 text-white" : "bg-zinc-950 text-white"}`}>
                 {oath.oath_type}
@@ -510,7 +533,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
         </div>
 
         {/* Chat Area */}
-        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 bg-zinc-50 dark:bg-transparent">
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-4 bg-zinc-50 dark:bg-transparent">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="w-8 h-8 animate-spin text-zinc-300" />
@@ -753,6 +776,16 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
           </div>
         )}
 
+        {/* Submitter Rejection Alert */}
+        {latestUserRejectedProof && !hasPendingMine && !userDailyState.isCompletedToday && (
+          <div className="bg-red-500/10 border-t-2 border-red-600 px-4 py-2.5 flex items-center justify-between gap-2 text-xs font-mono shrink-0">
+            <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-bold">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>PROOF REJECTED: &ldquo;{latestUserRejectedProof.review_note || "Evidence rejected by reviewer"}&rdquo;. Please upload revised proof before deadline.</span>
+            </div>
+          </div>
+        )}
+
         {/* Input Area */}
         <div className="p-3 sm:p-4 bg-white dark:bg-[#0a0a0f] border-t-2 sm:border-t-4 border-zinc-950 dark:border-zinc-800 shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <form onSubmit={handleSend} className="flex gap-2">
@@ -760,11 +793,11 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
               <button
                 type="button"
                 onClick={() => setShowProofUploadModal(true)}
-                disabled={hasPendingProof || userDailyState.isCompletedToday}
+                disabled={hasPendingMine || userDailyState.isCompletedToday}
                 className="px-3 sm:px-4 py-3 border-2 border-zinc-950 dark:border-transparent bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 font-mono font-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
                 title={
-                  hasPendingProof
-                    ? "Proof already uploaded and pending review"
+                  hasPendingMine
+                    ? "Your proof is already uploaded and pending review"
                     : userDailyState.isCompletedToday
                     ? `Today's proof complete (Streak: ${userDailyState.currentStreak}). Day ${userDailyState.currentDay} opens at midnight.`
                     : "Upload Daily Proof"
@@ -780,6 +813,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
+              onFocus={() => setTimeout(scrollToBottom, 150)}
               placeholder="Send message or provide context..."
               className="flex-1 px-3 sm:px-4 py-3 border-2 border-zinc-950 dark:border-zinc-800 bg-transparent text-zinc-950 dark:text-zinc-100 font-mono text-base sm:text-sm focus:outline-none focus:bg-zinc-50 dark:focus:bg-zinc-900/50"
             />

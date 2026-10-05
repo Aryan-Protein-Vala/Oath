@@ -1576,12 +1576,15 @@ export async function verifyNominee(token: string, verdict: "success" | "penalty
     return settleOath(oath.id, verdict, note);
   }
   const supabase = createClient();
-  const { error } = await supabase.rpc("verify_nominee", {
+  const { data, error } = await supabase.rpc("verify_nominee", {
     p_token: token,
-    p_success: verdict === "success",
+    p_approved: verdict === "success",
     p_note: note ?? null,
   });
   if (error) return { error: error.message };
+  if (data && typeof data === "object" && (data as { success?: boolean; error?: string }).success === false) {
+    return { error: (data as { error?: string }).error || "Verification failed" };
+  }
   notifyDataUpdated();
   return { error: null };
 }
@@ -1643,13 +1646,13 @@ export async function peerReviewProof(oathId: string, approve: boolean, note?: s
 }
 
 // ---- requestMoreProof — reviewer requests clearer evidence ----
-export async function requestMoreProof(oathId: string, note: string): Promise<{ error: string | null }> {
+export async function requestMoreProof(oathId: string, note: string, proofId?: string): Promise<{ error: string | null }> {
   if (isMockMode()) {
     const oaths = getMockOaths();
     const updatedOaths = oaths.map((o) => {
       if (o.id === oathId) {
         const updatedProofs = o.proofs?.map((p, idx) =>
-          idx === 0 || p.status === "pending_review"
+          (proofId ? p.id === proofId : idx === 0 || p.status === "pending_review")
             ? { ...p, status: "needs_more_proof" as ProofStatus, review_note: note, reviewed_at: new Date().toISOString() }
             : p
         );

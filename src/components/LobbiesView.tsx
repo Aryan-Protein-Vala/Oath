@@ -507,7 +507,10 @@ function SquadDetail({
 
       {/* Proof Inspection Modal */}
       {inspectingMember && (() => {
-        const proof = squad.proofs?.find((p) => p.submitted_by === inspectingMember.user_id);
+        const memberProofs = (squad.proofs || []).filter((p) => p.submitted_by === inspectingMember.user_id);
+        const proof =
+          memberProofs.find((p) => p.status === "pending_review") ||
+          [...memberProofs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
         const reviewDeadline =
           proof?.review_deadline ||
           (proof?.created_at
@@ -617,43 +620,49 @@ function SquadDetail({
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-                <button
-                  onClick={() => {
-                    handleVote(inspectingMember.id, true);
-                    setInspectingMember(null);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider min-h-[44px] sm:min-h-0"
-                >
-                  <ThumbsUp className="w-3.5 h-3.5" /> Pass Today&apos;s Work
-                </button>
-                <button
-                  onClick={async () => {
-                    const note = window.prompt("What additional proof is needed from this member? (e.g. clearer photo, timestamp, video)");
-                    if (!note || !note.trim()) return;
-                    const { error } = await requestMoreProof(squad.id, note.trim());
-                    if (error) {
-                      showToast(error, "error");
-                    } else {
-                      showToast("Requested more proof from member.", "info");
+              {!isUserMember ? (
+                <div className="p-3 bg-zinc-100 dark:bg-zinc-800 border-2 border-zinc-950 dark:border-zinc-700 text-center font-mono text-xs text-zinc-600 dark:text-zinc-300">
+                  Join this lobby to cast quorum verification votes on members.
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                  <button
+                    onClick={() => {
+                      handleVote(inspectingMember.id, true);
                       setInspectingMember(null);
-                      onJoined?.();
-                    }
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black uppercase tracking-wider min-h-[44px] sm:min-h-0"
-                >
-                  <Zap className="w-3.5 h-3.5" /> Need More Proof
-                </button>
-                <button
-                  onClick={() => {
-                    handleVote(inspectingMember.id, false);
-                    setInspectingMember(null);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 border-2 border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-black uppercase tracking-wider min-h-[44px] sm:min-h-0"
-                >
-                  <ThumbsDown className="w-3.5 h-3.5" /> Reject (Fraud)
-                </button>
-              </div>
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider min-h-[44px] sm:min-h-0"
+                  >
+                    <ThumbsUp className="w-3.5 h-3.5" /> Pass Today&apos;s Work
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const note = window.prompt("What additional proof is needed from this member? (e.g. clearer photo, timestamp, video)");
+                      if (!note || !note.trim()) return;
+                      const { error } = await requestMoreProof(squad.id, note.trim(), proof?.id);
+                      if (error) {
+                        showToast(error, "error");
+                      } else {
+                        showToast("Requested more proof from member.", "info");
+                        setInspectingMember(null);
+                        onJoined?.();
+                      }
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black uppercase tracking-wider min-h-[44px] sm:min-h-0"
+                  >
+                    <Zap className="w-3.5 h-3.5" /> Need More Proof
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleVote(inspectingMember.id, false);
+                      setInspectingMember(null);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 border-2 border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-black uppercase tracking-wider min-h-[44px] sm:min-h-0"
+                  >
+                    <ThumbsDown className="w-3.5 h-3.5" /> Reject (Fraud)
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         );

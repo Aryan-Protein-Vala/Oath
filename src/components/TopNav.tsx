@@ -3,7 +3,7 @@
 import React from "react";
 
 import { useSyncExternalStore } from "react";
-import { Wallet, Plus, Bell, Sun, Moon, Zap, PenLine, Users, User } from "lucide-react";
+import { Wallet, Plus, Bell, Sun, Moon, Zap, PenLine, Users } from "lucide-react";
 import { useTheme } from "next-themes";
 import { formatCurrencyPrecise } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
@@ -112,17 +112,17 @@ export default function TopNav({
             onClick={onWalletClick}
             className="flex items-center gap-1.5 sm:gap-2 border-2 border-zinc-950 dark:border-zinc-800 px-2 sm:px-3 py-1 sm:py-1.5 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none shrink-0"
           >
-            <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-950 dark:text-zinc-500 shrink-0" />
+            <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-950 dark:text-zinc-300 shrink-0" />
             <div className="flex flex-col text-left min-w-0">
-              <span className="text-[11px] sm:text-xs font-mono font-black text-zinc-950 dark:text-zinc-50 stake-number leading-none truncate max-w-[68px] sm:max-w-none">
+              <span className="text-[11px] sm:text-xs font-mono font-black text-zinc-950 dark:text-zinc-50 stake-number leading-none truncate max-w-[85px] sm:max-w-none">
                 {formatCurrencyPrecise(wallet.balance, region)}
               </span>
-              <span className="text-[8px] sm:text-[9px] font-mono font-bold text-zinc-600 dark:text-zinc-500 leading-none mt-0.5 hidden sm:inline-block">
+              <span className="text-[8px] sm:text-[9px] font-mono font-bold text-zinc-600 dark:text-zinc-400 leading-none mt-0.5 hidden sm:inline-block">
                 {formatCurrencyPrecise(wallet.escrow_locked, region)} locked
               </span>
             </div>
             <div className="hidden sm:flex items-center gap-0.5 ml-0.5">
-              <span className="p-0.5 text-zinc-950 dark:text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
+              <span className="p-0.5 text-zinc-950 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
                 <Plus className="w-3 h-3" />
               </span>
             </div>

@@ -323,7 +323,7 @@ function formatCompactTime(t: ReturnType<typeof getTimeRemaining>): string {
 }
 
 function getActionRequired(oath: Oath, userId: string | undefined, refereeDuty: boolean): ActionReason | null {
-  if (!userId) return null;
+  if (!userId || oath.status !== "active") return null;
   const dueAt = oath.daily_deadline || oath.deadline;
   const time = getTimeRemaining(dueAt);
   const timeLabel = formatCompactTime(time);
@@ -377,6 +377,12 @@ function getActionRequired(oath: Oath, userId: string | undefined, refereeDuty: 
       const hasPendingMine = mine.some((p) => p.status === "pending_review");
       if (hasPendingMine) {
         return null; // Waiting for referee/peer review
+      }
+
+      // Single deadline oaths are only due TODAY if days === 0
+      const isSingleDeadline = oath.cadence === "once" || (oath.total_days ?? 1) <= 1;
+      if (isSingleDeadline && time.days > 0) {
+        return null;
       }
 
       return { reason: "Proof due today", timeLabel, urgent: time.isUrgent || time.days === 0 };
@@ -505,7 +511,23 @@ function OathCountdownCard({
     oath.proofs?.some((p) => p.status === "pending_review" && p.submitted_by !== user?.id)
   );
   const needsMoreProof = Boolean(latestProof?.status === "needs_more_proof" && latestProof?.submitted_by === user?.id);
-  const isVerifiedToday = Boolean(latestProof?.status === "verified");
+
+  const nowUtc = new Date();
+  const isSameUtcDay = (dateStr?: string | null) => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    return (
+      d.getUTCFullYear() === nowUtc.getUTCFullYear() &&
+      d.getUTCMonth() === nowUtc.getUTCMonth() &&
+      d.getUTCDate() === nowUtc.getUTCDate()
+    );
+  };
+  const currentMember = oath.members?.find((m) => m.user_id === user?.id);
+  const isVerifiedToday = Boolean(
+    (currentMember?.last_verified_at && isSameUtcDay(currentMember.last_verified_at)) ||
+    (oath.creator_id === user?.id && oath.last_verified_at && isSameUtcDay(oath.last_verified_at)) ||
+    oath.proofs?.some((p) => p.submitted_by === user?.id && p.status === "verified" && isSameUtcDay(p.reviewed_at || p.created_at))
+  );
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -559,8 +581,10 @@ function OathCountdownCard({
         <h1 className="text-2xl sm:text-3xl font-black text-zinc-950 dark:text-zinc-50 tracking-tight leading-tight">
           {oath.oath_statement}
         </h1>
-        {oath.opponent && !isReferee && (
-          <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 font-mono font-bold">vs @{oath.opponent.username}</p>
+        {oath.oath_type === "duo" && !isReferee && (
+          <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 font-mono font-bold">
+            vs @{oath.creator_id === user?.id ? (oath.opponent?.username || "Opponent") : (oath.creator?.username || "Challenger")}
+          </p>
         )}
       </div>
 
@@ -591,6 +615,47 @@ function OathCountdownCard({
           <p className="text-[11px] font-mono font-bold text-zinc-700 dark:text-zinc-300">
             DAY {currentDay} OF {totalDays} · {oath.current_streak ?? 0} DAY STREAK
           </p>
+        </div>
+      )}
+
+      {/* Squad Member Roster & Individual Streaks */}
+      {(oath.oath_type === "squad" || oath.oath_type === "lobby") && oath.members && oath.members.length > 0 && (
+        <div className="mb-6 w-full max-w-md bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3">
+          <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-500 mb-2">
+            Squad Roster & Streaks ({oath.members.length})
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {oath.members.map((m) => {
+              const isMemberVerifiedToday = Boolean(
+                m.last_verified_at && isSameUtcDay(m.last_verified_at)
+              );
+              const hasPending = oath.proofs?.some(
+                (p) => p.submitted_by === m.user_id && p.status === "pending_review"
+              );
+              return (
+                <div
+                  key={m.id}
+                  className="flex items-center justify-between px-2.5 py-1.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs font-mono"
+                >
+                  <span className="font-bold truncate text-zinc-900 dark:text-zinc-100 max-w-[110px]">
+                    @{m.user?.username || "member"}
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200">
+                      D{m.current_day ?? 1}
+                    </span>
+                    {isMemberVerifiedToday ? (
+                      <span className="text-[9px] font-black text-emerald-600 uppercase">Verified</span>
+                    ) : hasPending ? (
+                      <span className="text-[9px] font-black text-amber-500 uppercase">In Review</span>
+                    ) : (
+                      <span className="text-[9px] font-black text-zinc-400 uppercase">Pending</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -916,7 +981,7 @@ function OathDetailsModal({ oath, onClose }: { oath: Oath; onClose: () => void }
             <div>
               <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Oath Fee</span>
               <span className="text-sm font-mono font-black text-zinc-900 dark:text-zinc-200">
-                {oath.stake_amount > 0 ? `${utilsFormatCurrency(oath.stake_amount * 0.05, region)} (5%)` : "No Fee"}
+                {oath.stake_amount > 0 ? `${utilsFormatCurrency(oath.stake_amount * 0.10, region)} (10%)` : "No Fee"}
               </span>
             </div>
           </div>
