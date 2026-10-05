@@ -545,8 +545,7 @@ export async function createOath(data: {
       return { error: `You are locked in The Penalty Box until ${new Date(mockProfile.penalty_box_until).toLocaleString()} for 3 consecutive oath failures. No oath creation allowed.` };
     }
     const currentWallet = getInitialMockWallet();
-    const multiplier = data.oath_type === "squad" ? (data.max_players ?? 4) : data.oath_type === "duo" ? 2 : 1;
-    const totalStake = validStake * multiplier;
+    const totalStake = validStake;
     const protocolFee = Math.round(totalStake * 0.10 * 100) / 100;
     const totalDeduction = totalStake + protocolFee;
     if (currentWallet.balance < totalDeduction) {
@@ -915,12 +914,12 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
       return { error: "You have already joined this squad pool." };
     }
 
-    if (target.oath_type === "lobby" && target.stake_amount > 0) {
+    if ((target.oath_type === "lobby" || target.oath_type === "squad") && target.stake_amount > 0) {
       const currentWallet = getInitialMockWallet();
       const fee = Math.round(target.stake_amount * 0.10 * 100) / 100;
       const totalRequired = target.stake_amount + fee;
       if (currentWallet.balance < totalRequired) {
-        return { error: `Insufficient funds. You need ${totalRequired} (${target.stake_amount} stake + 10% platform fee) to join this lobby.` };
+        return { error: `Insufficient funds. You need $${totalRequired} ($${target.stake_amount} stake + 10% platform fee) to join this ${target.oath_type}.` };
       }
       const updatedWallet: Wallet = {
         ...currentWallet,
@@ -934,7 +933,7 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
         oath_id: oathId,
         type: "escrow_lock",
         amount: target.stake_amount,
-        description: `Joined lobby: ${target.oath_statement}`,
+        description: `Joined ${target.oath_type}: ${target.oath_statement}`,
         created_at: new Date().toISOString(),
       };
       const feeTx: Transaction = {
@@ -943,7 +942,7 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
         oath_id: oathId,
         type: "house_cut",
         amount: fee,
-        description: `Platform fee (10%) for joining lobby: ${target.oath_statement}`,
+        description: `Platform fee (10%) for joining ${target.oath_type}: ${target.oath_statement}`,
         created_at: new Date().toISOString(),
       };
       setMockTransactions([newTx, feeTx, ...getMockTransactions()]);
@@ -1298,6 +1297,22 @@ export async function acceptDuoChallenge(oathId: string) {
     const target = oaths.find((o) => o.id === oathId);
     if (!target) return { error: "Challenge not found" };
 
+    const wallet = getInitialMockWallet();
+    const stake = target.stake_amount ?? 0;
+    const fee = Math.round(stake * 0.10 * 100) / 100;
+    const totalRequired = stake + fee;
+    if (wallet.balance < totalRequired) {
+      return { error: `Insufficient balance. You need $${totalRequired} ($${stake} stake + 10% fee) to accept this challenge. Please deposit funds first.` };
+    }
+
+    if (totalRequired > 0) {
+      setMockWallet({
+        ...wallet,
+        balance: wallet.balance - totalRequired,
+        escrow_locked: wallet.escrow_locked + stake,
+      });
+    }
+
     const updatedOaths = oaths.map((o) => {
       if (o.id === oathId) {
         return {
@@ -1331,12 +1346,8 @@ export async function cancelPendingOath(oathId: string) {
     if (!oath || oath.status !== "pending") return { error: "Oath is no longer pending." };
     if (oath.creator_id !== ADMIN_MOCK_USER.id) return { error: "Only the creator can cancel this oath." };
 
-    let refundAmount = oath.stake_amount;
-    if (oath.oath_type === "duo") {
-      refundAmount = oath.stake_amount * 2;
-    } else if (oath.oath_type === "squad") {
-      refundAmount = oath.stake_amount * (oath.max_players ?? 4);
-    }
+    // Under individual buy-in model, creator only locked 1x stake
+    const refundAmount = oath.stake_amount;
 
     const wallet = getInitialMockWallet();
     if (wallet.escrow_locked >= refundAmount) {
@@ -1575,15 +1586,15 @@ export async function verifyNominee(token: string, verdict: "success" | "penalty
   return { error: null };
 }
 
-// ---- peerReviewProof — duo peer review of proof submission ----
-export async function peerReviewProof(oathId: string, approve: boolean, note?: string) {
+// ---- peerReviewProof — peer / nominee review of proof submission ----
+export async function peerReviewProof(oathId: string, approve: boolean, note?: string, proofId?: string) {
   if (isMockMode()) {
     const oaths = getMockOaths();
     const oath = oaths.find((o) => o.id === oathId);
     if (!oath) return { error: "Oath not found." };
 
     const updatedProofs = oath.proofs?.map((p) => {
-      if (p.status === "pending_review") {
+      if ((proofId && p.id === proofId) || (!proofId && p.status === "pending_review")) {
         return {
           ...p,
           status: (approve ? "verified" : "rejected") as ProofStatus,
@@ -1598,34 +1609,35 @@ export async function peerReviewProof(oathId: string, approve: boolean, note?: s
     const updatedOaths = oaths.map((o) => (o.id === oathId ? { ...o, proofs: updatedProofs } : o));
     setMockOaths(updatedOaths);
 
-    return settleOath(oathId, approve ? "success" : "penalty", note);
+    if (approve) {
+      return passDailyWork(oathId, note, proofId);
+    } else {
+      notifyDataUpdated();
+      return { error: null };
+    }
   }
 
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  try {
-    await supabase
-      .from("proofs")
-      .update({
-        status: approve ? "verified" : "rejected",
-        reviewer_id: user.id,
-        review_note: note ?? null,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq("oath_id", oathId)
-      .eq("status", "pending_review");
-  } catch (err) {
-    console.warn("Could not update proof status directly:", err);
+  if (approve) {
+    const { error } = await supabase.rpc("pass_today_work", {
+      p_oath_id: oathId,
+      p_note: note ?? null,
+      p_proof_id: proofId ?? null,
+    });
+    if (error) return { error: error.message };
+  } else {
+    const { error } = await supabase.rpc("reject_proof", {
+      p_oath_id: oathId,
+      p_proof_id: proofId ?? null,
+      p_reason: note ?? null,
+      p_fail_oath: false,
+    });
+    if (error) return { error: error.message };
   }
 
-  const { error } = await supabase.rpc("settle_oath", {
-    p_oath_id: oathId,
-    p_success: approve,
-    p_note: note ?? null,
-  });
-  if (error) return { error: error.message };
   notifyDataUpdated();
   return { error: null };
 }
@@ -1664,7 +1676,7 @@ export async function requestMoreProof(oathId: string, note: string): Promise<{ 
 }
 
 // ---- passDailyWork — referee/opponent/quorum approves today's proof and advances cadence ----
-export async function passDailyWork(oathId: string, note?: string): Promise<{ error: string | null; data?: any }> {
+export async function passDailyWork(oathId: string, note?: string, proofId?: string): Promise<{ error: string | null; data?: any }> {
   if (isMockMode()) {
     const oaths = getMockOaths();
     const oath = oaths.find((o) => o.id === oathId);
@@ -1684,7 +1696,7 @@ export async function passDailyWork(oathId: string, note?: string): Promise<{ er
       const updatedOaths = oaths.map((o) => {
         if (o.id === oathId) {
           const updatedProofs = o.proofs?.map((p, idx) =>
-            idx === 0 || p.status === "pending_review" || p.status === "needs_more_proof"
+            (proofId && p.id === proofId) || (!proofId && (idx === 0 || p.status === "pending_review" || p.status === "needs_more_proof"))
               ? { ...p, status: "verified" as ProofStatus, review_note: note ?? "Passed", reviewed_at: new Date().toISOString() }
               : p
           );
@@ -1713,6 +1725,7 @@ export async function passDailyWork(oathId: string, note?: string): Promise<{ er
   const { data, error } = await supabase.rpc("pass_today_work", {
     p_oath_id: oathId,
     p_note: note ?? null,
+    p_proof_id: proofId ?? null,
   });
   if (error) return { error: error.message };
   notifyDataUpdated();

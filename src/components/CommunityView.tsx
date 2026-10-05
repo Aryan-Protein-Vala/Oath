@@ -26,7 +26,7 @@ export default function CommunityView({ lobbiesProps, shameEntries, honorEntries
   const [subTab, setSubTab] = useState<SubTab>("lobbies");
 
   return (
-    <div>
+    <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
       <div
         role="tablist"
         aria-label="Community sections"

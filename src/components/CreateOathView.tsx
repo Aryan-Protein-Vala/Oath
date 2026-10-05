@@ -78,7 +78,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
   const stakeNum = parseFloat(stakeAmount) || 0;
   const walletInLocal = convertToLocal(walletBalance, region);
   const stakeUsd = convertToUSD(stakeNum, region);
-  const multiplier = oathType === "squad" ? maxPlayers : oathType === "duo" ? 2 : 1;
+  const multiplier = 1;
   const totalStakeLocal = isFinancial ? stakeNum * multiplier : 0;
   const totalStakeUsd = isFinancial ? stakeUsd * multiplier : 0;
   const protocolFeeLocal = isFinancial ? Math.round(totalStakeLocal * 0.10 * 100) / 100 : 0;
@@ -286,7 +286,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
   };
 
   return (
-    <div className="flex-1 overflow-y-auto py-8 sm:py-12 px-4 sm:px-6 relative">
+    <div className="flex-1 min-h-0 overflow-y-auto py-8 sm:py-12 px-4 sm:px-6 relative">
       <div className="w-full max-w-2xl mx-auto pb-32">
         {/* Header */}
         <div className="mb-6 text-center sm:text-left">
@@ -1040,11 +1040,11 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                 </div>
               )}
 
-              {multiplier > 1 && isFinancial && (
+              {(oathType === "duo" || oathType === "squad") && isFinancial && (
                 <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 mb-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none flex items-start gap-2">
                   <Info className="w-4 h-4 text-zinc-900 dark:text-zinc-100 shrink-0 mt-0.5" />
                   <div>
-                    <strong>Leader Covers Pot:</strong> You lock the full pot upfront ({multiplier} × {formatRegionCurrency(stakeUsd)} = <strong>{formatRegionCurrency(totalStakeUsd)}</strong> + 10% platform fee = <strong>{formatRegionCurrency(totalChargedUsd)}</strong>). Your {oathType === "duo" ? "opponent joins" : "squad members join"} 100% free!
+                    <strong>Individual Buy-In:</strong> You pay your own stake ({formatRegionCurrency(totalStakeUsd)} + 10% platform fee = <strong>{formatRegionCurrency(totalChargedUsd)}</strong>). {oathType === "duo" ? "Your opponent will lock their matching stake from their wallet when accepting the challenge." : "Each squad member will lock their own stake from their wallet when accepting the invite."}
                   </div>
                 </div>
               )}

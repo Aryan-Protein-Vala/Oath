@@ -37,7 +37,7 @@ export default function LandingView() {
   if (!mounted) return null;
 
   return (
-    <div className="h-[100dvh] w-full bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 overflow-y-auto overflow-x-hidden selection:bg-red-500/30 font-sans">
+    <div className="h-full w-full bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 overflow-y-auto overflow-x-hidden selection:bg-red-500/30 font-sans">
       
       {/* Navbar */}
       <nav className="w-full border-b-2 sm:border-b-4 border-zinc-950 dark:border-zinc-800/80 bg-zinc-50 dark:bg-[#09090b]/90 backdrop-blur-md sticky top-0 z-50 transition-colors duration-300">

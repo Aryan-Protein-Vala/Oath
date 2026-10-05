@@ -114,7 +114,7 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
   const inFlightOaths = filteredOaths.filter((o) => !actionIds.has(o.id));
 
   return (
-    <div className="flex-1 flex overflow-hidden" suppressHydrationWarning>
+    <div className="flex-1 min-h-0 flex overflow-hidden" suppressHydrationWarning>
       {/* Sidebar — hidden on mobile when detail is shown */}
       <div className={`${
         mobileShowDetail ? "hidden sm:flex" : "flex"
@@ -354,11 +354,32 @@ function getActionRequired(oath: Oath, userId: string | undefined, refereeDuty: 
       return { reason: "More proof requested", timeLabel, urgent: true };
     }
     if (!time.isExpired) {
-      const day = oath.current_day ?? 1;
-      const doneToday = mine.some(
-        (p) => (p.status === "pending_review" || p.status === "verified") && (p.day_number ?? day) === day
+      const now = new Date();
+      const isSameUtcDay = (dateStr?: string | null) => {
+        if (!dateStr) return false;
+        const d = new Date(dateStr);
+        return d.getUTCFullYear() === now.getUTCFullYear() &&
+               d.getUTCMonth() === now.getUTCMonth() &&
+               d.getUTCDate() === now.getUTCDate();
+      };
+
+      const member = oath.members?.find((m) => m.user_id === userId);
+      const isVerifiedToday = Boolean(
+        (member?.last_verified_at && isSameUtcDay(member.last_verified_at)) ||
+        (isChallenger && oath.last_verified_at && isSameUtcDay(oath.last_verified_at)) ||
+        mine.some((p) => p.status === "verified" && isSameUtcDay(p.reviewed_at || p.created_at))
       );
-      if (!doneToday) return { reason: "Proof due today", timeLabel, urgent: time.isUrgent || time.days === 0 };
+
+      if (isVerifiedToday) {
+        return null; // Completed for today, on break until midnight
+      }
+
+      const hasPendingMine = mine.some((p) => p.status === "pending_review");
+      if (hasPendingMine) {
+        return null; // Waiting for referee/peer review
+      }
+
+      return { reason: "Proof due today", timeLabel, urgent: time.isUrgent || time.days === 0 };
     }
   }
   return null;

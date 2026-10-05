@@ -275,6 +275,43 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
     pendingProofMessage?.sender_id || pendingProof?.submitted_by
   );
 
+  // Check if current user has already completed today's proof and is on a break until midnight
+  const userDailyState = useMemo(() => {
+    if (!user || oath.cadence !== "daily") {
+      return { isCompletedToday: false, currentStreak: oath.current_streak ?? 0, currentDay: oath.current_day ?? 1 };
+    }
+
+    const now = new Date();
+    const isSameUtcDay = (dateStr?: string | null) => {
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      return d.getUTCFullYear() === now.getUTCFullYear() &&
+             d.getUTCMonth() === now.getUTCMonth() &&
+             d.getUTCDate() === now.getUTCDate();
+    };
+
+    if (oath.oath_type === "solo") {
+      const verifiedToday = isSameUtcDay(oath.last_verified_at) ||
+        proofs.some(p => p.submitted_by === user.id && p.status === "verified" && isSameUtcDay(p.reviewed_at || p.created_at));
+      return {
+        isCompletedToday: Boolean(verifiedToday),
+        currentStreak: oath.current_streak ?? 0,
+        currentDay: oath.current_day ?? 1,
+      };
+    } else {
+      const member = oath.members?.find((m) => m.user_id === user.id);
+      const memberStreak = member?.day_streak ?? 0;
+      const memberDay = member?.current_day ?? 1;
+      const verifiedToday = (member?.last_verified_at && isSameUtcDay(member.last_verified_at)) ||
+        proofs.some(p => p.submitted_by === user.id && p.status === "verified" && isSameUtcDay(p.reviewed_at || p.created_at));
+      return {
+        isCompletedToday: Boolean(verifiedToday),
+        currentStreak: memberStreak,
+        currentDay: memberDay,
+      };
+    }
+  }, [user, oath, proofs]);
+
   const postSystemChatMessage = async (content: string, proofId?: string) => {
     if (!user) return;
     const reviewerUsername = profile?.username || user?.user_metadata?.username || "reviewer";
@@ -366,14 +403,14 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
     });
     if (!confirmed) return;
 
+    const targetProofId = (msgOrProof as Message)?.proof_id || (msgOrProof as Proof)?.id || pendingProof?.id;
     setActionLoading(true);
-    const { error } = await passDailyWork(oath.id, "Approved via chat");
+    const { error } = await passDailyWork(oath.id, "Approved via chat", targetProofId);
     setActionLoading(false);
 
     if (error) {
       showToast(error, "error");
     } else {
-      const targetProofId = (msgOrProof as Message)?.proof_id || (msgOrProof as Proof)?.id || pendingProof?.id;
       await postSystemChatMessage(
         `@${reviewerUsername} approved today's work. Streak updated. Chat unlocked.`,
         targetProofId
@@ -399,6 +436,8 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
       return;
     }
 
+    const targetProofId = reviewAction.message?.proof_id || reviewAction.proof?.id || pendingProof?.id;
+
     setActionLoading(true);
     if (reviewAction.type === "need_more_proof") {
       const { error } = await requestMoreProof(oath.id, note);
@@ -406,7 +445,6 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
       if (error) {
         showToast(error, "error");
       } else {
-        const targetProofId = reviewAction.message?.proof_id || reviewAction.proof?.id || pendingProof?.id;
         await postSystemChatMessage(
           `@${reviewerUsername} requested more proof: "${note}". Chat unlocked.`,
           targetProofId
@@ -419,17 +457,16 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
         onProofUpdated?.();
       }
     } else {
-      const { error } = await peerReviewProof(oath.id, false, note);
+      const { error } = await peerReviewProof(oath.id, false, note, targetProofId);
       setActionLoading(false);
       if (error) {
         showToast(error, "error");
       } else {
-        const targetProofId = reviewAction.message?.proof_id || reviewAction.proof?.id || pendingProof?.id;
         await postSystemChatMessage(
           `@${reviewerUsername} rejected proof: "${note}". Chat unlocked.`,
           targetProofId
         );
-        showToast("Proof rejected. Chat unlocked.", "error");
+        showToast("Proof rejected. Chat unlocked.", "info");
         setReviewAction(null);
         setReviewNote("");
         await fetchProofs();
@@ -703,6 +740,19 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
           </div>
         )}
 
+        {/* Daily Break Notice */}
+        {userDailyState.isCompletedToday && !hasPendingProof && (
+          <div className="bg-zinc-100 dark:bg-zinc-900 border-t-2 border-zinc-950 dark:border-zinc-800 px-4 py-2 flex flex-wrap items-center justify-between gap-1 text-[11px] font-mono shrink-0">
+            <div className="flex items-center gap-2 font-bold text-emerald-600 dark:text-emerald-400">
+              <Check className="w-3.5 h-3.5" />
+              <span>TODAY&apos;S WORK VERIFIED (Streak: {userDailyState.currentStreak})</span>
+            </div>
+            <span className="text-zinc-600 dark:text-zinc-400">
+              Break active · Day {userDailyState.currentDay} opens at 12:00 AM midnight
+            </span>
+          </div>
+        )}
+
         {/* Input Area */}
         <div className="p-3 sm:p-4 bg-white dark:bg-[#0a0a0f] border-t-2 sm:border-t-4 border-zinc-950 dark:border-zinc-800 shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <form onSubmit={handleSend} className="flex gap-2">
@@ -710,12 +760,20 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
               <button
                 type="button"
                 onClick={() => setShowProofUploadModal(true)}
-                disabled={hasPendingProof}
+                disabled={hasPendingProof || userDailyState.isCompletedToday}
                 className="px-3 sm:px-4 py-3 border-2 border-zinc-950 dark:border-transparent bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 font-mono font-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
-                title={hasPendingProof ? "Proof already uploaded and pending review" : "Upload Daily Proof"}
+                title={
+                  hasPendingProof
+                    ? "Proof already uploaded and pending review"
+                    : userDailyState.isCompletedToday
+                    ? `Today's proof complete (Streak: ${userDailyState.currentStreak}). Day ${userDailyState.currentDay} opens at midnight.`
+                    : "Upload Daily Proof"
+                }
               >
                 <Camera className="w-5 h-5 shrink-0" />
-                <span className="hidden sm:inline text-xs font-black uppercase tracking-wider">Upload Proof</span>
+                <span className="hidden sm:inline text-xs font-black uppercase tracking-wider">
+                  {userDailyState.isCompletedToday ? `Day ${userDailyState.currentStreak} Done` : "Upload Proof"}
+                </span>
               </button>
             )}
             <input

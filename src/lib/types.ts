@@ -78,6 +78,7 @@ export interface Oath {
   current_day?: number;
   current_streak?: number;
   daily_deadline?: string;
+  last_verified_at?: string;
   created_at: string;
   updated_at: string;
   // Computed / UI-only
@@ -117,6 +118,8 @@ export interface GroupMember {
   votes_rejected?: number;
   current_day?: number;
   day_streak?: number;
+  last_verified_day?: number;
+  last_verified_at?: string;
 }
 
 export interface Proof {

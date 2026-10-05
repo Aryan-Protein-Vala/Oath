@@ -60,15 +60,23 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
       if (notif.type === "invite_duo") {
         const { error } = await acceptDuoChallenge(notif.oath_id);
         if (error) {
-          showToast(error, "error");
+          if (error.toLowerCase().includes("insufficient") || error.toLowerCase().includes("balance")) {
+            showToast("Insufficient balance. Put money first, then only you can approve.", "error");
+          } else {
+            showToast(error, "error");
+          }
           setProcessingId(null);
           return;
         }
         showToast("Accepted Duo Challenge! Stay accountable.", "success");
       } else if (notif.type === "invite_squad" || notif.type === "invite_lobby" || notif.type === "invite") {
-        const { error } = await joinSquad(notif.oath_id, 0);
+        const { error } = await joinSquad(notif.oath_id, notif.oath?.stake_amount ?? 0);
         if (error) {
-          showToast(error, "error");
+          if (error.toLowerCase().includes("insufficient") || error.toLowerCase().includes("balance")) {
+            showToast("Insufficient balance. Put money first, then only you can approve.", "error");
+          } else {
+            showToast(error, "error");
+          }
           setProcessingId(null);
           return;
         }

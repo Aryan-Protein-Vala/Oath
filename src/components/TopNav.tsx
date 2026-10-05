@@ -36,7 +36,7 @@ export default function TopNav({
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   return (
-    <nav className="w-full border-b-2 sm:border-b-4 border-zinc-950 dark:border-zinc-800/80 bg-zinc-50/95 dark:bg-[#09090b]/95 backdrop-blur-md transition-colors duration-300">
+    <nav className="w-full shrink-0 border-b-2 sm:border-b-4 border-zinc-950 dark:border-zinc-800/80 bg-zinc-50/95 dark:bg-[#09090b]/95 backdrop-blur-md transition-colors duration-300">
       <div className="flex items-center justify-between h-14 sm:h-16 px-2.5 sm:px-5 max-w-7xl mx-auto w-full">
         {/* Logo / Brand */}
         <div className="flex items-center gap-3 sm:gap-5">
