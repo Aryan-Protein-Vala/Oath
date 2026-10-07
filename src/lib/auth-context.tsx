@@ -33,6 +33,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, username: string) => Promise<{ error: string | null; confirmationRequired?: boolean }>;
+  signInWithGoogle: () => Promise<{ error: string | null }>;
   enterDemo: () => { error: string | null };
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -129,6 +130,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null, confirmationRequired: !error && !data.session };
   };
 
+  const signInWithGoogle = async () => {
+    if (!supabase) return { error: "Account sign-in is unavailable until Supabase is configured." };
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
+      },
+    });
+    return { error: error?.message ?? null };
+  };
+
   const enterDemo = () => {
     if (!demoModeEnabled()) return { error: "Demo mode is disabled." };
     localStorage.setItem(DEMO_SESSION_KEY, "true");
@@ -168,7 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, wallet, loading, signIn, signUp, enterDemo, signOut, refreshProfile, refreshWallet }}>
+    <AuthContext.Provider value={{ user, session, profile, wallet, loading, signIn, signUp, signInWithGoogle, enterDemo, signOut, refreshProfile, refreshWallet }}>
       {children}
     </AuthContext.Provider>
   );
