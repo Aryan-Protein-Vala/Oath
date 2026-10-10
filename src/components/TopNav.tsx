@@ -3,7 +3,7 @@
 import React from "react";
 
 import { useSyncExternalStore } from "react";
-import { Wallet, Plus, Bell, Sun, Moon, Zap, PenLine, Users } from "lucide-react";
+import { Wallet, Plus, Bell, Sun, Moon, Zap, PenLine, Users, Menu } from "lucide-react";
 import { useTheme } from "next-themes";
 import { formatCurrencyPrecise } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
@@ -60,22 +60,22 @@ export default function TopNav({
           </div>
         </div>
 
-        {/* Right Side */}
-        <div className="flex items-center gap-1 sm:gap-3">
+        {/* Right Side Desktop */}
+        <div className="hidden sm:flex items-center gap-3">
           {/* Region Toggle Button */}
           {mounted && (
             <button
               onClick={() => setRegion(region === "global" ? "in" : "global")}
-              className="p-1.5 sm:p-2 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none flex items-center gap-1 shrink-0"
+              className="p-2 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none flex items-center gap-1 shrink-0"
               aria-label="Toggle region"
               title={region === "global" ? "Switch to India" : "Switch to Global"}
             >
               {region === "global" ? (
-                <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-800 dark:text-zinc-300" />
+                <Globe className="w-4 h-4 text-zinc-800 dark:text-zinc-300" />
               ) : (
-                <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-800 dark:text-zinc-300" />
+                <MapPin className="w-4 h-4 text-zinc-800 dark:text-zinc-300" />
               )}
-              <span className="text-[10px] font-mono font-bold uppercase hidden sm:inline-block">
+              <span className="text-[10px] font-mono font-bold uppercase inline-block">
                 {region === "global" ? "GLB" : "IN"}
               </span>
             </button>
@@ -85,21 +85,21 @@ export default function TopNav({
           {mounted && (
             <button
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-              className="p-1.5 sm:p-2 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none shrink-0"
+              className="p-2 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none shrink-0"
               aria-label="Toggle theme"
               title={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             >
-              {resolvedTheme === "dark" ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-300" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-800" />}
+              {resolvedTheme === "dark" ? <Sun className="w-4 h-4 text-zinc-300" /> : <Moon className="w-4 h-4 text-zinc-800" />}
             </button>
           )}
 
           {/* Notifications Button */}
           <button
             onClick={onNotificationsClick}
-            className="relative flex items-center justify-center p-1.5 sm:p-2 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-950 dark:text-zinc-100 bg-white dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none shrink-0"
+            className="relative flex items-center justify-center p-2 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-950 dark:text-zinc-100 bg-white dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none shrink-0"
             title="Notifications"
           >
-            <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <Bell className="w-4 h-4" />
             {typeof unreadCount === "number" && unreadCount > 0 && (
               <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] px-1 items-center justify-center bg-red-600 text-white text-[9px] font-black font-mono rounded-full border border-zinc-950 dark:border-zinc-900 animate-pulse">
                 {unreadCount > 99 ? "99+" : unreadCount}
@@ -110,18 +110,18 @@ export default function TopNav({
           {/* Wallet Balance */}
           <button
             onClick={onWalletClick}
-            className="flex items-center gap-1.5 sm:gap-2 border-2 border-zinc-950 dark:border-zinc-800 px-2 sm:px-3 py-1 sm:py-1.5 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none shrink-0"
+            className="flex items-center gap-2 border-2 border-zinc-950 dark:border-zinc-800 px-3 py-1.5 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none shrink-0"
           >
-            <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-950 dark:text-zinc-300 shrink-0" />
+            <Wallet className="w-4 h-4 text-zinc-950 dark:text-zinc-300 shrink-0" />
             <div className="flex flex-col text-left min-w-0">
-              <span className="text-[11px] sm:text-xs font-mono font-black text-zinc-950 dark:text-zinc-50 stake-number leading-none truncate max-w-[85px] sm:max-w-none">
+              <span className="text-xs font-mono font-black text-zinc-950 dark:text-zinc-50 stake-number leading-none truncate max-w-none">
                 {formatCurrencyPrecise(wallet.balance, region)}
               </span>
-              <span className="text-[8px] sm:text-[9px] font-mono font-bold text-zinc-600 dark:text-zinc-400 leading-none mt-0.5 hidden sm:inline-block">
+              <span className="text-[9px] font-mono font-bold text-zinc-600 dark:text-zinc-400 leading-none mt-0.5 inline-block">
                 {formatCurrencyPrecise(wallet.escrow_locked, region)} locked
               </span>
             </div>
-            <div className="hidden sm:flex items-center gap-0.5 ml-0.5">
+            <div className="flex items-center gap-0.5 ml-0.5">
               <span className="p-0.5 text-zinc-950 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors">
                 <Plus className="w-3 h-3" />
               </span>
@@ -131,17 +131,91 @@ export default function TopNav({
           {/* User / Profile */}
           <button
             onClick={() => onViewChange("profile")}
-            className={`w-8 h-8 sm:w-9 sm:h-9 border-2 flex items-center justify-center transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none shrink-0 ${
+            className={`w-9 h-9 border-2 flex items-center justify-center transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none shrink-0 ${
               currentView === "profile"
                 ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-500 dark:bg-zinc-800 dark:text-zinc-300"
                 : "border-zinc-950 bg-zinc-50 text-zinc-950 dark:border-zinc-800 dark:bg-[#09090b] dark:text-zinc-400"
             }`}
           >
-            <span className="text-[10px] sm:text-[11px] font-mono font-black uppercase">
+            <span className="text-[11px] font-mono font-black uppercase">
               {username.substring(0, 2)}
             </span>
           </button>
         </div>
+
+        {/* Right Side Mobile (Burger Menu Toggle) */}
+        <div className="flex sm:hidden items-center">
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-1.5 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-950 dark:text-zinc-100 bg-white dark:bg-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Burger Menu Dropdown */}
+      {isMobileMenuOpen && (
+        <div className="sm:hidden border-t-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-[#09090b] px-4 py-4 flex flex-col gap-3">
+          
+          <button
+            onClick={() => { onWalletClick(); setIsMobileMenuOpen(false); }}
+            className="flex items-center gap-3 p-3 border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+          >
+            <Wallet className="w-5 h-5 text-zinc-950 dark:text-zinc-300" />
+            <div className="flex flex-col text-left">
+              <span className="text-sm font-mono font-black text-zinc-950 dark:text-zinc-50 stake-number">
+                {formatCurrencyPrecise(wallet.balance, region)}
+              </span>
+              <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400">
+                {formatCurrencyPrecise(wallet.escrow_locked, region)} locked in escrow
+              </span>
+            </div>
+          </button>
+
+          <button
+            onClick={() => { onNotificationsClick(); setIsMobileMenuOpen(false); }}
+            className="flex items-center gap-3 p-3 border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+          >
+            <Bell className="w-5 h-5" />
+            <span className="text-xs font-black uppercase tracking-widest">
+              Notifications {typeof unreadCount === "number" && unreadCount > 0 ? `(${unreadCount})` : ""}
+            </span>
+          </button>
+
+          <button
+            onClick={() => { onViewChange("profile"); setIsMobileMenuOpen(false); }}
+            className="flex items-center gap-3 p-3 border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+          >
+            <div className="w-5 h-5 bg-zinc-950 dark:bg-zinc-800 text-white flex items-center justify-center rounded-full">
+              <span className="text-[9px] font-mono font-black uppercase">{username.substring(0, 2)}</span>
+            </div>
+            <span className="text-xs font-black uppercase tracking-widest">My Profile</span>
+          </button>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                if (mounted) setRegion(region === "global" ? "in" : "global");
+              }}
+              className="flex-1 flex items-center justify-center gap-2 p-3 border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+            >
+              {region === "global" ? <Globe className="w-4 h-4" /> : <MapPin className="w-4 h-4" />}
+              <span className="text-[10px] font-mono font-bold uppercase">{region === "global" ? "Global" : "India"}</span>
+            </button>
+            <button
+              onClick={() => {
+                if (mounted) setTheme(resolvedTheme === "dark" ? "light" : "dark");
+              }}
+              className="flex-1 flex items-center justify-center gap-2 p-3 border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+            >
+              {resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              <span className="text-[10px] font-mono font-bold uppercase">{resolvedTheme === "dark" ? "Light" : "Dark"}</span>
+            </button>
+          </div>
+
+        </div>
+      )}
       </div>
 
       {/* Mobile Nav */}

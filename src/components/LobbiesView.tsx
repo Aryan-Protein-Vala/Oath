@@ -54,18 +54,18 @@ export default function LobbiesView({ squads, wallet, penaltyBoxUntil, onJoined,
       <div className={`${
         mobileShowDetail ? "hidden sm:flex" : "flex"
       } ${selectedSquad ? "sm:w-96" : "flex-1"} w-full flex-col border-r-2 border-zinc-950 dark:border-zinc-800/60 overflow-hidden transition-all bg-white dark:bg-transparent`}>
-        <div className="px-5 py-4 border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/50">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-black tracking-tight text-zinc-950 dark:text-zinc-100">
+        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/50">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+            <div className="pr-2 sm:pr-0">
+              <h2 className="text-base sm:text-lg font-black tracking-tight text-zinc-950 dark:text-zinc-100">
                 PUBLIC LOBBIES
               </h2>
-              <p className="text-[10px] font-mono text-zinc-600 dark:text-zinc-400 tracking-wide mt-0.5 font-bold">
+              <p className="text-[9px] sm:text-[10px] font-mono text-zinc-600 dark:text-zinc-400 tracking-wide mt-0.5 font-bold leading-tight sm:leading-normal">
                 Open accountability lobbies. If you fail, you forfeit your stake.
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-bold text-zinc-700 dark:text-zinc-400 px-2 py-1 border border-zinc-400 dark:border-zinc-800">
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <span className="text-[9px] sm:text-[10px] font-mono font-bold text-zinc-700 dark:text-zinc-400 px-1.5 py-0.5 sm:px-2 sm:py-1 border border-zinc-400 dark:border-zinc-800">
                 {lobbies.length} open
               </span>
               {onCreateLobby && (
