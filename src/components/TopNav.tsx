@@ -34,6 +34,7 @@ export default function TopNav({
   const { resolvedTheme, setTheme } = useTheme();
   const { region, setRegion } = useRegion();
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
   return (
     <nav className="w-full shrink-0 border-b-2 sm:border-b-4 border-zinc-950 dark:border-zinc-800/80 bg-zinc-50/95 dark:bg-[#09090b]/95 backdrop-blur-md transition-colors duration-300">
@@ -216,8 +217,6 @@ export default function TopNav({
 
         </div>
       )}
-      </div>
-
       {/* Mobile Nav */}
       <div className="flex sm:hidden items-center border-t-2 border-zinc-950 dark:border-zinc-800/50 divide-x-2 divide-zinc-950 dark:divide-zinc-800/50 bg-zinc-50 dark:bg-[#09090b]">
         <MobileNavTab icon={<Zap className="w-3.5 h-3.5" />} label="Active" isActive={currentView === "active"} onClick={() => onViewChange("active")} />
