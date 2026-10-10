@@ -52,20 +52,20 @@ export default function LobbiesView({ squads, wallet, penaltyBoxUntil, onJoined,
     <div className="flex-1 flex overflow-hidden">
       {/* Lobby List — hidden on mobile when detail is shown */}
       <div className={`${
-        mobileShowDetail ? "hidden sm:flex" : "flex"
-      } ${selectedSquad ? "sm:w-96" : "flex-1"} w-full flex-col border-r-2 border-zinc-950 dark:border-zinc-800/60 overflow-hidden transition-all bg-white dark:bg-transparent`}>
-        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/50">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
-            <div className="pr-2 sm:pr-0">
-              <h2 className="text-base sm:text-lg font-black tracking-tight text-zinc-950 dark:text-zinc-100">
+        mobileShowDetail ? "hidden lg:flex" : "flex"
+      } ${selectedSquad ? "lg:w-96" : "flex-1"} w-full flex-col border-r-2 border-zinc-950 dark:border-zinc-800/60 overflow-hidden transition-all bg-white dark:bg-transparent`}>
+        <div className="px-4 py-3 lg:px-5 lg:py-4 border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/50">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 lg:gap-0">
+            <div className="pr-2 lg:pr-0">
+              <h2 className="text-base lg:text-lg font-black tracking-tight text-zinc-950 dark:text-zinc-100">
                 PUBLIC LOBBIES
               </h2>
-              <p className="text-[9px] sm:text-[10px] font-mono text-zinc-600 dark:text-zinc-400 tracking-wide mt-0.5 font-bold leading-tight sm:leading-normal">
+              <p className="text-[9px] lg:text-[10px] font-mono text-zinc-600 dark:text-zinc-400 tracking-wide mt-0.5 font-bold leading-tight lg:leading-normal">
                 Open accountability lobbies. If you fail, you forfeit your stake.
               </p>
             </div>
-            <div className="flex items-center gap-2 self-start sm:self-auto">
-              <span className="text-[9px] sm:text-[10px] font-mono font-bold text-zinc-700 dark:text-zinc-400 px-1.5 py-0.5 sm:px-2 sm:py-1 border border-zinc-400 dark:border-zinc-800">
+            <div className="flex items-center gap-2 self-start lg:self-auto">
+              <span className="text-[9px] lg:text-[10px] font-mono font-bold text-zinc-700 dark:text-zinc-400 px-1.5 py-0.5 lg:px-2 lg:py-1 border border-zinc-400 dark:border-zinc-800">
                 {lobbies.length} open
               </span>
               {onCreateLobby && (
@@ -141,10 +141,10 @@ export default function LobbiesView({ squads, wallet, penaltyBoxUntil, onJoined,
       {/* Squad Detail — mobile full screen when shown */}
       {selectedSquad && (
         <div className={`${
-          mobileShowDetail ? "flex" : "hidden sm:flex"
+          mobileShowDetail ? "flex" : "hidden lg:flex"
         } flex-1 flex-col overflow-hidden`}>
           {/* Mobile back button */}
-          <div className="flex sm:hidden items-center px-4 py-2.5 border-b-2 border-zinc-950 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/80 sticky top-0 z-10 shrink-0">
+          <div className="flex lg:hidden items-center px-4 py-2.5 border-b-2 border-zinc-950 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/80 sticky top-0 z-10 shrink-0">
             <button
               onClick={() => { setMobileShowDetail(false); setSelectedSquadId(null); }}
               className="flex items-center gap-2 py-1.5 px-3 border border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-mono font-black uppercase tracking-wider text-zinc-950 dark:text-zinc-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none min-h-[38px]"
@@ -405,17 +405,17 @@ function SquadDetail({
 
       {/* Stats Row */}
       <div className="grid grid-cols-3 border-b-2 border-zinc-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-950/30">
-        <div className="px-2 sm:px-4 py-2.5 sm:py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center min-w-0">
-          <p className="text-base sm:text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100 truncate">{utilsFormatCurrency(poolTotal, region)}</p>
-          <p className="text-[8px] sm:text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5 truncate">Total Escrow</p>
+        <div className="px-2 lg:px-4 py-2.5 lg:py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center min-w-0">
+          <p className="text-base lg:text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100 truncate">{utilsFormatCurrency(poolTotal, region)}</p>
+          <p className="text-[8px] lg:text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5 truncate">Total Escrow</p>
         </div>
-        <div className="px-2 sm:px-4 py-2.5 sm:py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center min-w-0">
-          <p className="text-base sm:text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100 truncate">{utilsFormatCurrency(squad.stake_amount, region)}</p>
-          <p className="text-[8px] sm:text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5 truncate">Per Player</p>
+        <div className="px-2 lg:px-4 py-2.5 lg:py-3 border-r-2 border-zinc-200 dark:border-zinc-800/40 text-center min-w-0">
+          <p className="text-base lg:text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100 truncate">{utilsFormatCurrency(squad.stake_amount, region)}</p>
+          <p className="text-[8px] lg:text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5 truncate">Per Player</p>
         </div>
-        <div className="px-2 sm:px-4 py-2.5 sm:py-3 text-center min-w-0">
-          <p className="text-base sm:text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{spotsLeft}</p>
-          <p className="text-[8px] sm:text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5 truncate">Spots Left</p>
+        <div className="px-2 lg:px-4 py-2.5 lg:py-3 text-center min-w-0">
+          <p className="text-base lg:text-2xl font-black stake-number text-zinc-950 dark:text-zinc-100">{spotsLeft}</p>
+          <p className="text-[8px] lg:text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mt-0.5 truncate">Spots Left</p>
         </div>
       </div>
 
@@ -538,12 +538,12 @@ function SquadDetail({
           Boolean(proof?.proof_url && /\.(mp4|webm|mov)/i.test(proof.proof_url));
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
-            <div className="bg-white dark:bg-zinc-900 border-4 border-zinc-950 dark:border-zinc-700 max-w-lg w-full p-4 sm:p-6 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] relative fade-in my-auto text-left max-h-[92dvh] overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 lg:p-4 overflow-y-auto">
+            <div className="bg-white dark:bg-zinc-900 border-4 border-zinc-950 dark:border-zinc-700 max-w-lg w-full p-4 lg:p-6 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] relative fade-in my-auto text-left max-h-[92dvh] overflow-y-auto">
               <button
                 onClick={() => setInspectingMember(null)}
                 aria-label="Close modal"
-                className="absolute top-3 right-3 sm:top-4 sm:right-4 text-zinc-500 hover:text-zinc-950 dark:hover:text-white p-2 min-w-[36px] min-h-[36px] flex items-center justify-center"
+                className="absolute top-3 right-3 lg:top-4 lg:right-4 text-zinc-500 hover:text-zinc-950 dark:hover:text-white p-2 min-w-[36px] min-h-[36px] flex items-center justify-center"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -566,7 +566,7 @@ function SquadDetail({
               </div>
 
               {/* Proof Verification Record */}
-              <div className="p-3 sm:p-4 bg-zinc-100 dark:bg-zinc-950 border-2 border-zinc-300 dark:border-zinc-800 mb-4 text-xs font-mono">
+              <div className="p-3 lg:p-4 bg-zinc-100 dark:bg-zinc-950 border-2 border-zinc-300 dark:border-zinc-800 mb-4 text-xs font-mono">
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-bold text-zinc-900 dark:text-zinc-100 uppercase text-[10px] tracking-wider">
                     Evidence ({proof?.proof_type || "Activity"}):
@@ -577,21 +577,21 @@ function SquadDetail({
                 </div>
 
                 {isImage && proof?.proof_url && (
-                  <div className="border border-zinc-300 dark:border-zinc-700 overflow-hidden bg-black flex items-center justify-center max-h-[40vh] sm:max-h-60 mb-2.5">
+                  <div className="border border-zinc-300 dark:border-zinc-700 overflow-hidden bg-black flex items-center justify-center max-h-[40vh] lg:max-h-60 mb-2.5">
                     <img
                       src={proof.proof_url}
                       alt="Submitted proof evidence"
-                      className="max-h-[40vh] sm:max-h-60 w-full object-contain"
+                      className="max-h-[40vh] lg:max-h-60 w-full object-contain"
                     />
                   </div>
                 )}
 
                 {isVideo && proof?.proof_url && (
-                  <div className="border border-zinc-300 dark:border-zinc-700 overflow-hidden bg-black max-h-[40vh] sm:max-h-60 mb-2.5">
+                  <div className="border border-zinc-300 dark:border-zinc-700 overflow-hidden bg-black max-h-[40vh] lg:max-h-60 mb-2.5">
                     <video
                       src={proof.proof_url}
                       controls
-                      className="max-h-[40vh] sm:max-h-60 w-full object-contain"
+                      className="max-h-[40vh] lg:max-h-60 w-full object-contain"
                     />
                   </div>
                 )}
@@ -632,13 +632,13 @@ function SquadDetail({
                   Join this lobby to cast quorum verification votes on members.
                 </div>
               ) : (
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 lg:gap-3">
                   <button
                     onClick={() => {
                       handleVote(inspectingMember.id, true);
                       setInspectingMember(null);
                     }}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider min-h-[44px] sm:min-h-0"
+                    className="flex-1 flex items-center justify-center gap-2 py-3 lg:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider min-h-[44px] lg:min-h-0"
                   >
                     <ThumbsUp className="w-3.5 h-3.5" /> Pass Today&apos;s Work
                   </button>
@@ -655,7 +655,7 @@ function SquadDetail({
                         onJoined?.();
                       }
                     }}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black uppercase tracking-wider min-h-[44px] sm:min-h-0"
+                    className="flex-1 flex items-center justify-center gap-2 py-3 lg:py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black uppercase tracking-wider min-h-[44px] lg:min-h-0"
                   >
                     <Zap className="w-3.5 h-3.5" /> Need More Proof
                   </button>
@@ -664,7 +664,7 @@ function SquadDetail({
                       handleVote(inspectingMember.id, false);
                       setInspectingMember(null);
                     }}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 sm:py-2.5 border-2 border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-black uppercase tracking-wider min-h-[44px] sm:min-h-0"
+                    className="flex-1 flex items-center justify-center gap-2 py-3 lg:py-2.5 border-2 border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-black uppercase tracking-wider min-h-[44px] lg:min-h-0"
                   >
                     <ThumbsDown className="w-3.5 h-3.5" /> Reject (Fraud)
                   </button>
@@ -761,21 +761,21 @@ function MemberLogEntry({
               <>
                 <button
                   onClick={onInspectProof}
-                  className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center border border-zinc-400 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-300 text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors bg-zinc-100 dark:bg-zinc-800"
+                  className="w-9 h-9 lg:w-8 lg:h-8 flex items-center justify-center border border-zinc-400 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-300 text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors bg-zinc-100 dark:bg-zinc-800"
                   title="Inspect proof before voting"
                 >
                   <Eye className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={() => onVote(member.id, true)}
-                  className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center border border-zinc-400 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-300 text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors bg-zinc-100 dark:bg-zinc-800"
+                  className="w-9 h-9 lg:w-8 lg:h-8 flex items-center justify-center border border-zinc-400 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-300 text-zinc-700 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 transition-colors bg-zinc-100 dark:bg-zinc-800"
                   title="Vote: Approve proof"
                 >
                   <ThumbsUp className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={() => onVote(member.id, false)}
-                  className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center border border-zinc-400 dark:border-zinc-700 hover:border-red-600 text-zinc-700 dark:text-zinc-400 hover:text-red-600 transition-colors bg-zinc-100 dark:bg-zinc-800"
+                  className="w-9 h-9 lg:w-8 lg:h-8 flex items-center justify-center border border-zinc-400 dark:border-zinc-700 hover:border-red-600 text-zinc-700 dark:text-zinc-400 hover:text-red-600 transition-colors bg-zinc-100 dark:bg-zinc-800"
                   title="Vote: Reject proof"
                 >
                   <ThumbsDown className="w-3.5 h-3.5" />

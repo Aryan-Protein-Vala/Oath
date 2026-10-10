@@ -85,7 +85,7 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
     return (
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="text-center max-w-sm">
-          <div className="text-6xl sm:text-8xl font-black text-zinc-300 dark:text-zinc-800 tracking-tighter leading-none mb-3">
+          <div className="text-6xl lg:text-8xl font-black text-zinc-300 dark:text-zinc-800 tracking-tighter leading-none mb-3">
             NO<br />OATHS
           </div>
           <p className="text-sm font-bold text-zinc-800 dark:text-zinc-400 font-mono tracking-wide">
@@ -117,8 +117,8 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
     <div className="flex-1 min-h-0 flex overflow-hidden" suppressHydrationWarning>
       {/* Sidebar — hidden on mobile when detail is shown */}
       <div className={`${
-        mobileShowDetail ? "hidden sm:flex" : "flex"
-      } sm:w-72 w-full border-r-2 border-zinc-950 dark:border-zinc-800/60 flex-col overflow-y-auto shrink-0 bg-white dark:bg-transparent`}>
+        mobileShowDetail ? "hidden lg:flex" : "flex"
+      } lg:w-72 w-full border-r-2 border-zinc-950 dark:border-zinc-800/60 flex-col overflow-y-auto shrink-0 bg-white dark:bg-transparent`}>
         <div className="border-b-2 border-zinc-950 dark:border-zinc-800/40 bg-zinc-100 dark:bg-zinc-900/50">
           <div className="px-4 py-2.5 flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800">
             <span className="text-[10px] font-mono font-bold text-zinc-700 dark:text-zinc-400 uppercase tracking-widest">
@@ -132,7 +132,7 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
                 <button
                   key={t}
                   onClick={() => setFilterType(t)}
-                  className={`px-2.5 py-1 text-[9px] sm:text-[10px] font-mono font-bold uppercase shrink-0 border transition-colors flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 text-[9px] lg:text-[10px] font-mono font-bold uppercase shrink-0 border transition-colors flex items-center gap-1.5 ${
                     filterType === t
                       ? "bg-zinc-950 text-white border-zinc-950 dark:bg-zinc-100 dark:text-zinc-950 font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
                       : "border-zinc-300 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-500"
@@ -199,10 +199,10 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
       {/* Main Countdown — hidden on mobile when list is shown */}
       {selectedOath && (
         <div className={`${
-          mobileShowDetail ? "flex" : "hidden sm:flex"
-        } flex-1 flex-col overflow-y-auto sm:overflow-hidden`}>
+          mobileShowDetail ? "flex" : "hidden lg:flex"
+        } flex-1 flex-col overflow-y-auto lg:overflow-hidden`}>
           {/* Mobile back button */}
-          <div className="flex sm:hidden items-center px-4 py-2.5 border-b-2 border-zinc-950 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/50 shrink-0 sticky top-0 z-10">
+          <div className="flex lg:hidden items-center px-4 py-2.5 border-b-2 border-zinc-950 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/50 shrink-0 sticky top-0 z-10">
             <button
               onClick={() => setMobileShowDetail(false)}
               className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono font-black uppercase tracking-wider text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-800 border-2 border-zinc-950 dark:border-zinc-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
@@ -574,7 +574,7 @@ function OathCountdownCard({
   const progressPercent = isPendingAcceptance ? 0 : Math.min(100, Math.max(0, (progressElapsed / progressTotal) * 100));
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-start sm:justify-center py-6 sm:py-8 px-4 sm:px-8 relative overflow-y-auto bg-zinc-50 dark:bg-transparent" suppressHydrationWarning>
+    <div className="flex-1 flex flex-col items-center justify-start lg:justify-center py-6 lg:py-8 px-4 lg:px-8 relative overflow-y-auto bg-zinc-50 dark:bg-transparent" suppressHydrationWarning>
       {/* Crimson glow when urgent */}
       {timeState.isUrgent && !isPendingAcceptance && (
         <div className="absolute inset-0 pointer-events-none crimson-glow" />
@@ -608,7 +608,7 @@ function OathCountdownCard({
             I swore to
           </p>
         )}
-        <h1 className="text-2xl sm:text-3xl font-black text-zinc-950 dark:text-zinc-50 tracking-tight leading-tight">
+        <h1 className="text-2xl lg:text-3xl font-black text-zinc-950 dark:text-zinc-50 tracking-tight leading-tight">
           {oath.oath_statement}
         </h1>
         {oath.oath_type === "duo" && !isReferee && (
@@ -621,7 +621,7 @@ function OathCountdownCard({
       {/* Cadence progression */}
       {isMultiDay && (
         <div className="mb-6 flex flex-col items-center">
-          <div className="flex flex-wrap justify-center items-center gap-1.5 mb-2 w-full px-2 sm:px-0">
+          <div className="flex flex-wrap justify-center items-center gap-1.5 mb-2 w-full px-2 lg:px-0">
             {Array.from({ length: Math.min(totalDays, 14) }).map((_, idx) => {
               const dayNum = idx + 1;
               const isDone = dayNum < currentDay;
@@ -629,7 +629,7 @@ function OathCountdownCard({
               return (
                 <div
                   key={idx}
-                  className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center border font-mono text-[9px] font-bold ${
+                  className={`w-7 h-7 lg:w-8 lg:h-8 flex items-center justify-center border font-mono text-[9px] font-bold ${
                     isDone
                       ? "bg-emerald-500 text-white border-emerald-600"
                       : isCurrent
@@ -654,7 +654,7 @@ function OathCountdownCard({
           <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-500 mb-2">
             Squad Roster & Streaks ({oath.members.length})
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
             {oath.members.map((m) => {
               const isMemberVerifiedToday = Boolean(
                 m.last_verified_at && isSameLocalDay(m.last_verified_at)
