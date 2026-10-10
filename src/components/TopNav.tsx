@@ -3,7 +3,7 @@
 import React from "react";
 
 import { useSyncExternalStore } from "react";
-import { Wallet, Plus, Bell, Sun, Moon, Zap, PenLine, Users, Menu } from "lucide-react";
+import { Wallet, Plus, Bell, Sun, Moon, Zap, PenLine, Users, Menu, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { formatCurrencyPrecise } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
@@ -37,24 +37,24 @@ export default function TopNav({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
   return (
-    <nav className="w-full shrink-0 border-b-2 sm:border-b-4 border-zinc-950 dark:border-zinc-800/80 bg-zinc-50/95 dark:bg-[#09090b]/95 backdrop-blur-md transition-colors duration-300">
-      <div className="flex items-center justify-between h-14 sm:h-16 px-2.5 sm:px-5 max-w-7xl mx-auto w-full">
+    <nav className="w-full shrink-0 border-b-2 lg:border-b-4 border-zinc-950 dark:border-zinc-800/80 bg-zinc-50/95 dark:bg-[#09090b]/95 backdrop-blur-md transition-colors duration-300">
+      <div className="flex items-center justify-between h-14 lg:h-16 px-2.5 lg:px-5 max-w-7xl mx-auto w-full">
         {/* Logo / Brand */}
-        <div className="flex items-center gap-3 sm:gap-5">
+        <div className="flex items-center gap-3 lg:gap-5">
           <button
             onClick={() => onViewChange("active")}
             className="flex items-center gap-2 group"
           >
-            <span className="text-xl sm:text-2xl font-black tracking-tighter text-zinc-950 dark:text-zinc-50 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">
+            <span className="text-xl lg:text-2xl font-black tracking-tighter text-zinc-950 dark:text-zinc-50 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">
               OATH
             </span>
-            <span className="hidden sm:inline-flex px-1.5 py-0.5 text-[9px] font-mono text-zinc-950 dark:text-zinc-400 font-bold tracking-widest uppercase border-2 border-zinc-950 dark:border-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none bg-red-500/10 dark:bg-transparent">
+            <span className="hidden lg:inline-flex px-1.5 py-0.5 text-[9px] font-mono text-zinc-950 dark:text-zinc-400 font-bold tracking-widest uppercase border-2 border-zinc-950 dark:border-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none bg-red-500/10 dark:bg-transparent">
               v0.2
             </span>
           </button>
 
           {/* Primary Nav Tabs */}
-          <div className="hidden sm:flex items-center gap-0 border-2 border-zinc-950 dark:border-zinc-800 divide-x-2 divide-zinc-950 dark:divide-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
+          <div className="hidden lg:flex items-center gap-0 border-2 border-zinc-950 dark:border-zinc-800 divide-x-2 divide-zinc-950 dark:divide-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
             <NavTab label="Active" isActive={currentView === "active"} onClick={() => onViewChange("active")} />
             <NavTab label="Create" isActive={currentView === "create"} onClick={() => onViewChange("create")} />
             <NavTab label="Community & Lobbies" isActive={currentView === "community"} onClick={() => onViewChange("community")} />
@@ -62,7 +62,7 @@ export default function TopNav({
         </div>
 
         {/* Right Side Desktop */}
-        <div className="hidden sm:flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-3">
           {/* Region Toggle Button */}
           {mounted && (
             <button
@@ -145,19 +145,22 @@ export default function TopNav({
         </div>
 
         {/* Right Side Mobile (Burger Menu Toggle) */}
-        <div className="flex sm:hidden items-center">
+        <div className="flex lg:hidden items-center">
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="p-1.5 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-950 dark:text-zinc-100 bg-white dark:bg-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
           >
-            <Menu className="w-4 h-4" />
+            <div className="relative w-4 h-4">
+              <Menu className={`absolute inset-0 w-4 h-4 transition-all duration-300 ${isMobileMenuOpen ? "rotate-90 scale-0 opacity-0" : "rotate-0 scale-100 opacity-100"}`} />
+              <X className={`absolute inset-0 w-4 h-4 transition-all duration-300 ${isMobileMenuOpen ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-0 opacity-0"}`} />
+            </div>
           </button>
         </div>
       </div>
 
       {/* Mobile Burger Menu Dropdown */}
       {isMobileMenuOpen && (
-        <div className="sm:hidden border-t-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-[#09090b] px-4 py-4 flex flex-col gap-3">
+        <div className="lg:hidden border-t-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-[#09090b] px-4 py-4 flex flex-col gap-3">
           
           <button
             onClick={() => { onWalletClick(); setIsMobileMenuOpen(false); }}
@@ -218,7 +221,7 @@ export default function TopNav({
         </div>
       )}
       {/* Mobile Nav */}
-      <div className="flex sm:hidden items-center border-t-2 border-zinc-950 dark:border-zinc-800/50 divide-x-2 divide-zinc-950 dark:divide-zinc-800/50 bg-zinc-50 dark:bg-[#09090b]">
+      <div className="flex lg:hidden items-center border-t-2 border-zinc-950 dark:border-zinc-800/50 divide-x-2 divide-zinc-950 dark:divide-zinc-800/50 bg-zinc-50 dark:bg-[#09090b]">
         <MobileNavTab icon={<Zap className="w-3.5 h-3.5" />} label="Active" isActive={currentView === "active"} onClick={() => onViewChange("active")} />
         <MobileNavTab icon={<PenLine className="w-3.5 h-3.5" />} label="Create" isActive={currentView === "create"} onClick={() => onViewChange("create")} />
         <MobileNavTab icon={<Users className="w-3.5 h-3.5" />} label="Community" isActive={currentView === "community"} onClick={() => onViewChange("community")} />
