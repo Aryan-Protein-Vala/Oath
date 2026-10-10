@@ -30,7 +30,7 @@ export default function CommunityView({ lobbiesProps, shameEntries, honorEntries
       <div
         role="tablist"
         aria-label="Community sections"
-        className="flex overflow-x-auto border-2 border-zinc-950 dark:border-zinc-800 divide-x-2 divide-zinc-950 dark:divide-zinc-800 mb-6 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+        className="flex overflow-hidden border-2 border-zinc-950 dark:border-zinc-800 divide-x-2 divide-zinc-950 dark:divide-zinc-800 mb-6 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
       >
         {SUB_TABS.map((t) => {
           const isActive = subTab === t.id;
@@ -40,7 +40,7 @@ export default function CommunityView({ lobbiesProps, shameEntries, honorEntries
               role="tab"
               aria-selected={isActive}
               onClick={() => setSubTab(t.id)}
-              className={`flex-1 min-h-[44px] px-3 sm:px-5 whitespace-nowrap text-[11px] font-black tracking-widest uppercase transition-all ${
+              className={`flex-1 min-h-[44px] px-1 lg:px-5 whitespace-nowrap text-[9px] lg:text-[11px] font-black tracking-widest uppercase transition-all ${
                 isActive
                   ? t.accent
                     ? "bg-red-600 text-white dark:bg-red-950/40 dark:text-red-400"
