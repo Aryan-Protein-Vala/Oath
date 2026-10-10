@@ -39,6 +39,8 @@ import {
   Trash2,
   Copy,
   ExternalLink,
+  ArrowUpRight,
+  Check,
 } from "lucide-react";
 import { showToast } from "@/components/Toast";
 import Link from "next/link";
@@ -104,7 +106,7 @@ interface FeatureFlags {
   maxStake: number;
 }
 
-type AdminTab = "analytics" | "users" | "oaths" | "disputes" | "cron" | "broadcast" | "flags" | "audit" | "vault";
+type AdminTab = "analytics" | "users" | "oaths" | "withdrawals" | "disputes" | "cron" | "broadcast" | "flags" | "audit" | "vault";
 
 // ============================================================
 // MOCK DATA
@@ -180,6 +182,12 @@ export default function AdminDashboard() {
   const [userSearch, setUserSearch] = useState("");
   const [oathSearch, setOathSearch] = useState("");
   const [oathStatusFilter, setOathStatusFilter] = useState<string>("all");
+  const [withdrawalSearch, setWithdrawalSearch] = useState("");
+  const [withdrawalStatusFilter, setWithdrawalStatusFilter] = useState<"all" | "pending" | "completed" | "rejected">("all");
+  const [processingTxId, setProcessingTxId] = useState<string | null>(null);
+  const [rejectingTxId, setRejectingTxId] = useState<string | null>(null);
+  const [rejectReasonInput, setRejectReasonInput] = useState<string>("");
+  const [copiedTxId, setCopiedTxId] = useState<string | null>(null);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [expandedOath, setExpandedOath] = useState<string | null>(null);
   const [broadcastMsg, setBroadcastMsg] = useState("");
@@ -380,7 +388,8 @@ export default function AdminDashboard() {
       const activeUsers7d = profiles.filter(
         (p: any) => p.updated_at && p.updated_at > sevenDaysAgo
       ).length;
-      const allWallets = profiles.map((p: any) => p.wallets?.[0]).filter(Boolean);
+      const getWallet = (p: any) => (Array.isArray(p?.wallets) ? p.wallets[0] : p?.wallets);
+      const allWallets = profiles.map(getWallet).filter(Boolean);
       const totalEscrowLocked = allWallets.reduce(
         (sum: number, w: any) => sum + (w.escrow_locked || 0),
         0
@@ -474,6 +483,62 @@ export default function AdminDashboard() {
       addAuditEntry("ADD_FUNDS", `@${username}`, `Added $${amount} to wallet`);
       showToast(`Added $${amount} to user`, "success");
       setFundAmount((prev) => ({ ...prev, [userId]: "" }));
+      fetchAdminData();
+    }
+  };
+
+  const handleProcessWithdrawal = async (txId: string) => {
+    setProcessingTxId(txId);
+    if (isMockMode()) {
+      setWithdrawals((prev) =>
+        prev.map((tx) => (tx.id === txId ? { ...tx, status: "completed" } : tx))
+      );
+      setProcessingTxId(null);
+      addAuditEntry("PROCESS_WITHDRAWAL", `Tx #${txId}`, "Marked withdrawal as completed / paid");
+      showToast("Withdrawal payout marked as completed (Demo Mode)", "success");
+      return;
+    }
+
+    const { error } = await supabase.rpc("admin_process_withdrawal", {
+      p_transaction_id: txId,
+    });
+    setProcessingTxId(null);
+    if (error) {
+      showToast(error.message, "error");
+    } else {
+      addAuditEntry("PROCESS_WITHDRAWAL", `Tx #${txId}`, "Payout processed & completed");
+      showToast("Withdrawal processed and marked completed!", "success");
+      fetchAdminData();
+    }
+  };
+
+  const handleRejectWithdrawal = async (txId: string) => {
+    const reason = rejectReasonInput.trim() || "Information mismatch / Invalid payout address";
+    setProcessingTxId(txId);
+    if (isMockMode()) {
+      setWithdrawals((prev) =>
+        prev.map((tx) => (tx.id === txId ? { ...tx, status: "rejected" } : tx))
+      );
+      setRejectingTxId(null);
+      setRejectReasonInput("");
+      setProcessingTxId(null);
+      addAuditEntry("REJECT_WITHDRAWAL", `Tx #${txId}`, `Rejected: ${reason}`);
+      showToast("Withdrawal rejected and balance restored (Demo Mode)", "success");
+      return;
+    }
+
+    const { error } = await supabase.rpc("admin_reject_withdrawal", {
+      p_transaction_id: txId,
+      p_reason: reason,
+    });
+    setProcessingTxId(null);
+    setRejectingTxId(null);
+    setRejectReasonInput("");
+    if (error) {
+      showToast(error.message, "error");
+    } else {
+      addAuditEntry("REJECT_WITHDRAWAL", `Tx #${txId}`, `Rejected & refunded: ${reason}`);
+      showToast("Withdrawal rejected and funds refunded to user wallet!", "success");
       fetchAdminData();
     }
   };
@@ -761,6 +826,12 @@ export default function AdminDashboard() {
     { id: "users", label: "Users", icon: <Users className="w-3.5 h-3.5" />, badge: users.length },
     { id: "oaths", label: "Oaths", icon: <Eye className="w-3.5 h-3.5" />, badge: allOaths.length },
     {
+      id: "withdrawals",
+      label: "Withdrawals",
+      icon: <ArrowUpRight className="w-3.5 h-3.5" />,
+      badge: withdrawals.filter((w) => (w.status || "pending") === "pending").length,
+    },
+    {
       id: "disputes",
       label: "Disputes",
       icon: <Scale className="w-3.5 h-3.5" />,
@@ -931,36 +1002,62 @@ export default function AdminDashboard() {
             {/* Withdrawals + Feedback */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
-                <h3 className="text-sm font-black uppercase border-l-4 border-blue-600 pl-3 mb-3">
-                  Recent Withdrawals
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-black uppercase border-l-4 border-blue-600 pl-3">
+                    Recent Withdrawals
+                  </h3>
+                  <button
+                    onClick={() => setActiveTab("withdrawals")}
+                    className="text-[11px] font-mono font-bold uppercase text-blue-600 hover:underline flex items-center gap-1"
+                  >
+                    View All ({withdrawals.length})
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {withdrawals.length === 0 ? (
                     <p className="text-xs font-mono text-zinc-500">No requests found.</p>
                   ) : (
-                    withdrawals.slice(0, 10).map((tx: any) => (
-                      <div
-                        key={tx.id}
-                        className="p-3 border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex justify-between items-center"
-                      >
-                        <div>
-                          <p className="text-xs font-bold">
-                            @{tx.wallets?.profiles?.username || "unknown"}
-                          </p>
-                          <p className="text-[10px] font-mono text-zinc-500 line-clamp-1">
-                            {tx.description}
-                          </p>
+                    withdrawals.slice(0, 10).map((tx: any) => {
+                      const status = tx.status || "pending";
+                      return (
+                        <div
+                          key={tx.id}
+                          onClick={() => setActiveTab("withdrawals")}
+                          className="p-3 border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex justify-between items-center cursor-pointer hover:border-blue-600 transition-colors"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-bold">
+                                @{tx.wallets?.profiles?.username || "unknown"}
+                              </p>
+                              <span
+                                className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 border ${
+                                  status === "pending"
+                                    ? "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/20"
+                                    : status === "completed"
+                                    ? "border-emerald-600 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20"
+                                    : "border-red-600 text-red-600 bg-red-50 dark:bg-red-950/20"
+                                }`}
+                              >
+                                {status}
+                              </span>
+                            </div>
+                            <p className="text-[10px] font-mono text-zinc-500 line-clamp-1">
+                              {tx.description}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-black text-red-500">
+                              {formatCurrency(tx.amount, "global")}
+                            </p>
+                            <p className="text-[10px] font-mono text-zinc-400">
+                              {formatRelativeTime(tx.created_at)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-black text-red-500">
-                            {formatCurrency(tx.amount, "global")}
-                          </p>
-                          <p className="text-[10px] font-mono text-zinc-400">
-                            {formatRelativeTime(tx.created_at)}
-                          </p>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -1064,7 +1161,7 @@ export default function AdminDashboard() {
 
             <div className="space-y-3">
               {filteredUsers.map((u) => {
-                const wallet = u.wallets?.[0];
+                const wallet = Array.isArray(u.wallets) ? u.wallets[0] : u.wallets;
                 const balance = wallet?.balance ?? 0;
                 const isBlocked = u.is_blocked;
                 const isExpanded = expandedUser === u.id;
@@ -1421,6 +1518,344 @@ export default function AdminDashboard() {
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* TAB: WITHDRAWALS */}
+        {/* ============================================================ */}
+        {activeTab === "withdrawals" && (
+          <div className="space-y-6 fade-in">
+            {/* Header & KPI Summary */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-black uppercase border-l-4 border-blue-600 pl-3 flex items-center gap-2">
+                  <ArrowUpRight className="w-5 h-5 text-blue-600" />
+                  Withdrawal Requests & Payouts
+                </h2>
+                <p className="text-xs font-mono text-zinc-500 mt-1">
+                  Manage member payout requests, copy UPI/PayPal payment addresses, and approve or refund.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold bg-amber-500/10 text-amber-600 border border-amber-500/30 px-2.5 py-1 uppercase">
+                  {withdrawals.filter((w) => (w.status || "pending") === "pending").length} Pending
+                </span>
+                <span className="text-xs font-mono font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 px-2.5 py-1 uppercase">
+                  {withdrawals.filter((w) => w.status === "completed").length} Processed
+                </span>
+              </div>
+            </div>
+
+            {/* Metrics cards */}
+            {(() => {
+              const pendingList = withdrawals.filter((w) => (w.status || "pending") === "pending");
+              const completedList = withdrawals.filter((w) => w.status === "completed");
+              const rejectedList = withdrawals.filter((w) => w.status === "rejected");
+              const pendingTotal = pendingList.reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
+              const completedTotal = completedList.reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
+              const rejectedTotal = rejectedList.reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
+              const grandTotal = withdrawals.reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
+
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <StatCard
+                    icon={<Clock className="w-4 h-4 text-amber-500" />}
+                    label="Pending Payouts"
+                    value={formatCurrency(pendingTotal, "global")}
+                    color="text-amber-600"
+                    sub={`${pendingList.length} requests awaiting payout`}
+                  />
+                  <StatCard
+                    icon={<CheckCircle className="w-4 h-4 text-emerald-500" />}
+                    label="Processed / Paid"
+                    value={formatCurrency(completedTotal, "global")}
+                    color="text-emerald-600"
+                    sub={`${completedList.length} finalized withdrawals`}
+                  />
+                  <StatCard
+                    icon={<XCircle className="w-4 h-4 text-red-500" />}
+                    label="Rejected / Refunded"
+                    value={formatCurrency(rejectedTotal, "global")}
+                    color="text-red-600"
+                    sub={`${rejectedList.length} requests refunded`}
+                  />
+                  <StatCard
+                    icon={<DollarSign className="w-4 h-4 text-blue-500" />}
+                    label="Total Volume"
+                    value={formatCurrency(grandTotal, "global")}
+                    sub={`${withdrawals.length} total withdrawal entries`}
+                  />
+                </div>
+              );
+            })()}
+
+            {/* Search and Filters */}
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <input
+                  type="text"
+                  placeholder="Search by username, UPI ID, destination, or transaction ID..."
+                  value={withdrawalSearch}
+                  onChange={(e) => setWithdrawalSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-mono"
+                />
+              </div>
+              <div className="flex items-center gap-1 border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-0.5">
+                {(["all", "pending", "completed", "rejected"] as const).map((tab) => {
+                  const count =
+                    tab === "all"
+                      ? withdrawals.length
+                      : withdrawals.filter((w) => (w.status || "pending") === tab).length;
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setWithdrawalStatusFilter(tab)}
+                      className={`px-3 py-1 text-[10px] font-mono font-bold uppercase transition-all ${
+                        withdrawalStatusFilter === tab
+                          ? "bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950"
+                          : "text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-100"
+                      }`}
+                    >
+                      {tab} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Withdrawals List */}
+            {(() => {
+              const filteredWithdrawals = withdrawals.filter((w) => {
+                const status = w.status || "pending";
+                if (withdrawalStatusFilter !== "all" && status !== withdrawalStatusFilter) return false;
+                if (!withdrawalSearch.trim()) return true;
+                const query = withdrawalSearch.toLowerCase();
+                const username = (w.wallets?.profiles?.username || "").toLowerCase();
+                const desc = (w.description || "").toLowerCase();
+                const id = (w.id || "").toLowerCase();
+                return username.includes(query) || desc.includes(query) || id.includes(query);
+              });
+
+              if (filteredWithdrawals.length === 0) {
+                return (
+                  <div className="p-8 border-2 border-dashed border-zinc-300 dark:border-zinc-700 text-center font-mono text-xs text-zinc-500">
+                    No withdrawal requests match current filter.
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-4">
+                  {filteredWithdrawals.map((tx: any) => {
+                    const status = tx.status || "pending";
+                    const isProcessing = processingTxId === tx.id;
+                    const isRejectingModalOpen = rejectingTxId === tx.id;
+                    const username = tx.wallets?.profiles?.username || "unknown";
+
+                    // Parse destination e.g. "Withdrawal to UPI: name@okhdfcbank" or "Withdrawal to PayPal: user@email.com"
+                    let destinationRaw = tx.description || "";
+                    if (destinationRaw.toLowerCase().startsWith("withdrawal to ")) {
+                      destinationRaw = destinationRaw.slice(14);
+                    }
+                    const destinationToCopy = destinationRaw.includes(":")
+                      ? destinationRaw.split(":")[1].trim()
+                      : destinationRaw;
+
+                    return (
+                      <div
+                        key={tx.id}
+                        className={`border-2 ${
+                          status === "pending"
+                            ? "border-amber-500 bg-white dark:bg-zinc-900"
+                            : status === "completed"
+                            ? "border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-900"
+                            : "border-red-600/40 bg-zinc-50 dark:bg-zinc-950/40"
+                        } shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none p-5 space-y-4`}
+                      >
+                        {/* Top bar */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-zinc-200 dark:bg-zinc-800 rounded-full flex items-center justify-center font-bold font-mono text-xs shrink-0">
+                              {username.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-black text-sm">@{username}</p>
+                                <span
+                                  className={`text-[9px] font-mono font-black uppercase px-2 py-0.5 border ${
+                                    status === "pending"
+                                      ? "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/20"
+                                      : status === "completed"
+                                      ? "border-emerald-600 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20"
+                                      : "border-red-600 text-red-600 bg-red-50 dark:bg-red-950/20"
+                                  }`}
+                                >
+                                  {status === "pending"
+                                    ? "Action Required • Pending Payout"
+                                    : status === "completed"
+                                    ? "Completed & Paid"
+                                    : "Rejected & Refunded"}
+                                </span>
+                              </div>
+                              <p className="text-[10px] font-mono text-zinc-500">
+                                Tx: {tx.id} • {formatRelativeTime(tx.created_at)} ({new Date(tx.created_at).toLocaleString()})
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-left sm:text-right">
+                            <p className="text-2xl font-black text-red-500 font-mono">
+                              {formatCurrency(tx.amount, "global")}
+                            </p>
+                            <p className="text-[10px] font-mono text-zinc-500 uppercase">
+                              Requested Payout Amount
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Payment Destination Details */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-zinc-50 dark:bg-zinc-950/60 p-3 border border-zinc-200 dark:border-zinc-800">
+                          <div>
+                            <span className="text-[10px] font-mono font-bold uppercase text-zinc-500 block mb-1">
+                              Payout Destination (UPI / PayPal)
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm font-bold text-zinc-900 dark:text-zinc-100 select-all">
+                                {destinationRaw}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(destinationToCopy);
+                                  setCopiedTxId(tx.id);
+                                  setTimeout(() => setCopiedTxId(null), 2000);
+                                  showToast(`Copied "${destinationToCopy}" to clipboard`, "info");
+                                }}
+                                title="Copy address to clipboard"
+                                className="px-2 py-1 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-[10px] font-mono font-bold uppercase flex items-center gap-1 transition-colors"
+                              >
+                                {copiedTxId === tx.id ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-emerald-600" />
+                                    <span>Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copy</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] font-mono font-bold uppercase text-zinc-500 block mb-1">
+                              User Ledger Info
+                            </span>
+                            <p className="text-xs font-mono text-zinc-700 dark:text-zinc-300">
+                              User ID: <code className="text-[10px] bg-zinc-200 dark:bg-zinc-800 px-1 py-0.5">{tx.wallets?.user_id || "N/A"}</code>
+                            </p>
+                            <p className="text-xs font-mono text-zinc-500 mt-0.5">
+                              Raw Description: {tx.description}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Inline Rejection Box */}
+                        {isRejectingModalOpen && (
+                          <div className="p-4 border-2 border-red-600 bg-red-50 dark:bg-red-950/20 space-y-3">
+                            <p className="text-xs font-black uppercase text-red-600 flex items-center gap-1">
+                              <AlertTriangle className="w-4 h-4" />
+                              Reject Payout & Refund User Wallet
+                            </p>
+                            <p className="text-xs text-zinc-600 dark:text-zinc-400 font-mono">
+                              Rejecting this withdrawal will immediately refund {formatCurrency(tx.amount, "global")} back to @{username}&apos;s wallet balance and send an automated in-app alert.
+                            </p>
+                            <div>
+                              <label className="text-[10px] font-mono font-bold uppercase text-zinc-500 block mb-1">
+                                Rejection Reason:
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="e.g. Invalid UPI ID / Name mismatch / Bank returned payment"
+                                value={rejectReasonInput}
+                                onChange={(e) => setRejectReasonInput(e.target.value)}
+                                className="w-full px-3 py-2 border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono"
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleRejectWithdrawal(tx.id)}
+                                disabled={isProcessing}
+                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase tracking-wider disabled:opacity-50 flex items-center gap-1.5"
+                              >
+                                {isProcessing ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <XCircle className="w-3.5 h-3.5" />
+                                )}
+                                Confirm Rejection & Refund
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setRejectingTxId(null);
+                                  setRejectReasonInput("");
+                                }}
+                                className="px-4 py-2 border-2 border-zinc-950 dark:border-zinc-700 text-xs font-bold uppercase hover:bg-zinc-200 dark:hover:bg-zinc-800"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Actions bar */}
+                        <div className="flex items-center justify-between pt-2">
+                          {status === "pending" ? (
+                            <div className="flex items-center gap-3 w-full sm:w-auto">
+                              <button
+                                onClick={() => handleProcessWithdrawal(tx.id)}
+                                disabled={isProcessing}
+                                className="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider disabled:opacity-50 flex items-center justify-center gap-1.5"
+                              >
+                                {isProcessing ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Check className="w-3.5 h-3.5" />
+                                )}
+                                Mark Paid & Processed
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setRejectingTxId(isRejectingModalOpen ? null : tx.id);
+                                  setRejectReasonInput("Invalid UPI ID / Payout address not reachable");
+                                }}
+                                disabled={isProcessing}
+                                className="flex-1 sm:flex-none px-4 py-2 border-2 border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 text-xs font-black uppercase tracking-wider disabled:opacity-50 flex items-center justify-center gap-1.5"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                                Reject & Refund
+                              </button>
+                            </div>
+                          ) : status === "completed" ? (
+                            <div className="flex items-center gap-2 text-xs font-mono text-emerald-600 font-bold">
+                              <CheckCircle className="w-4 h-4" />
+                              <span>Payout finalized and recorded in platform ledger.</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-xs font-mono text-red-600 font-bold">
+                              <XCircle className="w-4 h-4" />
+                              <span>Withdrawal rejected and funds restored to user wallet.</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 
