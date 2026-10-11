@@ -27,6 +27,7 @@ export interface Profile {
   reputation_score: number;
   loss_streak: number;
   penalty_box_until?: string | null;
+  is_username_custom?: boolean;
   created_at: string;
 }
 

@@ -6,6 +6,7 @@ import { Eye, EyeOff, AlertCircle, Loader2, ArrowLeft, ShieldCheck, CheckCircle 
 import { useAuth } from "@/lib/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
 import { showToast } from "@/components/Toast";
+import { checkUsernameAvailable } from "@/lib/data-hooks";
 
 export default function AuthPage() {
   return (
@@ -56,6 +57,13 @@ function AuthForm() {
       }
       if (password.length < 8) {
         setError("Password must be at least 8 characters.");
+        setLoading(false);
+        return;
+      }
+
+      const { available, error: availErr } = await checkUsernameAvailable(cleanUsername);
+      if (!available) {
+        setError(availErr || `Username "@${cleanUsername}" is already taken. Please choose another.`);
         setLoading(false);
         return;
       }

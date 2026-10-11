@@ -10,6 +10,7 @@ import ProfileView from "@/components/ProfileView";
 import LandingView from "@/components/LandingView";
 import WalletModal from "@/components/WalletModal";
 import NotificationsPanel from "@/components/NotificationsPanel";
+import UsernameModal from "@/components/UsernameModal";
 import { showToast } from "@/components/Toast";
 import { useAuth } from "@/lib/auth-context";
 import { useOaths, useSquadLobbies, useWall, useTransactions, isMockMode } from "@/lib/data-hooks";
@@ -144,6 +145,20 @@ export default function Home() {
     activeProfile?.penalty_box_until && new Date(activeProfile.penalty_box_until).getTime() > Date.now()
   );
 
+  const isGoogleUser = Boolean(
+    user &&
+    (user.app_metadata?.provider === "google" ||
+      (Array.isArray(user.app_metadata?.providers) &&
+        (user.app_metadata.providers as string[]).includes("google")) ||
+      user.identities?.some((id) => id.provider === "google"))
+  );
+
+  const shouldShowGoogleUsernamePrompt = Boolean(
+    isGoogleUser &&
+    profile &&
+    !profile.is_username_custom
+  );
+
   return (
     <div className="h-full flex flex-col overflow-hidden bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 transition-colors duration-300">
       {/* Top Navigation */}
@@ -225,6 +240,13 @@ export default function Home() {
       {showNotifications && (
         <NotificationsPanel
           onClose={() => setShowNotifications(false)}
+        />
+      )}
+      {shouldShowGoogleUsernamePrompt && (
+        <UsernameModal
+          isOpen={true}
+          mode="google_onboarding"
+          currentUsername={activeProfile.username}
         />
       )}
     </div>

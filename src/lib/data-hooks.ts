@@ -1934,3 +1934,68 @@ export async function searchUsersByUsername(query: string): Promise<Array<{ id: 
     .limit(5);
   return data || [];
 }
+
+// ---- checkUsernameAvailable ----
+export async function checkUsernameAvailable(rawUsername: string): Promise<{ available: boolean; error?: string }> {
+  const clean = rawUsername.trim().toLowerCase().replace(/^@+/, "");
+  if (clean.length < 3) return { available: false, error: "Username must be at least 3 characters." };
+  if (clean.length > 24) return { available: false, error: "Username cannot exceed 24 characters." };
+  if (!/^[a-z0-9_]+$/.test(clean)) return { available: false, error: "Username can only contain letters, numbers, and underscores." };
+
+  if (isMockMode()) {
+    const reserved = ["ghost_protocol", "void_walker", "iron_oath", "deadweight", "silent_vow", "reaper_exe", "admin"];
+    const isTaken = reserved.includes(clean);
+    return { available: !isTaken, error: isTaken ? "Username is already taken." : undefined };
+  }
+
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("check_username_available", { p_username: clean });
+  if (error) {
+    // Fallback direct query if RPC error
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id")
+      .ilike("username", clean)
+      .limit(1);
+    const available = !existing || existing.length === 0;
+    return { available, error: available ? undefined : "Username is already taken." };
+  }
+  return { available: Boolean(data), error: Boolean(data) ? undefined : "Username is already taken." };
+}
+
+// ---- updateUsername ----
+export async function updateUsername(newUsername: string): Promise<{ success: boolean; username?: string; error?: string }> {
+  const clean = newUsername.trim().toLowerCase().replace(/^@+/, "");
+  if (clean.length < 3) return { success: false, error: "Username must be at least 3 characters." };
+  if (clean.length > 24) return { success: false, error: "Username cannot exceed 24 characters." };
+  if (!/^[a-z0-9_]+$/.test(clean)) return { success: false, error: "Username can only contain letters, numbers, and underscores." };
+
+  if (isMockMode()) {
+    let currentProfile = mockProfile;
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("oath_mock_profile");
+        if (saved) currentProfile = JSON.parse(saved);
+      } catch {}
+    }
+    const updated = { ...currentProfile, username: clean, display_name: clean, is_username_custom: true };
+    if (typeof window !== "undefined") {
+      localStorage.setItem("oath_mock_profile", JSON.stringify(updated));
+    }
+    notifyDataUpdated();
+    return { success: true, username: clean };
+  }
+
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("update_username", { p_username: clean });
+  if (error) {
+    return { success: false, error: error.message };
+  }
+  if (data && typeof data === "object" && "success" in data && !data.success) {
+    return { success: false, error: (data as { error?: string }).error || "Failed to update username" };
+  }
+
+  notifyDataUpdated();
+  return { success: true, username: clean };
+}
+

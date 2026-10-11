@@ -1,15 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import {
   TrendingUp,
   TrendingDown,
   DollarSign,
   LogOut,
   AlertTriangle,
+  Edit2,
 } from "lucide-react";
 import { formatCurrency as utilsFormatCurrency, formatCurrencyPrecise as utilsFormatCurrencyPrecise, formatRelativeTime } from "@/lib/utils";
 import type { Profile, Wallet, Transaction } from "@/lib/types";
 import { useRegion, type Region } from "@/lib/region-context";
+import UsernameModal from "./UsernameModal";
 
 interface ProfileViewProps {
   profile: Profile;
@@ -20,6 +23,7 @@ interface ProfileViewProps {
 
 export default function ProfileView({ profile, wallet, transactions, onSignOut }: ProfileViewProps) {
   const { region } = useRegion();
+  const [showEditUsernameModal, setShowEditUsernameModal] = useState(false);
   const isPenaltyBoxActive = !!profile.penalty_box_until && new Date(profile.penalty_box_until).getTime() > Date.now();
   const lossStreak = profile.loss_streak ?? 0;
 
@@ -79,10 +83,21 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
                 {profile.username.substring(0, 2)}
               </span>
             </div>
-            <div>
-              <p className="text-base font-black text-zinc-950 dark:text-zinc-100 tracking-tight">
-                @{profile.username}
-              </p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-base font-black text-zinc-950 dark:text-zinc-100 tracking-tight truncate">
+                  @{profile.username}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowEditUsernameModal(true)}
+                  className="px-2 py-0.5 border border-zinc-950 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-200 text-[10px] font-mono font-bold uppercase tracking-wider transition-colors inline-flex items-center gap-1 shrink-0 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                  title="Edit username"
+                >
+                  <Edit2 className="w-2.5 h-2.5" />
+                  <span>Edit</span>
+                </button>
+              </div>
               <p className="text-[10px] font-mono text-zinc-500">
                 Member since {formatRelativeTime(profile.created_at)}
               </p>
@@ -205,6 +220,15 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
           )}
         </div>
       </div>
+
+      {showEditUsernameModal && (
+        <UsernameModal
+          isOpen={true}
+          mode="edit_profile"
+          currentUsername={profile.username}
+          onClose={() => setShowEditUsernameModal(false)}
+        />
+      )}
     </div>
   );
 }

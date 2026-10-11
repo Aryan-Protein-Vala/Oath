@@ -24,6 +24,7 @@ export const mockProfile: Profile = {
   reputation_score: 82,
   loss_streak: 0,
   penalty_box_until: null,
+  is_username_custom: true,
   created_at: "2025-01-15T00:00:00Z",
 };
 
