@@ -48,7 +48,8 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
 
   const stakeNum = parseFloat(stake) || 0;
   const stakeUsd = convertToUSD(stakeNum, region);
-  const isOverBudget = stakeUsd > wallet.balance;
+  const feeUsd = Math.round(stakeUsd * 0.1 * 100) / 100;
+  const isOverBudget = (stakeUsd + feeUsd) > (wallet.balance + 0.001);
   const inviteLink = oathId ? `${typeof window !== "undefined" ? window.location.origin : ""}/challenge/${oathId}` : "";
 
   const handleCreate = async () => {
@@ -56,7 +57,14 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
       showToast("Add a statement (up to 500 characters), positive stake, and deadline.", "error");
       return;
     }
-    if (new Date(deadline).getTime() <= Date.now()) {
+    let deadlineDate: Date;
+    if (!deadline.includes("T")) {
+      const [year, month, day] = deadline.split("-").map(Number);
+      deadlineDate = new Date(year, month - 1, day, 23, 59, 59, 999);
+    } else {
+      deadlineDate = new Date(deadline);
+    }
+    if (deadlineDate.getTime() <= Date.now()) {
       showToast("Deadline must be in the future.", "error");
       return;
     }
@@ -69,7 +77,7 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
     try {
       const { oath, error } = await createDuoChallenge({
         oath_statement: statement,
-        deadline: new Date(deadline).toISOString(),
+        deadline: deadlineDate.toISOString(),
         stake_amount: stakeUsd,
         opponent_username: opponentUsername.trim() || undefined,
       });
@@ -223,9 +231,9 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
               <p className="text-[9px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-widest mb-2 font-bold">
                 How Duo Works
               </p>
-              <Rule icon={<UserCheck className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />} text="Each player locks an equal virtual stake in the sandbox ledger" />
-              <Rule icon={<Users className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />} text="At deadline, the opponent verifies your proof" />
-              <Rule icon={<DollarSign className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />} text="Estimated virtual payout reflects the 10% platform fee; no cash moves" />
+              <Rule icon={<UserCheck className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />} text="Each player locks an equal individual stake into escrow" />
+              <Rule icon={<Users className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />} text="Both players submit daily proofs; each partner reviews the other's evidence" />
+              <Rule icon={<DollarSign className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-300" />} text="On completion, each participant gets their own 100% stake refunded" />
             </div>
 
             {/* Preview */}
@@ -233,13 +241,9 @@ export default function DuoChallengeModal({ wallet, onClose, onSuccess }: DuoCha
               <div className="border-2 border-zinc-900 dark:border-zinc-800 p-3 bg-zinc-100 dark:bg-zinc-950/80 fade-in">
                 <p className="text-[9px] font-mono text-zinc-600 dark:text-zinc-400 uppercase tracking-widest mb-1.5 font-bold">Preview</p>
                 <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed font-mono">
-                  Both players lock a virtual stake of{" "}
+                  Both players lock an individual stake of{" "}
                   <span className="font-bold text-zinc-950 dark:text-zinc-100">{formatCurrency(stakeNum, region)}</span>.
-                  Estimated virtual payout{" "}
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                    {formatCurrency(stakeNum * 2 * 0.9, region)}
-                  </span>{" "}
-                  (10% Oath Platform Fee).
+                  Completing your daily proofs returns your 100% individual stake ({formatCurrency(stakeNum, region)}).
                 </p>
               </div>
             )}

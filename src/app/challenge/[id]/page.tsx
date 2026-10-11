@@ -98,6 +98,22 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
       return;
     }
 
+    const isFinancial = (oath.stake_amount || 0) > 0;
+    const stake = oath.stake_amount || 0;
+    const fee = isFinancial ? Math.round(stake * 0.1 * 100) / 100 : 0;
+    const total = isFinancial ? Math.round((stake + fee) * 100) / 100 : 0;
+
+    if (isFinancial) {
+      const confirmed = await confirmAction({
+        title: "Accept Duo Challenge?",
+        message: `Accepting this challenge locks your individual stake of ${formatCurrency(stake, region)} + ${formatCurrency(fee, region)} upfront platform fee (${formatCurrency(total, region)} total) into escrow. If you complete your daily proofs, your individual stake will be refunded. Do you consent to lock these funds?`,
+        confirmLabel: `Lock ${formatCurrency(total, region)} & Accept`,
+        cancelLabel: "Cancel",
+        variant: "default",
+      });
+      if (!confirmed) return;
+    }
+
     setAccepting(true);
     setError(null);
     try {
@@ -208,15 +224,15 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
 
               <div className="grid grid-cols-2 gap-3 border-t-2 border-zinc-200 dark:border-zinc-800 pt-3">
                 <div>
-                  <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Your Virtual Stake</span>
+                  <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Your Individual Stake</span>
                   <span className="text-lg font-mono font-black text-zinc-950 dark:text-zinc-100">
                     {formatCurrency(oath.stake_amount, region)}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Estimated Virtual Payout</span>
-                  <span className="text-lg font-mono font-black text-red-600 dark:text-red-500">
-                    {formatCurrency(oath.stake_amount * 2 * 0.9, region)}
+                  <span className="text-[10px] font-mono uppercase text-zinc-500 font-bold block">Upfront Platform Fee</span>
+                  <span className="text-lg font-mono font-black text-zinc-600 dark:text-zinc-400">
+                    +{formatCurrency(Math.round(oath.stake_amount * 0.1 * 100) / 100, region)} (10%)
                   </span>
                 </div>
               </div>
@@ -229,8 +245,8 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
 
             {/* Rules */}
             <div className="border border-zinc-300 dark:border-zinc-800 p-4 bg-zinc-100 dark:bg-zinc-900/30 text-xs font-mono space-y-1.5 mb-6 text-zinc-700 dark:text-zinc-400">
-              <p>• <strong>Free to Join:</strong> Challenger @{oath.creator?.username || "creator"} staked 2x the pot upfront ({formatCurrency(oath.stake_amount * 2, region)} total).</p>
-              <p>• Submit your verified proof before deadline to claim your share.</p>
+              <p>• <strong>Shared Accountability:</strong> Both partners lock equal individual stakes ({formatCurrency(oath.stake_amount, region)} each).</p>
+              <p>• Both partners complete their own proofs. On success, each gets their own stake refunded—neither takes the other&apos;s money.</p>
             </div>
 
             {/* Error Message */}
@@ -261,16 +277,16 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
                       </div>
                     ) : (
                       <>
-                        <p className="text-zinc-600 dark:text-zinc-400">Share this link with your opponent so they can accept for free.</p>
+                        <p className="text-zinc-600 dark:text-zinc-400">Share this link with your opponent so they can accept.</p>
                         <button
                           onClick={async () => {
                             const confirmed = await confirmAction({
-                              title: "Cancel Duel Challenge?",
-                              message: "Are you sure you want to cancel this challenge and reclaim your 2x locked stake? The invitation link will be deactivated immediately.",
+                              title: "Cancel Duo Challenge?",
+                              message: "Are you sure you want to cancel this challenge and reclaim your locked stake? The invitation link will be deactivated immediately.",
                               confirmLabel: "Cancel Challenge & Reclaim",
-                              cancelLabel: "Keep Duel Open",
+                              cancelLabel: "Keep Duo Open",
                               variant: "danger",
-                              dangerWarning: "Your 2x stake will be refunded back to your wallet.",
+                              dangerWarning: "Your individual stake will be refunded back to your wallet.",
                             });
                             if (!confirmed) return;
 
@@ -278,7 +294,7 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
                             if (cancelErr) {
                               showToast(cancelErr, "error");
                             } else {
-                              showToast("Challenge cancelled and 2x escrow refunded to your wallet.", "success");
+                              showToast("Challenge cancelled and escrow refunded to your wallet.", "success");
                               setOath((prev) => (prev ? { ...prev, status: "cancelled" } : null));
                               refreshWallet();
                             }
@@ -306,8 +322,10 @@ export default function ChallengeAcceptPage({ params }: { params: Promise<{ id: 
                         <span className="flex items-center justify-center gap-2">
                           <Loader2 className="w-4 h-4 animate-spin" /> Accepting challenge...
                         </span>
+                      ) : oath.stake_amount > 0 ? (
+                        `Lock ${formatCurrency(Math.round((oath.stake_amount * 1.1) * 100) / 100, region)} & Accept Challenge`
                       ) : (
-                        `Accept Challenge (Free — Funded by @${oath.creator?.username || "creator"})`
+                        "Accept Challenge"
                       )}
                     </button>
                   </>

@@ -29,7 +29,7 @@ export default function CreateLobbyModal({ walletBalance, penaltyBoxUntil, onClo
   const totalChargedLocal = stakeNum + feeLocal;
   const feeUsd = Math.round(stakeUsd * 0.10 * 100) / 100;
   const totalChargedUsd = stakeUsd + feeUsd;
-  const isOverBudget = totalChargedLocal > walletInLocal;
+  const isOverBudget = totalChargedLocal > (walletInLocal + 0.001);
 
   const handleSubmit = async () => {
     if (isPenaltyBoxActive) {
@@ -52,8 +52,13 @@ export default function CreateLobbyModal({ walletBalance, penaltyBoxUntil, onClo
       showToast("Set a deadline.", "error");
       return;
     }
-    const deadlineDate = new Date(deadline);
-    if (!deadline.includes("T")) deadlineDate.setHours(23, 59, 59, 999);
+    let deadlineDate: Date;
+    if (!deadline.includes("T")) {
+      const [year, month, day] = deadline.split("-").map(Number);
+      deadlineDate = new Date(year, month - 1, day, 23, 59, 59, 999);
+    } else {
+      deadlineDate = new Date(deadline);
+    }
     if (deadlineDate.getTime() <= Date.now()) {
       showToast("Deadline must be in the future.", "error");
       return;

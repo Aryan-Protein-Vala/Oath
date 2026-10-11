@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronRight, User, Users, Upload, Eye, XCircle, Shield, AlertTriangle, X, Copy, ExternalLink, Check, Loader2, MessageSquare, Clock } from "lucide-react";
+import { ChevronRight, User, Users, Upload, Eye, XCircle, Shield, AlertTriangle, X, Copy, ExternalLink, Check, Loader2, MessageSquare, Clock, Lock } from "lucide-react";
 import type { Oath, ProofStatus } from "@/lib/types";
 import { getTimeRemaining, padZero, formatCurrency as utilsFormatCurrency, formatRelativeTime } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
@@ -66,6 +66,7 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
   const [showChatModal, setShowChatModal] = useState(false);
   const [showForfeitModal, setShowForfeitModal] = useState(false);
   const [showPeerReviewModal, setShowPeerReviewModal] = useState(false);
+  const [consentModal, setConsentModal] = useState<{ oath: Oath; type: "duo" | "squad" } | null>(null);
   const [refereeAction, setRefereeAction] = useState<{ type: "need_more_proof" | "reject"; oath: Oath } | null>(null);
   // On mobile, track whether we're showing the detail panel or list
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
@@ -243,6 +244,9 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
             onRejectProof={(oathToReview) => {
               setRefereeAction({ type: "reject", oath: oathToReview });
             }}
+            onAcceptChallenge={(oathToAccept, type) => {
+              setConsentModal({ oath: oathToAccept, type });
+            }}
           />
 
           {showProofModal && (
@@ -303,6 +307,18 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
               onClose={() => setRefereeAction(null)}
               onSuccess={() => {
                 setRefereeAction(null);
+                onProofSubmitted?.();
+              }}
+            />
+          )}
+
+          {consentModal && (
+            <ConsentModal
+              oath={consentModal.oath}
+              type={consentModal.type}
+              onClose={() => setConsentModal(null)}
+              onSuccess={() => {
+                setConsentModal(null);
                 onProofSubmitted?.();
               }}
             />
@@ -501,6 +517,7 @@ function OathCountdownCard({
   onPassTodayWork,
   onRequestMoreProof,
   onRejectProof,
+  onAcceptChallenge,
 }: {
   oath: Oath;
   isReferee: boolean;
@@ -512,6 +529,7 @@ function OathCountdownCard({
   onPassTodayWork: (oath: Oath) => void;
   onRequestMoreProof: (oath: Oath) => void;
   onRejectProof: (oath: Oath) => void;
+  onAcceptChallenge?: (oath: Oath, type: "duo" | "squad") => void;
 }) {
   const { region } = useRegion();
   const { user, profile } = useAuth();
@@ -708,14 +726,7 @@ function OathCountdownCard({
                 </p>
                 <button
                   type="button"
-                  onClick={async () => {
-                    const res = await acceptDuoChallenge(oath.id);
-                    if (res?.error) {
-                      showToast(res.error, "error");
-                    } else {
-                      showToast("Duo challenge accepted! The timer has begun.", "success");
-                    }
-                  }}
+                  onClick={() => onAcceptChallenge?.(oath, "duo")}
                   className="px-6 py-3 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 font-black uppercase tracking-tight text-xs border-2 border-zinc-950 dark:border-transparent hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5"
                 >
                   Accept Duo Challenge ({utilsFormatCurrency(oath.stake_amount, region)})
@@ -748,14 +759,7 @@ function OathCountdownCard({
                 </p>
                 <button
                   type="button"
-                  onClick={async () => {
-                    const res = await joinSquad(oath.id, oath.stake_amount);
-                    if (res?.error) {
-                      showToast(res.error, "error");
-                    } else {
-                      showToast("Joined squad! Waiting for remaining members.", "success");
-                    }
-                  }}
+                  onClick={() => onAcceptChallenge?.(oath, "squad")}
                   className="px-6 py-3 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 font-black uppercase tracking-tight text-xs border-2 border-zinc-950 dark:border-transparent hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5"
                 >
                   Join Squad ({utilsFormatCurrency(oath.stake_amount, region)})
@@ -997,29 +1001,15 @@ function OathCountdownCard({
                 </button>
                 {isPendingAcceptance && isDuoOpponentVerifier && (
                   <button
-                    onClick={async () => {
-                      const res = await acceptDuoChallenge(oath.id);
-                      if (res?.error) {
-                        showToast(res.error, "error");
-                      } else {
-                        showToast("Duo challenge accepted! The timer has begun.", "success");
-                      }
-                    }}
+                    onClick={() => onAcceptChallenge?.(oath, "duo")}
                     className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-zinc-950 border-2 border-amber-600 text-sm font-black tracking-tight uppercase transition-all shadow-[2px_2px_0px_0px_rgba(217,119,6,1)] active:translate-y-0.5"
                   >
-                    Accept Duel
+                    Accept Challenge
                   </button>
                 )}
                 {isPendingAcceptance && isSquadInvitedMember && (
                   <button
-                    onClick={async () => {
-                      const res = await joinSquad(oath.id, oath.stake_amount);
-                      if (res?.error) {
-                        showToast(res.error, "error");
-                      } else {
-                        showToast("Joined squad! Waiting for remaining members.", "success");
-                      }
-                    }}
+                    onClick={() => onAcceptChallenge?.(oath, "squad")}
                     className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-zinc-950 border-2 border-amber-600 text-sm font-black tracking-tight uppercase transition-all shadow-[2px_2px_0px_0px_rgba(217,119,6,1)] active:translate-y-0.5"
                   >
                     Join Squad
@@ -1208,6 +1198,8 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  const isFiat = oath.consequence_type === "fiat";
+
   const handleForfeit = async () => {
     setLoading(true);
     const { error } = (oath.oath_type === "squad" || oath.oath_type === "lobby")
@@ -1217,7 +1209,11 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
     if (error) {
       showToast(error, "error");
     } else {
-      showToast("Oath forfeited. Stake forfeited to penalty escrow.", "error", 6000);
+      if (isFiat) {
+        showToast("Oath forfeited. Stake forfeited to penalty escrow.", "error", 6000);
+      } else {
+        showToast("Oath forfeited. Marked as failed on your profile and Wall of Shame.", "error", 6000);
+      }
       onForfeited();
     }
   };
@@ -1227,7 +1223,7 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
       role="dialog"
       aria-modal="true"
       aria-labelledby="forfeit-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto"
     >
       <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-red-600 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(220,38,38,1)] dark:shadow-none text-left">
         <div className="flex items-center gap-2 mb-3 text-red-600">
@@ -1238,10 +1234,49 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
         <p className="text-sm font-bold text-zinc-800 dark:text-zinc-300 mb-2">
           Are you conceding defeat?
         </p>
-        <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 mb-4 leading-relaxed">
-          Forfeiting immediately terminates this oath. Your locked stake of{" "}
-          <strong className="text-red-600 dark:text-red-500 font-bold">{utilsFormatCurrency(oath.stake_amount, region)}</strong> will be permanently forfeited, and your excuse will be posted to the Wall of Shame.
-        </p>
+
+        {isFiat ? (
+          <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 mb-4 leading-relaxed">
+            Forfeiting immediately terminates this oath. Your locked stake of{" "}
+            <strong className="text-red-600 dark:text-red-500 font-bold">{utilsFormatCurrency(oath.stake_amount, region)}</strong> will be permanently forfeited, and your excuse will be posted to the Wall of Shame.
+          </p>
+        ) : oath.consequence_type === "social_ransom" ? (
+          <div className="mb-4 space-y-2">
+            <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              Forfeiting immediately concludes your oath as failed. Your saved Social Ransom consequence is revealed below:
+            </p>
+            <div className="p-3 bg-red-50 dark:bg-red-950/30 border-2 border-red-600 text-xs font-mono space-y-1.5">
+              <div className="flex justify-between items-center text-[10px] uppercase font-bold text-red-600">
+                <span>Emergency Contact:</span>
+                <span className="font-mono text-zinc-900 dark:text-zinc-100">{oath.social_ransom_phone || "Saved contact"}</span>
+              </div>
+              <div className="pt-1 border-t border-red-200 dark:border-red-900">
+                <span className="text-[10px] uppercase font-bold text-zinc-500 block mb-0.5">Confession:</span>
+                <p className="italic text-zinc-800 dark:text-zinc-200 text-xs">&ldquo;{oath.social_ransom_message || "Saved confession message"}&rdquo;</p>
+              </div>
+              <p className="text-[10px] text-zinc-500 dark:text-zinc-400 italic pt-1 border-t border-red-200 dark:border-red-900">
+                Manual consequence: Held to your personal honor code. Oath records your failure on the public ledger (no automated SMS dispatched).
+              </p>
+            </div>
+          </div>
+        ) : oath.consequence_type === "anti_charity" ? (
+          <div className="mb-4 space-y-2">
+            <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              Forfeiting marks your oath as failed under your selected anti-charity consequence:
+            </p>
+            <div className="p-3 bg-red-50 dark:bg-red-950/30 border-2 border-red-600 text-xs font-mono space-y-1">
+              <span className="text-[10px] uppercase font-bold text-red-600 block">Despised Cause:</span>
+              <p className="font-black text-red-700 dark:text-red-400 text-sm">{oath.anti_charity_cause || "Opposing cause"}</p>
+              <p className="text-[10px] text-zinc-500 dark:text-zinc-400 italic pt-1 border-t border-red-200 dark:border-red-900">
+                Manual consequence: Held to your personal honor code. Oath records your ideological penalty on your profile and the public Wall of Shame.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 mb-4 leading-relaxed">
+            Forfeiting immediately records your defeat and broadcasts your excuse permanently to the global Wall of Shame.
+          </p>
+        )}
 
         <div className="mb-4">
           <label className="text-[10px] font-mono uppercase font-bold text-zinc-600 dark:text-zinc-400 block mb-1.5">
@@ -1262,7 +1297,7 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
             disabled={loading}
             className="flex-1 py-3 bg-red-600 text-white font-black text-xs uppercase tracking-wider hover:bg-red-700 transition-colors disabled:opacity-50"
           >
-            {loading ? "Processing..." : `Forfeit ${utilsFormatCurrency(oath.stake_amount, region)}`}
+            {loading ? "Processing..." : isFiat ? `Forfeit ${utilsFormatCurrency(oath.stake_amount, region)}` : "Confirm Forfeiture"}
           </button>
           <button
             onClick={onClose}
@@ -1318,12 +1353,12 @@ function PeerReviewModal({
 
   const handleApprove = async () => {
     setLoading(true);
-    const { error } = await peerReviewProof(oath.id, true, "Approved by Duel Opponent");
+    const { error } = await peerReviewProof(oath.id, true, "Approved by Challenge Partner");
     setLoading(false);
     if (error) {
       showToast(error, "error");
     } else {
-      showToast("Duel approved! Escrow pot released to winner.", "success");
+      showToast("Proof approved! Partner's streak advanced.", "success");
       onReviewed();
       onClose();
     }
@@ -1371,7 +1406,7 @@ function PeerReviewModal({
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-amber-500" />
             <h3 id="peer-review-modal-title" className="text-base font-black text-zinc-950 dark:text-zinc-50 uppercase tracking-tight">
-              Review Opponent Proof
+              Review Partner Proof
             </h3>
           </div>
           <button onClick={onClose} aria-label="Close modal" className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
@@ -1382,10 +1417,10 @@ function PeerReviewModal({
         <div className="space-y-4">
           {/* Oath statement banner */}
           <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono">
-            <span className="text-[10px] uppercase font-bold text-zinc-500 block mb-0.5">Duo Duel</span>
+            <span className="text-[10px] uppercase font-bold text-zinc-500 block mb-0.5">Duo Accountability Challenge</span>
             <p className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">&ldquo;{oath.oath_statement}&rdquo;</p>
             <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-1">
-              Duel Pot: <strong className="text-zinc-950 dark:text-zinc-100">{utilsFormatCurrency(oath.stake_amount * 2, region)}</strong> · Submitted by @{proof?.submitter?.username || oath.creator?.username || "opponent"}
+              Individual Stake: <strong className="text-zinc-950 dark:text-zinc-100">{utilsFormatCurrency(oath.stake_amount, region)}</strong> · Submitted by @{proof?.submitter?.username || oath.creator?.username || "partner"}
             </p>
           </div>
 
@@ -1478,7 +1513,7 @@ function PeerReviewModal({
               className="w-full sm:flex-1 py-3 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 font-black text-xs uppercase tracking-wider hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors flex items-center justify-center gap-1.5 border-2 border-transparent disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-              Approve Duel
+              Approve Proof
             </button>
             <button
               onClick={handleReject}
@@ -1516,6 +1551,10 @@ function RefereeReviewModal({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
+
+  const proof = oath.proofs?.find((p) => p.status === "pending_review") || oath.proofs?.[0];
+  const isImg = proof?.proof_type === "photo" || proof?.proof_type === "screenshot" || Boolean(proof?.proof_url && /\.(jpg|jpeg|png|webp|gif)/i.test(proof.proof_url));
+  const isVid = proof?.proof_type === "video" || Boolean(proof?.proof_url && /\.(mp4|webm|mov)/i.test(proof.proof_url));
 
   const handleSubmit = async () => {
     if (!note.trim()) {
@@ -1555,9 +1594,9 @@ function RefereeReviewModal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto"
     >
-      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none text-left">
+      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none text-left my-8">
         <div className="flex items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 pb-3 mb-4">
           <div className="flex items-center gap-2">
             {type === "need_more_proof" ? (
@@ -1573,6 +1612,42 @@ function RefereeReviewModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Evidence preview box */}
+        {proof && (
+          <div className="mb-4 p-3 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 text-xs font-mono space-y-2">
+            <div className="flex items-center justify-between text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+              <span>Submitted Evidence ({proof.proof_type || "proof"})</span>
+              <span>{new Date(proof.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+            </div>
+            {isImg && proof.proof_url && (
+              <div className="border border-zinc-300 dark:border-zinc-700 bg-black/5 dark:bg-black/40 overflow-hidden max-h-48 flex items-center justify-center">
+                <img
+                  src={proof.proof_url}
+                  alt="Submitted proof"
+                  className="max-h-48 max-w-full object-contain cursor-pointer hover:opacity-95"
+                  onClick={() => window.open(proof.proof_url, "_blank")}
+                />
+              </div>
+            )}
+            {isVid && proof.proof_url && (
+              <video src={proof.proof_url} controls className="max-h-48 w-full border border-zinc-300 dark:border-zinc-700" />
+            )}
+            {proof.proof_url && !isImg && !isVid && (
+              <a
+                href={proof.proof_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-600 dark:text-blue-400 underline font-bold break-all block"
+              >
+                {proof.proof_url}
+              </a>
+            )}
+            {proof.proof_text && (
+              <p className="text-zinc-800 dark:text-zinc-200 italic">&ldquo;{proof.proof_text}&rdquo;</p>
+            )}
+          </div>
+        )}
 
         <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 mb-3">
           {type === "need_more_proof"
@@ -1605,6 +1680,126 @@ function RefereeReviewModal({
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {type === "need_more_proof" ? "Send Request to Challenger" : "Confirm Rejection"}
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-3 border-2 border-zinc-950 dark:border-zinc-700 text-xs font-mono font-bold uppercase hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConsentModal({
+  oath,
+  type,
+  onClose,
+  onSuccess,
+}: {
+  oath: Oath;
+  type: "duo" | "squad";
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { region } = useRegion();
+  const [loading, setLoading] = useState(false);
+  const isFiat = (oath.stake_amount || 0) > 0;
+  const stake = oath.stake_amount || 0;
+  const fee = isFiat ? Math.round(stake * 0.1 * 100) / 100 : 0;
+  const total = isFiat ? Math.round((stake + fee) * 100) / 100 : 0;
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    const res = type === "duo"
+      ? await acceptDuoChallenge(oath.id)
+      : await joinSquad(oath.id, oath.stake_amount);
+    setLoading(false);
+    if (res?.error) {
+      showToast(res.error, "error");
+    } else {
+      showToast(
+        type === "duo"
+          ? "Duo challenge accepted! Funds locked into escrow."
+          : "Joined squad! Funds locked into escrow.",
+        "success"
+      );
+      onSuccess();
+      onClose();
+    }
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto"
+    >
+      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none text-left my-8">
+        <div className="flex items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 pb-3 mb-4">
+          <div className="flex items-center gap-2">
+            <Lock className="w-5 h-5 text-amber-500" />
+            <h3 className="text-base font-black text-zinc-950 dark:text-zinc-50 uppercase tracking-tight">
+              {type === "duo" ? "Accept Duo Challenge" : "Join Accountability Squad"}
+            </h3>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="mb-4 p-3 bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 text-xs font-mono">
+          <span className="text-[10px] uppercase font-bold text-zinc-500 block mb-0.5">Goal Statement</span>
+          <p className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">&ldquo;{oath.oath_statement}&rdquo;</p>
+        </div>
+
+        <div className="space-y-3 mb-5">
+          <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 leading-relaxed">
+            An invitation alone does not debit your balance. Review the terms before consenting:
+          </p>
+
+          {isFiat ? (
+            <div className="p-3 bg-zinc-50 dark:bg-zinc-950 border-2 border-zinc-950 dark:border-zinc-800 text-xs font-mono space-y-1.5">
+              <div className="flex justify-between items-center text-zinc-700 dark:text-zinc-300">
+                <span>Individual Stake:</span>
+                <span className="font-bold">{utilsFormatCurrency(stake, region)}</span>
+              </div>
+              <div className="flex justify-between items-center text-zinc-700 dark:text-zinc-300">
+                <span>Upfront Platform Fee (10%):</span>
+                <span className="font-bold">{utilsFormatCurrency(fee, region)}</span>
+              </div>
+              <div className="pt-1.5 border-t border-zinc-300 dark:border-zinc-800 flex justify-between items-center font-black text-zinc-950 dark:text-zinc-100 text-sm">
+                <span>Total Escrow Deduction:</span>
+                <span className="text-amber-600 dark:text-amber-400">{utilsFormatCurrency(total, region)}</span>
+              </div>
+              <p className="text-[10px] text-zinc-500 pt-1">
+                {type === "duo"
+                  ? "Both partners maintain individual stakes. If you complete your proofs, your own stake is refunded in full."
+                  : "If you complete all daily proofs, your individual stake is returned."}
+              </p>
+            </div>
+          ) : (
+            <div className="p-3 bg-zinc-50 dark:bg-zinc-950 border-2 border-zinc-950 dark:border-zinc-800 text-xs font-mono">
+              <span className="font-bold uppercase tracking-wider text-zinc-950 dark:text-zinc-100 block mb-1">
+                Consequence: {oath.consequence_type}
+              </span>
+              <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                Non-monetary accountability challenge. Submitting required daily proofs keeps your honor intact.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleConfirm}
+            disabled={loading}
+            className="flex-1 py-3 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 font-black text-xs uppercase tracking-wider hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2 border-2 border-zinc-950 dark:border-transparent disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+            {isFiat ? `Confirm & Lock ${utilsFormatCurrency(total, region)}` : "Confirm & Join"}
           </button>
           <button
             onClick={onClose}

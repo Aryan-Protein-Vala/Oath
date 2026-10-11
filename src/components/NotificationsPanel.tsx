@@ -8,7 +8,10 @@ import { Notification } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { formatRelativeTime } from "@/lib/utils";
 import { joinSquad, acceptDuoChallenge } from "@/lib/data-hooks";
+import { formatCurrency as utilsFormatCurrency } from "@/lib/utils";
+import { useRegion } from "@/lib/region-context";
 import { showToast } from "./Toast";
+import { confirmAction } from "./ConfirmationModal";
 
 interface NotificationsPanelProps {
   onClose: () => void;
@@ -16,6 +19,7 @@ interface NotificationsPanelProps {
 
 export default function NotificationsPanel({ onClose }: NotificationsPanelProps) {
   const { user } = useAuth();
+  const { region } = useRegion();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -60,6 +64,24 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
     try {
       if (status === "accepted" && notif.oath_id) {
         if (notif.type === "invite_duo") {
+          const isFinancial = (notif.oath?.stake_amount ?? 0) > 0;
+          const stake = notif.oath?.stake_amount ?? 0;
+          const fee = Math.round(stake * 0.1 * 100) / 100;
+          const total = Math.round((stake + fee) * 100) / 100;
+
+          if (isFinancial) {
+            const confirmed = await confirmAction({
+              title: "Accept Duo Challenge",
+              message: `You are accepting this shared challenge. Your individual stake of ${utilsFormatCurrency(stake, region)} + ${utilsFormatCurrency(fee, region)} protocol fee (${utilsFormatCurrency(total, region)} total) will be locked in escrow. Complete your proofs to recover your stake!`,
+              confirmLabel: `Lock ${utilsFormatCurrency(total, region)} & Accept`,
+              cancelLabel: "Cancel",
+            });
+            if (!confirmed) {
+              setProcessingId(null);
+              return;
+            }
+          }
+
           const { error } = await acceptDuoChallenge(notif.oath_id);
           if (error) {
             if (error.toLowerCase().includes("insufficient") || error.toLowerCase().includes("balance")) {
@@ -71,6 +93,24 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
           }
           showToast("Accepted Duo Challenge! Stay accountable.", "success");
         } else if (notif.type === "invite_squad" || notif.type === "invite_lobby" || notif.type === "invite") {
+          const isFinancial = (notif.oath?.stake_amount ?? 0) > 0;
+          const stake = notif.oath?.stake_amount ?? 0;
+          const fee = Math.round(stake * 0.1 * 100) / 100;
+          const total = Math.round((stake + fee) * 100) / 100;
+
+          if (isFinancial) {
+            const confirmed = await confirmAction({
+              title: "Join Squad",
+              message: `Joining this squad locks your individual stake of ${utilsFormatCurrency(stake, region)} + ${utilsFormatCurrency(fee, region)} protocol fee (${utilsFormatCurrency(total, region)} total) in escrow.`,
+              confirmLabel: `Lock ${utilsFormatCurrency(total, region)} & Join`,
+              cancelLabel: "Cancel",
+            });
+            if (!confirmed) {
+              setProcessingId(null);
+              return;
+            }
+          }
+
           const { error } = await joinSquad(notif.oath_id, notif.oath?.stake_amount ?? 0);
           if (error) {
             if (error.toLowerCase().includes("insufficient") || error.toLowerCase().includes("balance")) {

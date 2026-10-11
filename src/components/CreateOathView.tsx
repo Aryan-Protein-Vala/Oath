@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createOath, searchUsersByUsername } from "@/lib/data-hooks";
+import { createOath, searchUsersByUsername, isMockMode } from "@/lib/data-hooks";
 import {
   Zap,
   User,
@@ -72,8 +72,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
   const [squadMembers, setSquadMembers] = useState<{ id: string; username: string; display_name?: string }[]>([]);
   const [infoModal, setInfoModal] = useState<{ title: string; desc: string } | null>(null);
 
-  const financialConsequences = ["fiat", "anti_charity"];
-  const isFinancial = financialConsequences.includes(consequenceType);
+  const isFinancial = consequenceType === "fiat";
 
   const stakeNum = parseFloat(stakeAmount) || 0;
   const walletInLocal = convertToLocal(walletBalance, region);
@@ -82,10 +81,10 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
   const totalStakeLocal = isFinancial ? stakeNum * multiplier : 0;
   const totalStakeUsd = isFinancial ? stakeUsd * multiplier : 0;
   const protocolFeeLocal = isFinancial ? Math.round(totalStakeLocal * 0.10 * 100) / 100 : 0;
-  const totalChargedLocal = totalStakeLocal + protocolFeeLocal;
+  const totalChargedLocal = Math.round((totalStakeLocal + protocolFeeLocal) * 100) / 100;
   const protocolFeeUsd = isFinancial ? Math.round(totalStakeUsd * 0.10 * 100) / 100 : 0;
-  const totalChargedUsd = totalStakeUsd + protocolFeeUsd;
-  const isOverBudget = isFinancial && totalChargedLocal > walletInLocal;
+  const totalChargedUsd = Math.round((totalStakeUsd + protocolFeeUsd) * 100) / 100;
+  const isOverBudget = isFinancial && totalChargedLocal > (walletInLocal + 0.001);
 
   // Handle mobile-exclusive features
   const handleMobileExclusive = (feature: string) => {
@@ -102,7 +101,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
       return;
     }
     
-    const query = nomineeEmail.replace("@", "").trim();
+    const query = nomineeEmail.replace(/^@+/, "").trim();
     const isEmailFormat = nomineeEmail.includes("@") && nomineeEmail.indexOf("@") > 0 && nomineeEmail.includes(".");
 
     const timer = setTimeout(async () => {
@@ -128,7 +127,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
       selectedFromDropdownRef.current = false;
       return;
     }
-    const query = opponentUsername.replace("@", "").trim();
+    const query = opponentUsername.replace(/^@+/, "").trim();
     const timer = setTimeout(async () => {
       if (query.length < 1) {
         setOpponentSuggestions([]);
@@ -161,7 +160,9 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
   };
 
   useEffect(() => {
-    if (oathType === "solo" && (consequenceType === "shared_oath" || consequenceType === "deadweight_tag")) {
+    if ((oathType === "squad" || oathType === "lobby" || oathType === "duo") && (consequenceType === "social_ransom" || consequenceType === "app_blocking")) {
+      setConsequenceType("fiat");
+    } else if (oathType === "solo" && (consequenceType === "shared_oath" || consequenceType === "deadweight_tag")) {
       setConsequenceType("fiat");
     } else if (oathType === "duo" && consequenceType === "deadweight_tag") {
       setConsequenceType("fiat");
@@ -172,7 +173,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
 
   const handleAddFromInput = async () => {
     if (!opponentUsername.trim()) return;
-    const clean = opponentUsername.replace("@", "").trim();
+    const clean = opponentUsername.replace(/^@+/, "").trim();
     if (clean.toLowerCase() === user?.user_metadata?.username?.toLowerCase()) {
       showToast("You cannot invite yourself", "error");
       return;
@@ -212,11 +213,14 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
       return;
     }
 
-    const deadlineDate = new Date(deadline);
+    let deadlineDate: Date;
     if (!deadline.includes("T")) {
-      deadlineDate.setHours(23, 59, 59, 999);
+      const [year, month, day] = deadline.split("-").map(Number);
+      deadlineDate = new Date(year, month - 1, day, 23, 59, 59, 999);
+    } else {
+      deadlineDate = new Date(deadline);
     }
-    if (deadlineDate.getTime() <= new Date().getTime()) {
+    if (deadlineDate.getTime() <= Date.now()) {
       showToast("Deadline must be in the future.", "error");
       return;
     }
@@ -240,23 +244,29 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
 
     setSubmitting(true);
     let finalOpponentId = opponentId;
-    if (oathType === "duo" && !finalOpponentId && opponentUsername.trim()) {
-      const clean = opponentUsername.replace("@", "").trim();
-      const results = await searchUsersByUsername(clean);
-      const match = results.find(u => u.username.toLowerCase() === clean.toLowerCase());
-      if (match?.id) {
-        finalOpponentId = match.id;
+    if (oathType === "duo") {
+      if (!finalOpponentId && opponentUsername.trim()) {
+        const clean = opponentUsername.replace(/^@+/, "").trim();
+        const results = await searchUsersByUsername(clean);
+        const match = results.find(u => u.username.toLowerCase() === clean.toLowerCase());
+        if (match?.id) {
+          finalOpponentId = match.id;
+        }
+      }
+      if (!finalOpponentId) {
+        showToast("Please select a registered opponent for your Duo challenge.", "error");
+        setSubmitting(false);
+        return;
+      }
+      if (finalOpponentId === user?.id) {
+        showToast("You cannot challenge yourself.", "error");
+        setSubmitting(false);
+        return;
       }
     }
 
-    if (oathType === "duo" && finalOpponentId && finalOpponentId === user?.id) {
-      showToast("You cannot challenge yourself.", "error");
-      setSubmitting(false);
-      return;
-    }
-
     if (verificationMethod === "nominee") {
-      const cleanNominee = nomineeEmail.replace("@", "").trim().toLowerCase();
+      const cleanNominee = nomineeEmail.replace(/^@+/, "").trim().toLowerCase();
       if (
         cleanNominee === user?.user_metadata?.username?.toLowerCase() ||
         (user?.email && nomineeEmail.trim().toLowerCase() === user.email.toLowerCase())
@@ -269,7 +279,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
 
     let finalSquadMembers = [...squadMembers];
     if (oathType === "squad" && opponentUsername.trim()) {
-      const clean = opponentUsername.replace("@", "").trim();
+      const clean = opponentUsername.replace(/^@+/, "").trim();
       if (!finalSquadMembers.some(m => m.username.toLowerCase() === clean.toLowerCase())) {
         const results = await searchUsersByUsername(clean);
         const match = results.find(u => u.username.toLowerCase() === clean.toLowerCase());
@@ -596,7 +606,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                       showToast("Please enter an opponent @username for this duel.", "error");
                       return;
                     }
-                    const clean = opponentUsername.replace("@", "").trim().toLowerCase();
+                    const clean = opponentUsername.replace(/^@+/, "").trim().toLowerCase();
                     if (clean === user?.user_metadata?.username?.toLowerCase() || opponentId === user?.id) {
                       showToast("You cannot challenge yourself.", "error");
                       return;
@@ -789,8 +799,13 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                     showToast("Set a deadline. An oath without a deadline is a wish.", "error");
                     return;
                   }
-                  const deadlineDate = new Date(deadline);
-                  if (!deadline.includes("T")) deadlineDate.setHours(23, 59, 59, 999);
+                  let deadlineDate: Date;
+                  if (!deadline.includes("T")) {
+                    const [year, month, day] = deadline.split("-").map(Number);
+                    deadlineDate = new Date(year, month - 1, day, 23, 59, 59, 999);
+                  } else {
+                    deadlineDate = new Date(deadline);
+                  }
                   if (deadlineDate.getTime() <= Date.now()) {
                     showToast("Deadline must be in the future.", "error");
                     return;
@@ -829,10 +844,10 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                 <TypeButton
                   icon={<Phone className="w-4 h-4" />}
                   label="Social Ransom"
-                  sublabel="Auto-text friend"
+                  sublabel="Saved confession"
                   isActive={consequenceType === "social_ransom"}
                   onClick={() => setConsequenceType("social_ransom")}
-                  onInfo={() => setInfoModal({ title: "Social Ransom", desc: "You write an embarrassing confession and provide a friend/boss's phone number. If you fail, we automatically text it to them." })}
+                  onInfo={() => setInfoModal({ title: "Social Ransom", desc: "You write an embarrassing confession and provide a friend/boss's phone number. If you fail or forfeit, your confession and contact details are surfaced as a manual consequence held to your personal honor code (Oath does not send automated SMS)." })}
                 />
                 <TypeButton
                   icon={<Lock className="w-3.5 h-3.5" />}
@@ -846,10 +861,10 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                 <TypeButton
                   icon={<Flame className="w-4 h-4" />}
                   label="Anti-Charity"
-                  sublabel="Hate donation"
+                  sublabel="Opposing cause"
                   isActive={consequenceType === "anti_charity"}
                   onClick={() => setConsequenceType("anti_charity")}
-                  onInfo={() => setInfoModal({ title: "Anti-Charity Donation", desc: "You pick a cause you absolutely despise. Failing forfeits your stake directly to that entity to cause maximum ideological pain." })}
+                  onInfo={() => setInfoModal({ title: "Anti-Charity Consequence", desc: "You pick a cause you ideologically oppose. Failing flags this despised entity on your profile and public records as an ideological penalty." })}
                 />
                 <TypeButton
                   icon={<AlertCircle className="w-4 h-4" />}
@@ -1039,11 +1054,18 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
             {/* SUMMARY & SUBMIT */}
             <div className="border-t-2 border-zinc-200 dark:border-zinc-800 pt-5">
               {/* Preview sentence */}
-              {oathStatement && stakeNum > 0 && (
+              {oathStatement && (
                 <div className="mb-4 p-4 border-2 border-zinc-950 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950/80 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
-                  <p className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-widest mb-2">
-                    Your Oath
-                  </p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-widest">
+                      Your Oath
+                    </p>
+                    {isMockMode() && (
+                      <span className="text-[9px] font-mono font-black uppercase px-1.5 py-0.5 bg-amber-400 text-zinc-950 border border-zinc-950">
+                        Sandbox Demo
+                      </span>
+                    )}
+                  </div>
                   <p className="text-base font-semibold text-zinc-900 dark:text-zinc-200 leading-relaxed">
                     &ldquo;I swear to{" "}
                     <span className="text-zinc-950 dark:text-zinc-50 font-black">{oathStatement}</span>
@@ -1062,21 +1084,40 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                         </span>
                       </>
                     )}
-                    {" "}or I lose{" "}
-                    <span className={`font-black ${isOverBudget ? "text-red-500" : "text-zinc-950 dark:text-zinc-50"}`}>
-                      {formatRegionCurrency(totalStakeUsd)}
-                    </span>
-                    {multiplier > 1 && ` (${multiplier}x total for ${oathType})`}
-                    .&rdquo;
+                    {isFinancial ? (
+                      <>
+                        {" "}or I lose{" "}
+                        <span className={`font-black ${isOverBudget ? "text-red-500" : "text-zinc-950 dark:text-zinc-50"}`}>
+                          {formatRegionCurrency(totalStakeUsd)}
+                        </span>
+                        .
+                      </>
+                    ) : consequenceType === "social_ransom" ? (
+                      <>
+                        {" "}or my confession is revealed for saved contact (
+                        <span className="font-bold text-zinc-950 dark:text-zinc-50">{socialPhone || "saved contact"}</span>).
+                      </>
+                    ) : consequenceType === "anti_charity" ? (
+                      <>
+                        {" "}or my anti-charity consequence triggers for (
+                        <span className="font-bold text-red-600">{antiCharityCause || "the opposing cause"}</span>).
+                      </>
+                    ) : consequenceType === "public_shame" ? (
+                      <>
+                        {" "}or I am permanently posted to the public Wall of Shame.
+                      </>
+                    ) : (
+                      <>.&rdquo;</>
+                    )}
                   </p>
                 </div>
               )}
 
-              {(oathType === "duo" || oathType === "squad") && isFinancial && (
+              {(oathType === "duo" || oathType === "squad") && (
                 <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 text-[11px] font-mono text-zinc-700 dark:text-zinc-300 mb-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none flex items-start gap-2">
                   <Info className="w-4 h-4 text-zinc-900 dark:text-zinc-100 shrink-0 mt-0.5" />
                   <div>
-                    <strong>Individual Buy-In:</strong> You pay your own stake ({formatRegionCurrency(totalStakeUsd)} + 10% platform fee = <strong>{formatRegionCurrency(totalChargedUsd)}</strong>). {oathType === "duo" ? "Your opponent will lock their matching stake from their wallet when accepting the challenge." : "Each squad member will lock their own stake from their wallet when accepting the invite."}
+                    <strong>Individual Stakes & Shared Goal:</strong> {isFinancial ? `You pay your own individual stake (${formatRegionCurrency(totalStakeUsd)} + 10% platform fee = ${formatRegionCurrency(totalChargedUsd)}). ${oathType === "duo" ? "Both partners complete their own proofs. On success, each gets their own stake refunded—neither takes the other's money." : "Each squad member locks their own stake when accepting."}` : `Shared accountability pact for ${oathType}. Each participant submits separate proof.`}
                   </div>
                 </div>
               )}

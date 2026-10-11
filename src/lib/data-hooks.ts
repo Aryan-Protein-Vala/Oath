@@ -153,7 +153,11 @@ export function useOaths() {
       try {
         const nomineeFilters = [`nominee_user_id.eq.${user.id}`];
         if (user.email) nomineeFilters.push(`email.eq."${user.email}"`);
-        if (profile?.username) nomineeFilters.push(`email.eq."@${profile.username}"`);
+        if (profile?.username) {
+          const cleanUser = profile.username.replace(/^@+/, "");
+          nomineeFilters.push(`email.eq."@${cleanUser}"`);
+          nomineeFilters.push(`email.eq."${cleanUser}"`);
+        }
         const { data: nomineeRows } = await supabase.from("nominees").select("oath_id").or(nomineeFilters.join(","));
         nomineeOathIds = (nomineeRows ?? []).map((r) => r.oath_id).filter(Boolean);
       } catch (nomineeErr) {
@@ -194,6 +198,33 @@ export function useOaths() {
       } else if (!data) {
         setOaths([]);
       } else {
+        // Enforce private details enrichment (social ransom & anti charity details)
+        try {
+          const oathIds = data.map((o: any) => o.id);
+          if (oathIds.length > 0) {
+            const { data: privateDetails } = await supabase
+              .from("oath_private_details")
+              .select("oath_id, social_ransom_phone, social_ransom_message, anti_charity_cause, nominee_email")
+              .in("oath_id", oathIds);
+
+            if (privateDetails && privateDetails.length > 0) {
+              const detailsMap = new Map(privateDetails.map((pd: any) => [pd.oath_id, pd]));
+              data = data.map((o: any) => {
+                const pd = detailsMap.get(o.id) as any;
+                if (!pd) return o;
+                return {
+                  ...o,
+                  social_ransom_phone: pd.social_ransom_phone ?? o.social_ransom_phone,
+                  social_ransom_message: pd.social_ransom_message ?? o.social_ransom_message,
+                  anti_charity_cause: pd.anti_charity_cause ?? o.anti_charity_cause,
+                  nominee_email: pd.nominee_email ?? o.nominee_email,
+                };
+              });
+            }
+          }
+        } catch (pdErr) {
+          console.warn("Could not enrich oath_private_details:", pdErr);
+        }
         setOaths(data as Oath[]);
       }
     } catch (err) {
@@ -536,19 +567,21 @@ export async function createOath(data: {
   if (!Number.isFinite(deadlineMs) || deadlineMs <= Date.now()) {
     return { error: "Deadline must be a valid future date." };
   }
-  if ((data.consequence_type === "fiat" || data.consequence_type === "anti_charity") && validStake <= 0) {
+  if (data.consequence_type === "fiat" && validStake <= 0) {
     return { error: "This oath requires a positive stake." };
   }
+
+  const isFinancial = data.consequence_type === "fiat";
 
   if (isMockMode()) {
     if (mockProfile.penalty_box_until && new Date(mockProfile.penalty_box_until).getTime() > Date.now()) {
       return { error: `You are locked in The Penalty Box until ${new Date(mockProfile.penalty_box_until).toLocaleString()} for 3 consecutive oath failures. No oath creation allowed.` };
     }
     const currentWallet = getInitialMockWallet();
-    const totalStake = validStake;
-    const protocolFee = Math.round(totalStake * 0.10 * 100) / 100;
+    const totalStake = isFinancial ? validStake : 0;
+    const protocolFee = isFinancial ? Math.round(totalStake * 0.10 * 100) / 100 : 0;
     const totalDeduction = totalStake + protocolFee;
-    if (currentWallet.balance < totalDeduction) {
+    if (isFinancial && currentWallet.balance < totalDeduction) {
       return { error: `Insufficient funds. Deposit more or lower the stake (${totalDeduction} required: ${totalStake} stake + 10% platform fee).` };
     }
 
@@ -572,9 +605,10 @@ export async function createOath(data: {
       oath_type: data.oath_type,
       verification_method: data.verification_method,
       consequence_type: data.consequence_type,
-      stake_amount: validStake,
+      stake_amount: isFinancial ? validStake : 0,
       social_ransom_phone: data.social_ransom_phone,
       social_ransom_message: data.social_ransom_message,
+      anti_charity_cause: data.anti_charity_cause,
       nominee_email: data.nominee_email,
       status: initialStatus,
       min_players: data.min_players ?? (data.oath_type === "squad" ? 4 : data.oath_type === "lobby" ? 2 : data.oath_type === "duo" ? 2 : 1),
@@ -594,7 +628,7 @@ export async function createOath(data: {
           oath_id: demoOathId,
           user_id: ADMIN_MOCK_USER.id,
           user: { ...mockProfile, username: "DemoUser" },
-          stake_amount: validStake,
+          stake_amount: isFinancial ? validStake : 0,
           status: "joined",
           proof_submitted: false,
           votes_received: 0,
@@ -605,7 +639,7 @@ export async function createOath(data: {
           id: `gm-opp-${Date.now()}`,
           oath_id: demoOathId,
           user_id: data.opponent_id,
-          stake_amount: validStake,
+          stake_amount: isFinancial ? validStake : 0,
           status: "invited" as const,
           proof_submitted: false,
           votes_received: 0,
@@ -616,7 +650,7 @@ export async function createOath(data: {
           id: `gm-squad-${idx}-${Date.now()}`,
           oath_id: demoOathId,
           user_id: oppId,
-          stake_amount: validStake,
+          stake_amount: isFinancial ? validStake : 0,
           status: "invited" as const,
           proof_submitted: false,
           votes_received: 0,
@@ -626,34 +660,36 @@ export async function createOath(data: {
       ] : undefined,
     };
 
-    // Update wallet
-    const updatedWallet: Wallet = {
-      ...currentWallet,
-      balance: currentWallet.balance - totalDeduction,
-      escrow_locked: currentWallet.escrow_locked + totalStake,
-    };
-    setMockWallet(updatedWallet);
+    // Update wallet if financial
+    if (isFinancial && totalDeduction > 0) {
+      const updatedWallet: Wallet = {
+        ...currentWallet,
+        balance: currentWallet.balance - totalDeduction,
+        escrow_locked: currentWallet.escrow_locked + totalStake,
+      };
+      setMockWallet(updatedWallet);
 
-    // Add transaction
-    const newTx: Transaction = {
-      id: `tx-${Date.now()}`,
-      wallet_id: currentWallet.id,
-      oath_id: newOath.id,
-      type: "escrow_lock",
-      amount: totalStake,
-      description: `Locked for: ${data.oath_statement}`,
-      created_at: new Date().toISOString(),
-    };
-    const feeTx: Transaction = {
-      id: `tx-fee-${Date.now()}`,
-      wallet_id: currentWallet.id,
-      oath_id: newOath.id,
-      type: "house_cut",
-      amount: protocolFee,
-      description: `Platform fee (10%) for: ${data.oath_statement}`,
-      created_at: new Date().toISOString(),
-    };
-    setMockTransactions([newTx, feeTx, ...getMockTransactions()]);
+      // Add transaction
+      const newTx: Transaction = {
+        id: `tx-${Date.now()}`,
+        wallet_id: currentWallet.id,
+        oath_id: newOath.id,
+        type: "escrow_lock",
+        amount: totalStake,
+        description: `Locked for: ${data.oath_statement}`,
+        created_at: new Date().toISOString(),
+      };
+      const feeTx: Transaction = {
+        id: `tx-fee-${Date.now()}`,
+        wallet_id: currentWallet.id,
+        oath_id: newOath.id,
+        type: "house_cut",
+        amount: protocolFee,
+        description: `Platform fee (10%) for: ${data.oath_statement}`,
+        created_at: new Date().toISOString(),
+      };
+      setMockTransactions([newTx, feeTx, ...getMockTransactions()]);
+    }
 
     // Save oath
     if (data.oath_type === "squad" || data.oath_type === "lobby") {
@@ -674,7 +710,7 @@ export async function createOath(data: {
     p_oath_type: data.oath_type,
     p_verification_method: data.verification_method,
     p_consequence_type: data.consequence_type,
-    p_stake_amount: validStake,
+    p_stake_amount: isFinancial ? validStake : 0,
     p_social_phone: data.social_ransom_phone ?? null,
     p_social_msg: data.social_ransom_message ?? null,
     p_nominee_email: data.nominee_email ?? null,

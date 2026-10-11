@@ -64,6 +64,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
   } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [reviewNote, setReviewNote] = useState("");
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
@@ -73,13 +74,29 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
     oath.creator_id !== user?.id;
 
   const handleAcceptDuo = async () => {
+    const isFiat = (oath.stake_amount || 0) > 0;
+    const stake = oath.stake_amount || 0;
+    const fee = isFiat ? Math.round(stake * 0.1 * 100) / 100 : 0;
+    const total = isFiat ? Math.round((stake + fee) * 100) / 100 : 0;
+
+    const confirmed = await confirmAction({
+      title: "Accept Duo Challenge?",
+      message: isFiat
+        ? `Accepting this challenge will lock ${utilsFormatCurrency(stake, region)} stake + ${utilsFormatCurrency(fee, region)} upfront platform fee (${utilsFormatCurrency(total, region)} total) into escrow. If you complete your daily proofs, your individual stake will be refunded. Do you consent to lock these funds?`
+        : `Accept this shared Duo accountability challenge for "${oath.oath_statement}"? Daily proofs will be required.`,
+      confirmLabel: isFiat ? `Confirm & Lock ${utilsFormatCurrency(total, region)}` : "Accept Challenge",
+      cancelLabel: "Cancel",
+      variant: "default",
+    });
+    if (!confirmed) return;
+
     setActionLoading(true);
     try {
       const res = await acceptDuoChallenge(oath.id);
       if (res?.error) {
         showToast(res.error, "error");
       } else {
-        showToast("Duo challenge accepted! The timer has begun.", "success");
+        showToast("Duo challenge accepted! Funds locked into escrow.", "success");
         onProofUpdated?.();
       }
     } finally {
@@ -757,6 +774,47 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                     : `PROOF IN REVIEW — Day proof submitted by @${pendingSubmitterName}. Awaiting reviewer verdict. You can use the chat below to provide additional context.`}
                 </p>
 
+                {/* Evidence Inspection Preview in Banner */}
+                {(() => {
+                  const p = pendingProof || (pendingProofMessage?.proof_id ? proofs.find((pr) => pr.id === pendingProofMessage.proof_id) : undefined);
+                  if (!p) return null;
+                  const isImg = p.proof_type === "photo" || p.proof_type === "screenshot" || Boolean(p.proof_url && /\.(jpg|jpeg|png|webp|gif)/i.test(p.proof_url));
+                  const isVid = p.proof_type === "video" || Boolean(p.proof_url && /\.(mp4|webm|mov)/i.test(p.proof_url));
+                  return (
+                    <div className="mt-2 p-2 bg-zinc-900 border border-zinc-800 text-xs font-mono space-y-1.5 max-w-xl">
+                      <span className="text-[9px] uppercase font-bold text-zinc-400 block">Submitted Evidence:</span>
+                      {isImg && p.proof_url && (
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={p.proof_url}
+                            alt="Proof preview"
+                            className="h-14 w-20 object-cover border border-zinc-700 cursor-pointer hover:opacity-80"
+                            onClick={() => setLightboxUrl(p.proof_url || null)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setLightboxUrl(p.proof_url || null)}
+                            className="text-[10px] text-zinc-300 underline font-bold"
+                          >
+                            Inspect full size
+                          </button>
+                        </div>
+                      )}
+                      {isVid && p.proof_url && (
+                        <video src={p.proof_url} controls className="max-h-28 w-full border border-zinc-700" />
+                      )}
+                      {p.proof_url && !isImg && !isVid && (
+                        <a href={p.proof_url} target="_blank" rel="noreferrer" className="text-blue-400 underline font-bold break-all block text-[11px]">
+                          {p.proof_url}
+                        </a>
+                      )}
+                      {p.proof_text && (
+                        <p className="italic text-zinc-300 text-[11px]">&ldquo;{p.proof_text}&rdquo;</p>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Reviewer Action Buttons right on the banner */}
                 {canReviewPendingProof && (
                   <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-zinc-800">
@@ -915,6 +973,47 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                 </button>
               </div>
 
+              {/* Evidence preview for reviewer */}
+              {(() => {
+                const p = reviewAction.proof || (reviewAction.message?.proof_id ? proofs.find((pr) => pr.id === reviewAction.message?.proof_id) : undefined);
+                if (!p) return null;
+                const isImg = p.proof_type === "photo" || p.proof_type === "screenshot" || Boolean(p.proof_url && /\.(jpg|jpeg|png|webp|gif)/i.test(p.proof_url));
+                const isVid = p.proof_type === "video" || Boolean(p.proof_url && /\.(mp4|webm|mov)/i.test(p.proof_url));
+                return (
+                  <div className="mb-3 p-2.5 bg-zinc-100 dark:bg-zinc-900 border-2 border-zinc-950 dark:border-zinc-800 text-xs font-mono space-y-1.5">
+                    <span className="text-[10px] font-bold uppercase text-zinc-500 block">Evidence under review:</span>
+                    {isImg && p.proof_url && (
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={p.proof_url}
+                          alt="Proof preview"
+                          className="h-16 w-24 object-cover border border-zinc-700 cursor-pointer hover:opacity-80"
+                          onClick={() => setLightboxUrl(p.proof_url || null)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setLightboxUrl(p.proof_url || null)}
+                          className="text-[10px] text-zinc-600 dark:text-zinc-300 underline font-bold"
+                        >
+                          Inspect full size
+                        </button>
+                      </div>
+                    )}
+                    {isVid && p.proof_url && (
+                      <video src={p.proof_url} controls className="max-h-32 w-full border border-zinc-700" />
+                    )}
+                    {p.proof_url && !isImg && !isVid && (
+                      <a href={p.proof_url} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 underline font-bold break-all block text-[11px]">
+                        {p.proof_url}
+                      </a>
+                    )}
+                    {p.proof_text && (
+                      <p className="italic text-zinc-800 dark:text-zinc-200 text-[11px]">&ldquo;{p.proof_text}&rdquo;</p>
+                    )}
+                  </div>
+                );
+              })()}
+
               <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 mb-3">
                 {reviewAction.type === "need_more_proof"
                   ? `Tell @${reviewAction.message?.sender?.username || reviewAction.proof?.submitter?.username || "member"} specifically what additional evidence is required:`
@@ -955,6 +1054,30 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Fullscreen Lightbox Modal */}
+        {lightboxUrl && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <button
+              onClick={() => setLightboxUrl(null)}
+              className="absolute top-4 right-4 p-2 text-white hover:text-zinc-300"
+              aria-label="Close image"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={lightboxUrl}
+              alt="Proof preview"
+              className="max-h-[90vh] max-w-[90vw] object-contain border-2 border-white/20 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         )}
       </div>

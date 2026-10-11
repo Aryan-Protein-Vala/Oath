@@ -64,6 +64,7 @@ export interface Oath {
   stake_amount: number;
   social_ransom_phone?: string;
   social_ransom_message?: string;
+  anti_charity_cause?: string;
   nominee_email?: string;
   status: OathStatus;
   min_players: number;
