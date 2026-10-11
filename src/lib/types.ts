@@ -73,6 +73,7 @@ export interface Oath {
   opponent?: Profile;
   completed_at?: string;
   failed_at?: string;
+  settled_at?: string;
   failure_excuse?: string;
   cadence?: string;
   total_days?: number;

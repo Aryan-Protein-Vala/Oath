@@ -544,7 +544,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
   return (
     <>
       <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 transition-opacity" onClick={onClose} />
-      <div className="fixed inset-0 sm:inset-4 md:inset-x-[10%] md:inset-y-[5%] bg-white dark:bg-[#0a0a0f] border-0 sm:border-4 border-zinc-950 dark:border-zinc-800 z-50 shadow-none sm:shadow-[16px_16px_0px_0px_rgba(9,9,11,1)] dark:shadow-none flex flex-col fade-in h-[100dvh] sm:h-auto max-h-[100dvh]">
+      <div className="fixed inset-0 sm:inset-4 md:inset-x-[10%] md:inset-y-[5%] bg-white dark:bg-[#0a0a0f] border-0 sm:border-4 border-zinc-950 dark:border-zinc-800 z-50 shadow-none sm:shadow-[16px_16px_0px_0px_rgba(9,9,11,1)] dark:shadow-none flex flex-col fade-in h-[100dvh] sm:h-auto max-h-[100dvh] w-full max-w-full overflow-hidden">
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b-2 sm:border-b-4 border-zinc-950 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900/40 shrink-0 gap-3 sm:gap-4 relative">
@@ -890,14 +890,14 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
         )}
 
         {/* Input Area */}
-        <div className="p-3 sm:p-4 bg-white dark:bg-[#0a0a0f] border-t-2 sm:border-t-4 border-zinc-950 dark:border-zinc-800 shrink-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-          <form onSubmit={handleSend} className="flex gap-2">
+        <div className="p-2.5 sm:p-4 bg-white dark:bg-[#0a0a0f] border-t-2 sm:border-t-4 border-zinc-950 dark:border-zinc-800 shrink-0 pb-[calc(0.6rem+env(safe-area-inset-bottom))] w-full max-w-full overflow-hidden">
+          <form onSubmit={handleSend} className="flex items-center gap-1.5 sm:gap-2 w-full min-w-0">
             {!(oath.oath_type === "solo" && oath.creator_id !== user?.id) && (
               <button
                 type="button"
                 onClick={() => setShowProofUploadModal(true)}
                 disabled={oath.status === "pending" || hasPendingMine || userDailyState.isCompletedToday}
-                className="px-3 sm:px-4 py-3 border-2 border-zinc-950 dark:border-transparent bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 font-mono font-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                className="p-2.5 sm:px-4 sm:py-3 border-2 border-zinc-950 dark:border-transparent bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 font-mono font-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 flex items-center justify-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none min-w-[42px] min-h-[42px]"
                 title={
                   oath.status === "pending"
                     ? "Challenge is pending acceptance from all participants. Proof uploads will open once active."
@@ -907,6 +907,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                     ? `Today's proof complete (Streak: ${userDailyState.currentStreak}). Day ${userDailyState.currentDay} opens at midnight.`
                     : "Upload Daily Proof"
                 }
+                aria-label="Upload daily proof"
               >
                 <Camera className="w-5 h-5 shrink-0" />
                 <span className="hidden sm:inline text-xs font-black uppercase tracking-wider">
@@ -923,15 +924,16 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onFocus={() => setTimeout(scrollToBottom, 150)}
-              placeholder="Send message or provide context..."
-              className="flex-1 px-3 sm:px-4 py-3 border-2 border-zinc-950 dark:border-zinc-800 bg-transparent text-zinc-950 dark:text-zinc-100 font-mono text-base sm:text-sm focus:outline-none focus:bg-zinc-50 dark:focus:bg-zinc-900/50"
+              placeholder="Send message..."
+              className="flex-1 min-w-0 px-3 sm:px-4 py-2.5 sm:py-3 border-2 border-zinc-950 dark:border-zinc-800 bg-transparent text-zinc-950 dark:text-zinc-100 font-mono text-base sm:text-sm focus:outline-none focus:bg-zinc-50 dark:focus:bg-zinc-900/50 shadow-[inset_2px_2px_0px_0px_rgba(0,0,0,0.05)] dark:shadow-none"
             />
             <button
               type="submit"
               disabled={!inputText.trim()}
-              className="px-4 sm:px-6 py-3 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-2 border-zinc-950 dark:border-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-black uppercase tracking-wider text-sm flex items-center gap-2 shrink-0"
+              aria-label="Send message"
+              className="p-2.5 sm:px-6 sm:py-3 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-2 border-zinc-950 dark:border-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-black uppercase tracking-wider text-sm flex items-center justify-center gap-2 shrink-0 min-w-[42px] min-h-[42px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Send</span>
             </button>
           </form>

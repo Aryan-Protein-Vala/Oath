@@ -11,7 +11,7 @@ export default function AuthPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-[#09090b]">
+        <div className="min-h-[100dvh] w-full flex items-center justify-center bg-zinc-50 dark:bg-[#09090b]">
           <Loader2 className="w-8 h-8 animate-spin text-zinc-950 dark:text-zinc-50" />
         </div>
       }
@@ -104,11 +104,11 @@ function AuthForm() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 px-4 sm:px-6 py-8 sm:py-12 transition-colors duration-300">
+    <div className="min-h-[100dvh] w-full overflow-y-auto overflow-x-hidden flex flex-col items-center bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 px-4 sm:px-6 py-6 sm:py-12 transition-colors duration-300 overscroll-y-contain">
       <div className="noise-overlay" aria-hidden="true" />
       <div className="scanline-overlay" aria-hidden="true" />
 
-      <div className="w-full max-w-sm fade-in bg-white dark:bg-[#09090b] p-6 sm:p-8 border-4 border-zinc-950 dark:border-zinc-800 shadow-[8px_8px_0px_0px_rgba(9,9,11,1)] dark:shadow-none">
+      <div className="w-full max-w-sm my-auto fade-in bg-white dark:bg-[#09090b] p-6 sm:p-8 border-4 border-zinc-950 dark:border-zinc-800 shadow-[8px_8px_0px_0px_rgba(9,9,11,1)] dark:shadow-none shrink-0">
         {/* Navigation Back */}
         <div className="mb-6 flex items-center justify-between">
           <Link
