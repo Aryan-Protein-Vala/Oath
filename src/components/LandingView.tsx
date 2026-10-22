@@ -421,40 +421,40 @@ export default function LandingView() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-6 lg:gap-8">
             {[
               {
-                quote: `I lost ${formatCurrency(500)} because I hit snooze instead of going for a run. I hate this app. 10/10 will use again tomorrow.`,
-                author: "Alex_Dev",
+                quote: `I set a rule that if I didn't wake up at 5:30 AM, my nominee would send my 2 AM search history to my parents. I woke up at 5:32 AM. Mom hasn't looked me in the eyes since.`,
+                author: "lazy_potato69",
                 result: "FAILED",
-                amt: `-${formatCurrency(500)}`
+                tag: "TEXTED PARENTS"
               },
               {
-                quote: `I actually shipped my MVP because I was terrified of losing my rent money to my co-founder. Brutal but it works.`,
-                author: "Sarah_Ships",
+                quote: `Staked ${formatCurrency(50)} that I'd ship my project before Sunday midnight. Survived on pure anxiety and iced coffee. Kept my money and my pride.`,
+                author: "caffeine_gremlin",
                 result: "SUCCESS",
-                amt: `+${formatCurrency(1000)}`
+                tag: "STAKE SAVED"
               },
               {
-                quote: `My friends rejected my proof because my squat wasn't parallel. I lost ${formatCurrency(50)}. Now I have no friends and no money.`,
-                author: "GymBro99",
+                quote: `Oath forced me to finish 3 assignment modules or text my crush an audio note confessing I still stalk her Spotify. Missed deadline by 4 mins. Blocked everywhere.`,
+                author: "downbad_rohit",
                 result: "FAILED",
-                amt: `-${formatCurrency(50)}`
+                tag: "DM'D CRUSH"
               },
               {
-                quote: "If you don't have the discipline, this app forces it onto you with a sledgehammer. Highly recommended.",
-                author: "CEO_Mindset",
+                quote: `My squad staked ${formatCurrency(25)} each on a 14-day zero-sugar streak. Watched 3 friends fold and forfeit their stakes while I held the line like a Spartan.`,
+                author: "snooze_slayer_",
                 result: "SUCCESS",
-                amt: `+${formatCurrency(250)}`
+                tag: "STAKE KEPT"
               },
               {
-                quote: "I put my phone number in the social ransom field. I failed. It texted my mom that I'm a failure. I am never procrastinating again.",
-                author: "Anon_1337",
+                quote: `Skipped leg day because 'I was too sore'. My nominee instantly sent my low test score report to my dad's WhatsApp and slashed my ${formatCurrency(25)}. Never skipping again.`,
+                author: "gym_rat_imposter",
                 result: "FAILED",
-                amt: "-REP"
+                tag: "TEXTED DAD"
               },
               {
-                quote: "This is the most aggressive, stressful, and toxic productivity tool I've ever used. I've never been more productive.",
-                author: "DesignGod",
+                quote: "I used to procrastinate for 4 weeks on chores that take 20 minutes. Staked my own money on folding laundry and deep cleaning. Finished in 18 minutes flat.",
+                author: "overthinker_exe",
                 result: "SUCCESS",
-                amt: `+${formatCurrency(100)}`
+                tag: "DIGNITY INTACT"
               }
             ].map((t, i) => (
               <motion.div
@@ -467,10 +467,10 @@ export default function LandingView() {
               >
                 <div className="text-xl sm:text-2xl lg:text-3xl text-zinc-300 dark:text-zinc-700 mb-1 sm:mb-2 leading-none font-serif">&ldquo;</div>
                 <p className="text-[11px] sm:text-sm lg:text-base font-medium sm:font-bold text-zinc-900 dark:text-zinc-200 mb-4 sm:mb-5 leading-relaxed">{t.quote}</p>
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t-2 border-zinc-200 dark:border-zinc-800 pt-3 sm:pt-4 mt-auto">
-                  <span className="text-[10px] sm:text-xs font-mono font-black text-zinc-600 dark:text-zinc-500 uppercase truncate max-w-[40%]">@{t.author}</span>
-                  <span className={`px-2 py-0.5 sm:px-3 sm:py-1 text-[9px] sm:text-[10px] lg:text-xs font-mono font-black tracking-widest uppercase border-2 whitespace-nowrap ${t.result === 'SUCCESS' ? 'border-zinc-950 bg-zinc-950 text-white dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300' : 'border-red-600 bg-red-600 text-white'}`}>
-                    {t.result} {t.amt}
+                <div className="flex items-center justify-between gap-2 border-t-2 border-zinc-200 dark:border-zinc-800 pt-3 sm:pt-4 mt-auto">
+                  <span className="text-[10px] sm:text-xs font-mono font-black text-zinc-600 dark:text-zinc-500 uppercase truncate min-w-0">@{t.author}</span>
+                  <span className={`px-1.5 py-0.5 sm:px-2.5 sm:py-1 text-[9px] sm:text-[10px] font-mono font-black tracking-wider uppercase border-2 whitespace-nowrap shrink-0 ${t.result === 'SUCCESS' ? 'border-zinc-950 bg-zinc-950 text-white dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300' : 'border-red-600 bg-red-600 text-white'}`}>
+                    {t.result} • {t.tag}
                   </span>
                 </div>
               </motion.div>
