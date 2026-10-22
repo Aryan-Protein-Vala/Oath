@@ -514,9 +514,11 @@ export default function LandingView() {
       {/* Footer */}
       <footer className="py-8 sm:py-16 px-4 sm:px-6 border-t-2 sm:border-t-4 border-zinc-950 dark:border-zinc-800 bg-zinc-100 dark:bg-[#09090b]">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 sm:gap-8">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
             <span className="text-2xl sm:text-3xl font-black tracking-tighter text-zinc-950 dark:text-zinc-50">OATH</span>
-            <div className="h-5 sm:h-6 w-1 bg-red-600" />
+            <span className="hidden sm:inline-flex items-center justify-center px-2 py-1 text-[10px] font-mono text-zinc-950 dark:text-zinc-400 font-bold tracking-widest uppercase border-2 border-zinc-950 dark:border-zinc-800 rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none bg-red-500/10 dark:bg-transparent">
+              No Excuses
+            </span>
           </div>
           <p className="text-[11px] sm:text-xs font-mono font-bold text-zinc-600 dark:text-zinc-500 uppercase tracking-widest text-center md:text-left max-w-md">
             © {new Date().getFullYear()} OATH PLATFORM. WE ARE NOT A BANK. WE JUST RUIN YOUR DAY WHEN YOU FAIL.
@@ -526,7 +528,14 @@ export default function LandingView() {
             <Link href="/privacy" className="text-[10px] sm:text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Privacy</Link>
             <Link href="/refund" className="text-[10px] sm:text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Refund Policy</Link>
             <Link href="/disclaimer" className="text-[10px] sm:text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Disclaimer</Link>
-            <Link href="#" className="text-[10px] sm:text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">X / Twitter</Link>
+            <a
+              href="https://www.instagram.com/oath_global/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] sm:text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors"
+            >
+              Instagram
+            </a>
           </div>
         </div>
       </footer>
