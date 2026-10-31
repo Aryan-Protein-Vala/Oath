@@ -21,8 +21,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-const CONTACT_EMAIL =
-  process.env.NEXT_PUBLIC_CONTACT_EMAIL || "aryansharma24112003@gmail.com";
+const CONTACT_EMAIL = "aryansharma24112003@gmail.com";
 
 const CATEGORIES = [
   {
