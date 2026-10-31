@@ -74,12 +74,16 @@ export default function ContactPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nextUrl, setNextUrl] = useState("/contact/success");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     setMounted(true);
+    if (typeof window !== "undefined") {
+      setNextUrl(`${window.location.origin}/contact/success`);
+    }
   }, []);
 
   // Auto-fill username and email from auth state
@@ -112,74 +116,33 @@ export default function ContactPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     setError(null);
 
     if (!username.trim()) {
+      e.preventDefault();
       setError("Please drop your username or name.");
       return;
     }
     if (!email.trim() || !email.includes("@")) {
+      e.preventDefault();
       setError("Please provide a valid email so we can reach you.");
       return;
     }
     if (!message.trim() || message.trim().length < 5) {
+      e.preventDefault();
       setError("Please write a message before sending.");
       return;
     }
 
+    // Do NOT preventDefault! FormSubmit only captures and attaches binary files
+    // on a native multipart form POST. FormSubmit forwards the attachment to
+    // aryansharma24112003@gmail.com and redirects to _next (/contact/success).
     setLoading(true);
-
-    const selectedTopic = TOPICS.find((t) => t.value === topic);
-    const subjectLine = `[OATH BETA] ${selectedTopic?.label || "Message"} from ${username}`;
-
-    const formData = new FormData();
-    formData.append("username", username.trim());
-    formData.append("email", email.trim());
-    formData.append("topic", selectedTopic?.label || topic);
-    formData.append("message", message.trim());
-    formData.append("_subject", subjectLine);
-    formData.append("_captcha", "false");
-    formData.append("_template", "table");
-
-    if (file) {
-      formData.append("attachment", file);
-    }
-
-    try {
-      // Send directly to FormSubmit endpoint via AJAX
-      const res = await fetch(`https://formsubmit.co/ajax/${CONTACT_EMAIL}`, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-        },
-        body: formData,
-      });
-
-      if (res.ok) {
-        router.push("/contact/success");
-        return;
-      }
-
-      // If AJAX returned non-ok, fallback to standard HTML submit
-      if (formRef.current) {
-        formRef.current.submit();
-        return;
-      }
-      throw new Error("FormSubmit did not accept transmission");
-    } catch {
-      // Fallback: submit standard multipart form
-      if (formRef.current) {
-        formRef.current.submit();
-      } else {
-        setLoading(false);
-        setError("Failed to send transmission. Check your connection or retry.");
-      }
-    }
   };
 
-  const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
+  const selectedTopic = TOPICS.find((t) => t.value === topic);
+  const subjectLine = `[OATH BETA] ${selectedTopic?.label || "Message"} from ${username || "Anonymous"}`;
 
   return (
     <div className="min-h-[100dvh] w-full bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 flex flex-col font-sans transition-colors duration-200">
@@ -246,16 +209,16 @@ export default function ContactPage() {
             <input
               type="hidden"
               name="_next"
-              value={`${currentOrigin}/contact/success`}
+              value={nextUrl}
             />
             <input
               type="hidden"
               name="_subject"
-              value={`[OATH BETA] Message from ${username || "Anonymous"}`}
+              value={subjectLine}
             />
             <input type="hidden" name="_captcha" value="false" />
             <input type="hidden" name="_template" value="table" />
-            <input type="hidden" name="topic" value={topic} />
+            <input type="hidden" name="topic" value={selectedTopic?.label || topic} />
 
             {/* Username & Email Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -355,9 +318,9 @@ export default function ContactPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                name="attachment"
+                name={file ? "attachment" : undefined}
                 onChange={handleFileChange}
-                accept="image/*,.pdf,.txt,.log"
+                accept="image/*,application/pdf,text/plain"
                 className="hidden"
                 id="file-upload-input"
               />
