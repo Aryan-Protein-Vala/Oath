@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 
 import { useSyncExternalStore } from "react";
-import { Wallet, Plus, Bell, Sun, Moon, Zap, PenLine, Users, Menu, X, Globe, MapPin, Bug } from "lucide-react";
+import { Wallet, Plus, Bell, Sun, Moon, Zap, PenLine, Users, Menu, X, Globe, MapPin, Mail } from "lucide-react";
 import { useTheme } from "next-themes";
 import { formatCurrencyPrecise } from "@/lib/utils";
 import { useRegion } from "@/lib/region-context";
@@ -108,13 +108,13 @@ export default function TopNav({
             )}
           </button>
 
-          {/* Beta Bug Report & Feedback Button */}
+          {/* Contact Us Button */}
           <Link
             href="/contact"
-            className="relative flex items-center justify-center p-2 border-2 border-zinc-950 dark:border-zinc-800 text-red-600 dark:text-red-400 bg-white dark:bg-zinc-950 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(220,38,38,1)] active:translate-y-0 active:shadow-none shrink-0"
-            title="Beta Feedback & Bug Report"
+            className="relative flex items-center justify-center p-2 border-2 border-zinc-950 dark:border-zinc-800 text-zinc-950 dark:text-zinc-100 bg-white dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-none active:translate-y-0 active:shadow-none shrink-0"
+            title="Contact Us"
           >
-            <Bug className="w-4 h-4" />
+            <Mail className="w-4 h-4 text-zinc-800 dark:text-zinc-300" />
           </Link>
 
           {/* Wallet Balance */}
@@ -209,17 +209,12 @@ export default function TopNav({
           <Link
             href="/contact"
             onClick={() => setIsMobileMenuOpen(false)}
-            className="flex items-center gap-3 p-3 border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none text-red-600 dark:text-red-400"
+            className="flex items-center gap-3 p-3 border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
           >
-            <Bug className="w-5 h-5 shrink-0" />
-            <div className="flex flex-col text-left">
-              <span className="text-xs font-black uppercase tracking-widest text-zinc-950 dark:text-zinc-50">
-                Beta Feedback & Bug Report
-              </span>
-              <span className="text-[10px] font-mono text-zinc-500 font-bold">
-                Spill your tears directly to the devs
-              </span>
-            </div>
+            <Mail className="w-5 h-5 text-zinc-700 dark:text-zinc-300 shrink-0" />
+            <span className="text-xs font-black uppercase tracking-widest text-zinc-950 dark:text-zinc-50">
+              Contact Us
+            </span>
           </Link>
 
           <div className="flex gap-3">
