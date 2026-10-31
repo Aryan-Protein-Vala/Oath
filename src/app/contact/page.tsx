@@ -13,16 +13,51 @@ import {
   Loader2,
   Sun,
   Moon,
+  Bug,
+  Flame,
+  Lightbulb,
+  ShieldAlert,
+  HelpCircle,
+  Terminal,
+  User,
+  Mail,
+  FileText,
+  AlertCircle,
 } from "lucide-react";
 
 const CONTACT_EMAIL = "aryansharma24112003@gmail.com";
 
 const TOPICS = [
-  { value: "bug", label: "🐛 Found a Bug / Something Broke" },
-  { value: "feedback", label: "🤬 Beta Feedback / Roast the App" },
-  { value: "feature", label: "💡 Feature Request / Sick Idea" },
-  { value: "exploit", label: "🕵️ Exploit / Security Loophole" },
-  { value: "other", label: "🤷 General / Other Question" },
+  {
+    value: "bug",
+    label: "Bug / Broken Flow",
+    icon: Bug,
+    iconColor: "text-red-600 dark:text-red-400",
+  },
+  {
+    value: "feedback",
+    label: "Beta Roast & Feedback",
+    icon: Flame,
+    iconColor: "text-amber-500",
+  },
+  {
+    value: "feature",
+    label: "Feature Request",
+    icon: Lightbulb,
+    iconColor: "text-yellow-500 dark:text-yellow-400",
+  },
+  {
+    value: "exploit",
+    label: "Security & Exploit",
+    icon: ShieldAlert,
+    iconColor: "text-purple-600 dark:text-purple-400",
+  },
+  {
+    value: "other",
+    label: "General Question",
+    icon: HelpCircle,
+    iconColor: "text-zinc-500",
+  },
 ];
 
 export default function ContactPage() {
@@ -97,7 +132,7 @@ export default function ContactPage() {
     setLoading(true);
 
     const selectedTopic = TOPICS.find((t) => t.value === topic);
-    const subjectLine = `[OATH BETA] ${selectedTopic?.label.split(" ")[1] || "Message"} from ${username}`;
+    const subjectLine = `[OATH BETA] ${selectedTopic?.label || "Message"} from ${username}`;
 
     const formData = new FormData();
     formData.append("username", username.trim());
@@ -176,10 +211,11 @@ export default function ContactPage() {
 
       {/* Main Container */}
       <main className="flex-1 w-full max-w-2xl mx-auto px-6 pb-20 pt-4 flex flex-col justify-center">
-        {/* Simple Headline and Joke */}
+        {/* Simple Headline and Joke with pretty SVG icon */}
         <div className="mb-10 text-left">
-          <div className="inline-block px-2.5 py-1 text-[10px] font-mono font-black uppercase tracking-widest text-red-600 dark:text-red-400 border border-red-500/30 bg-red-50 dark:bg-red-950/20 mb-4">
-            BETA HQ // DIRECT LINE
+          <div className="inline-flex items-center gap-2 px-2.5 py-1 text-[10px] font-mono font-black uppercase tracking-widest text-red-600 dark:text-red-400 border border-red-500/30 bg-red-50 dark:bg-red-950/20 mb-4">
+            <Terminal className="w-3.5 h-3.5" />
+            <span>BETA HQ // DIRECT LINE</span>
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight uppercase leading-tight text-zinc-950 dark:text-zinc-50 mb-3">
             TALK TO THE DEVS.
@@ -193,8 +229,9 @@ export default function ContactPage() {
         {/* Clean, Sexy Form with Ample Whitespace */}
         <div className="border-4 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-[#0c0c11] p-6 sm:p-10 shadow-[8px_8px_0px_0px_rgba(9,9,11,1)] dark:shadow-none">
           {error && (
-            <div className="mb-6 p-3.5 border-2 border-red-600 bg-red-500/10 text-red-600 dark:text-red-400 font-mono text-xs font-bold">
-              {error}
+            <div className="mb-6 p-3.5 border-2 border-red-600 bg-red-500/10 text-red-600 dark:text-red-400 font-mono text-xs font-bold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
@@ -218,15 +255,17 @@ export default function ContactPage() {
             />
             <input type="hidden" name="_captcha" value="false" />
             <input type="hidden" name="_template" value="table" />
+            <input type="hidden" name="topic" value={topic} />
 
             {/* Username & Email Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
                 <label
                   htmlFor="contact-username"
-                  className="block text-[11px] font-mono font-black uppercase text-zinc-800 dark:text-zinc-200 tracking-wider mb-2"
+                  className="flex items-center gap-1.5 text-[11px] font-mono font-black uppercase text-zinc-800 dark:text-zinc-200 tracking-wider mb-2"
                 >
-                  Your Handle / Name
+                  <User className="w-3.5 h-3.5 text-zinc-500" />
+                  <span>Your Handle / Name</span>
                 </label>
                 <input
                   id="contact-username"
@@ -243,9 +282,10 @@ export default function ContactPage() {
               <div>
                 <label
                   htmlFor="contact-email"
-                  className="block text-[11px] font-mono font-black uppercase text-zinc-800 dark:text-zinc-200 tracking-wider mb-2"
+                  className="flex items-center gap-1.5 text-[11px] font-mono font-black uppercase text-zinc-800 dark:text-zinc-200 tracking-wider mb-2"
                 >
-                  Your Email
+                  <Mail className="w-3.5 h-3.5 text-zinc-500" />
+                  <span>Your Email</span>
                 </label>
                 <input
                   id="contact-email"
@@ -260,31 +300,33 @@ export default function ContactPage() {
               </div>
             </div>
 
-            {/* Topic Dropdown */}
+            {/* Category Selector with Pretty SVG Icons */}
             <div>
-              <label
-                htmlFor="contact-topic"
-                className="block text-[11px] font-mono font-black uppercase text-zinc-800 dark:text-zinc-200 tracking-wider mb-2"
-              >
+              <span className="block text-[11px] font-mono font-black uppercase text-zinc-800 dark:text-zinc-200 tracking-wider mb-2.5">
                 What do you want to tell us?
-              </label>
-              <div className="relative">
-                <select
-                  id="contact-topic"
-                  name="topic"
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  className="w-full px-4 py-3 font-mono font-bold text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 focus:border-red-600 dark:focus:border-red-500 focus:outline-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none appearance-none cursor-pointer"
-                >
-                  {TOPICS.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-zinc-700 dark:text-zinc-300 font-mono text-xs">
-                  ▼
-                </div>
+              </span>
+
+              {/* Responsive SVG Pill Selector */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {TOPICS.map((t) => {
+                  const Icon = t.icon;
+                  const isSelected = topic === t.value;
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setTopic(t.value)}
+                      className={`flex items-center gap-2.5 px-3 py-2.5 border-2 text-left font-mono text-xs font-bold transition-all cursor-pointer ${
+                        isSelected
+                          ? "border-red-600 bg-red-500/10 text-red-600 dark:text-red-400 shadow-[2px_2px_0px_0px_rgba(220,38,38,1)] dark:shadow-none"
+                          : "border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40 text-zinc-700 dark:text-zinc-300 hover:border-zinc-950 dark:hover:border-zinc-600"
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 shrink-0 ${isSelected ? "text-red-600 dark:text-red-400" : t.iconColor}`} />
+                      <span className="truncate">{t.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -308,7 +350,7 @@ export default function ContactPage() {
               />
             </div>
 
-            {/* Attachment Option */}
+            {/* Attachment Option with Clean SVG */}
             <div>
               <input
                 ref={fileInputRef}
@@ -324,19 +366,19 @@ export default function ContactPage() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center gap-2 px-3 py-2 border border-dashed border-zinc-400 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-400 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 text-xs font-mono font-bold transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 border-2 border-dashed border-zinc-300 dark:border-zinc-700 hover:border-zinc-950 dark:hover:border-zinc-400 text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 text-xs font-mono font-bold transition-colors cursor-pointer"
                 >
-                  <Paperclip className="w-3.5 h-3.5" />
+                  <Paperclip className="w-3.5 h-3.5 text-zinc-500" />
                   <span>Attach screenshot or log (optional)</span>
                 </button>
               ) : (
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 border-2 border-zinc-950 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900 text-xs font-mono font-bold">
-                  <Paperclip className="w-3.5 h-3.5 text-red-600" />
+                <div className="inline-flex items-center gap-2 px-3.5 py-2 border-2 border-zinc-950 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900 text-xs font-mono font-bold">
+                  <FileText className="w-4 h-4 text-red-600" />
                   <span className="truncate max-w-[200px] sm:max-w-xs">{file.name}</span>
                   <button
                     type="button"
                     onClick={removeFile}
-                    className="p-1 hover:text-red-600 transition-colors ml-1"
+                    className="p-1 hover:text-red-600 transition-colors ml-1 cursor-pointer"
                     title="Remove attachment"
                   >
                     <X className="w-3.5 h-3.5" />
