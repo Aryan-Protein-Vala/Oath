@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   TrendingUp,
   TrendingDown,
@@ -8,6 +9,7 @@ import {
   LogOut,
   AlertTriangle,
   Edit2,
+  Bug,
 } from "lucide-react";
 import { formatCurrency as utilsFormatCurrency, formatCurrencyPrecise as utilsFormatCurrencyPrecise, formatRelativeTime } from "@/lib/utils";
 import type { Profile, Wallet, Transaction } from "@/lib/types";
@@ -187,8 +189,16 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
           </div>
         </div>
 
-        {/* Sign Out */}
-        <div className="p-4 mt-auto">
+        {/* Support & Sign Out */}
+        <div className="p-4 mt-auto space-y-2">
+          <Link
+            href="/contact"
+            className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-zinc-950 dark:border-zinc-800 text-xs font-mono font-bold text-zinc-900 dark:text-zinc-200 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900 dark:hover:bg-zinc-800 transition-colors uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+          >
+            <Bug className="w-3.5 h-3.5 text-red-600" />
+            Report Bug / Beta Feedback
+          </Link>
+
           <button
             onClick={onSignOut}
             className="w-full flex items-center justify-center gap-2 py-3 border-2 border-zinc-950 dark:border-zinc-800 text-xs font-mono font-bold text-zinc-700 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:border-red-600 dark:hover:border-red-600/50 transition-colors uppercase tracking-wider"

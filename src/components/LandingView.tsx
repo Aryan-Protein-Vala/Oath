@@ -528,6 +528,7 @@ export default function LandingView() {
             <Link href="/privacy" className="text-[10px] sm:text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Privacy</Link>
             <Link href="/refund" className="text-[10px] sm:text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Refund Policy</Link>
             <Link href="/disclaimer" className="text-[10px] sm:text-xs font-mono font-bold text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-300 uppercase tracking-widest transition-colors">Disclaimer</Link>
+            <Link href="/contact" className="text-[10px] sm:text-xs font-mono font-bold text-red-600 dark:text-red-400 hover:text-zinc-950 dark:hover:text-zinc-200 uppercase tracking-widest transition-colors">Contact Us / Beta HQ</Link>
             <a
               href="https://www.instagram.com/oath_global/"
               target="_blank"

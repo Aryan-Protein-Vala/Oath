@@ -138,7 +138,7 @@ export default function Home() {
 
   const handleSignOut = async () => {
     await signOut();
-    router.push("/auth");
+    router.push("/");
   };
 
   const isPenaltyBoxActive = Boolean(
