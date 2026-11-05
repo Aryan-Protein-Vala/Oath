@@ -206,7 +206,7 @@ export default function Home() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 min-h-0 flex flex-col overflow-hidden pb-14 lg:pb-0">
+      <main className="flex-1 min-h-0 flex flex-col overflow-hidden pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0">
         {currentView === "active" && (
           <ActiveOathsView
             oaths={activeOaths}

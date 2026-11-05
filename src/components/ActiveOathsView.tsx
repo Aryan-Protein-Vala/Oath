@@ -1308,7 +1308,7 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
             value={excuse}
             onChange={(e) => setExcuse(e.target.value)}
             placeholder="I gave up because..."
-            className="w-full px-3 py-2 text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950/50 resize-none font-medium"
+            className="w-full px-3 py-2 text-base sm:text-sm border-2 border-zinc-950 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950/50 resize-none font-medium"
             rows={2}
           />
         </div>
@@ -1520,7 +1520,7 @@ function PeerReviewModal({
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="Specify why this proof is fraudulent, staged, or invalid..."
-                className="w-full p-2 border border-red-400 dark:border-red-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 resize-none font-medium"
+                className="w-full p-2 border border-red-400 dark:border-red-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 text-base sm:text-xs resize-none font-medium"
                 rows={3}
                 autoFocus
               />
@@ -1685,7 +1685,7 @@ function RefereeReviewModal({
               ? "e.g. Please take a photo showing today's timestamp and wider room context..."
               : "e.g. This photo is copied from online / reused from last week..."
           }
-          className="w-full p-3 border-2 border-zinc-950 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-sm font-medium resize-none mb-4 focus:outline-none"
+          className="w-full p-3 border-2 border-zinc-950 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-base sm:text-sm font-medium resize-none mb-4 focus:outline-none"
           rows={3}
           autoFocus
         />

@@ -1080,7 +1080,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                     ? "e.g. Please send a clearer shot with today's date stamp..."
                     : "e.g. Evidence does not match oath requirement..."
                 }
-                className="w-full p-3 border-2 border-zinc-950 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-sm font-medium resize-none mb-4 focus:outline-none"
+                className="w-full p-3 border-2 border-zinc-950 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-base sm:text-sm font-medium resize-none mb-4 focus:outline-none"
                 rows={3}
                 autoFocus
               />

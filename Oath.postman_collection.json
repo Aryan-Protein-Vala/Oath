@@ -24,7 +24,7 @@
     },
     {
       "key": "adminPassword",
-      "value": "Aryan@24"
+      "value": "{{ADMIN_PASSWORD}}"
     },
     {
       "key": "accessToken",
