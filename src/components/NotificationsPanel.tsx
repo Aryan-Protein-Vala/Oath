@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { X, Check, XCircle, Bell, Loader2 } from "lucide-react";
+import { X, Check, XCircle, Bell, Loader2, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Notification } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
@@ -31,10 +31,27 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
       .from("notifications")
       .select("*, oath:oaths(*)")
       .eq("user_id", user.id)
+      .neq("status", "read")
       .order("created_at", { ascending: false });
 
     if (!error && data) {
-      setNotifications(data as unknown as Notification[]);
+      // Auto-dismiss any lingering verify_proof or invite_nominee notifications whose oath has already failed/forfeited/cancelled
+      const staleIds = (data as unknown as Notification[])
+        .filter(
+          (n) =>
+            n.status === "pending" &&
+            (n.type === "verify_proof" || n.type === "invite_nominee") &&
+            n.oath &&
+            (n.oath.status === "failed" || n.oath.status === "cancelled" || n.oath.status === "completed")
+        )
+        .map((n) => n.id);
+
+      if (staleIds.length > 0) {
+        await supabase.from("notifications").update({ status: "read" }).in("id", staleIds);
+      }
+
+      const activeList = (data as unknown as Notification[]).filter((n) => !staleIds.includes(n.id));
+      setNotifications(activeList);
     }
     setLoading(false);
   }, [user, supabase]);
@@ -49,7 +66,14 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
         "postgres_changes",
         { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
         (_payload: unknown) => {
-          fetchNotifications(); // Simple refresh strategy
+          fetchNotifications();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "oaths" },
+        () => {
+          fetchNotifications();
         }
       )
       .subscribe();
@@ -58,6 +82,26 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
       supabase.removeChannel(channel);
     };
   }, [user, fetchNotifications, supabase]);
+
+  const handleDeleteNotification = async (id: string) => {
+    setProcessingId(id);
+    try {
+      await supabase.from("notifications").update({ status: "read" }).eq("id", id);
+      await supabase.from("notifications").delete().eq("id", id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!user || notifications.length === 0) return;
+    const ids = notifications.map((n) => n.id);
+    await supabase.from("notifications").update({ status: "read" }).in("id", ids);
+    await supabase.from("notifications").delete().in("id", ids);
+    setNotifications([]);
+    showToast("Inbox cleared", "info");
+  };
 
   const handleAction = async (notif: Notification, status: "accepted" | "rejected" | "read") => {
     setProcessingId(notif.id);
@@ -127,7 +171,12 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
       }
 
       await supabase.from("notifications").update({ status }).eq("id", notif.id);
-      setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, status } : n)));
+      if (status === "read") {
+        await supabase.from("notifications").delete().eq("id", notif.id);
+        setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
+      } else {
+        setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, status } : n)));
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to update notification";
       showToast(msg, "error");
@@ -145,9 +194,20 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
             <Bell className="w-5 h-5 text-zinc-950 dark:text-zinc-100" />
             <h3 className="text-sm font-black text-zinc-950 dark:text-zinc-100 tracking-tight uppercase">INBOX</h3>
           </div>
-          <button onClick={onClose} aria-label="Close" className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {notifications.length > 0 && (
+              <button
+                onClick={handleClearAll}
+                className="px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:text-red-600 hover:border-red-600 transition-colors"
+                title="Clear all notifications"
+              >
+                Clear All
+              </button>
+            )}
+            <button onClick={onClose} aria-label="Close" className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -162,13 +222,22 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
             </div>
           ) : (
             notifications.map((notif) => (
-              <div key={notif.id} className={`border-2 border-zinc-950 dark:border-zinc-800 p-4 ${notif.status === 'pending' ? 'bg-zinc-100 dark:bg-zinc-900/50' : 'bg-transparent opacity-50'}`}>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
+              <div key={notif.id} className={`border-2 border-zinc-950 dark:border-zinc-800 p-4 ${notif.status === 'pending' ? 'bg-zinc-100 dark:bg-zinc-900/50' : 'bg-transparent opacity-60'}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-black text-zinc-950 dark:text-zinc-100">{notif.title || "Alert"}</h4>
                     <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{notif.message}</p>
                     <p className="text-[10px] font-mono text-zinc-500 mt-2">{formatRelativeTime(notif.created_at)}</p>
                   </div>
+                  <button
+                    onClick={() => handleDeleteNotification(notif.id)}
+                    disabled={processingId === notif.id}
+                    aria-label="Delete notification"
+                    title="Delete notification"
+                    className="p-1.5 text-zinc-400 hover:text-red-600 dark:hover:text-red-400 transition-colors shrink-0"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
 
                 {notif.status === "pending" && (notif.type === "invite_duo" || notif.type === "invite_squad" || notif.type === "invite_lobby" || notif.type === "invite") && (
@@ -195,26 +264,10 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
                   <div className="flex items-center gap-2 mt-4">
                     <Link
                       href={`/verify?token=${notif.oath_id}`}
+                      onClick={onClose}
                       className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-bold uppercase hover:bg-zinc-800 dark:hover:bg-white"
                     >
                       View Assigned Oath &rarr;
-                    </Link>
-                    <button
-                      onClick={() => handleAction(notif, "read")}
-                      className="px-2.5 py-1 text-[10px] font-mono border border-zinc-400 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-800 uppercase"
-                    >
-                      Acknowledge
-                    </button>
-                  </div>
-                )}
-
-                {notif.status === "pending" && notif.type === "verify_proof" && (
-                  <div className="flex items-center gap-2 mt-4">
-                    <Link
-                      href={`/verify?token=${notif.oath_id}`}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-red-600 text-white text-xs font-bold uppercase hover:bg-red-700 transition-colors"
-                    >
-                      Review Proof Evidence &rarr;
                     </Link>
                     <button
                       onClick={() => handleAction(notif, "read")}
@@ -225,20 +278,57 @@ export default function NotificationsPanel({ onClose }: NotificationsPanelProps)
                   </div>
                 )}
 
-                {notif.status === "pending" && notif.type === "system" && (
+                {notif.status === "pending" && notif.type === "verify_proof" && (
+                  <div className="flex items-center gap-2 mt-4">
+                    {notif.oath && notif.oath.oath_type !== "solo" ? (
+                      <button
+                        onClick={() => {
+                          onClose();
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-red-600 text-white text-xs font-bold uppercase hover:bg-red-700 transition-colors"
+                      >
+                        Review in Active Oaths &rarr;
+                      </button>
+                    ) : (
+                      <Link
+                        href={`/verify?token=${notif.oath_id}`}
+                        onClick={onClose}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-red-600 text-white text-xs font-bold uppercase hover:bg-red-700 transition-colors"
+                      >
+                        Review Proof Evidence &rarr;
+                      </Link>
+                    )}
+                    <button
+                      onClick={() => handleAction(notif, "read")}
+                      className="px-2.5 py-1 text-[10px] font-mono border border-zinc-400 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-800 uppercase"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
+                {notif.status === "pending" && (notif.type === "system" || notif.type === "oath_settled" || notif.type === "proof_verified" || notif.type === "proof_rejected" || notif.type === "penalty") && (
                   <div className="flex justify-end mt-3">
                     <button
                       onClick={() => handleAction(notif, "read")}
                       className="px-2.5 py-1 text-[10px] font-mono font-bold uppercase border border-zinc-400 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-800"
                     >
-                      Mark as Read
+                      Dismiss
                     </button>
                   </div>
                 )}
 
                 {notif.status !== "pending" && (
-                  <div className="mt-3 text-[10px] font-mono font-bold uppercase text-zinc-500 tracking-wider">
-                    Status: {notif.status}
+                  <div className="flex items-center justify-between mt-3">
+                    <span className="text-[10px] font-mono font-bold uppercase text-zinc-500 tracking-wider">
+                      Status: {notif.status}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteNotification(notif.id)}
+                      className="px-2 py-0.5 text-[10px] font-mono font-bold uppercase text-red-600 hover:underline"
+                    >
+                      Remove
+                    </button>
                   </div>
                 )}
               </div>

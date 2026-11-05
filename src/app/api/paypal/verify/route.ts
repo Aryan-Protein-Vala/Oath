@@ -5,7 +5,7 @@ import { capturePayPalOrder } from "@/lib/paypal";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { paypal_order_id, amount } = body;
+    const { paypal_order_id } = body;
 
     if (!paypal_order_id) {
       return NextResponse.json({ error: "Missing required payment fields" }, { status: 400 });
@@ -20,17 +20,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Support mock order verification when testing in development or mock mode
-    if (typeof paypal_order_id === "string" && paypal_order_id.startsWith("PAYPAL_MOCK_ORDER_")) {
-      if (amount && Number(amount) > 0) {
-        const supabaseAdmin = createAdminClient();
-        await supabaseAdmin.rpc("add_funds_server", {
-          p_user_id: user.id,
-          p_amount: Number(amount),
-          p_description: `Deposited funds via PayPal (${paypal_order_id})`
-        });
-      }
-      return NextResponse.json({ success: true, is_mock: true });
+    if (typeof paypal_order_id !== "string" || paypal_order_id.startsWith("PAYPAL_MOCK_ORDER_")) {
+      return NextResponse.json({ error: "Invalid PayPal order" }, { status: 400 });
+    }
+
+    const supabaseAdmin = createAdminClient();
+    const { data: recordedOrder, error: recordedOrderError } = await supabaseAdmin
+      .from("payment_orders")
+      .select("provider_order_id, provider_payment_id, status")
+      .eq("provider", "paypal")
+      .eq("provider_order_id", paypal_order_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (recordedOrderError || !recordedOrder) {
+      return NextResponse.json({ error: "Unknown payment order" }, { status: 404 });
+    }
+    if (recordedOrder.status === "credited") {
+      return NextResponse.json({ success: true, already_credited: true, captureId: recordedOrder.provider_payment_id });
     }
 
     // Capture the real PayPal order
@@ -57,48 +63,37 @@ export async function POST(request: Request) {
     }
     const purchaseUnit = captureData.purchase_units?.[0] as PayPalPurchaseUnit | undefined;
     const captureObj = purchaseUnit?.payments?.captures?.[0];
-    const capturedValue = captureObj?.amount?.value ? parseFloat(captureObj.amount.value) : parseFloat(amount);
-    const capturedCurrency = captureObj?.amount?.currency_code || "USD";
+    const capturedValue = captureObj?.amount?.value ? Number(captureObj.amount.value) : NaN;
+    const capturedCurrency = captureObj?.amount?.currency_code;
 
     if (capturedCurrency !== "USD") {
       return NextResponse.json({ error: `Unsupported currency: ${capturedCurrency}` }, { status: 400 });
     }
 
-    const depositAmount = capturedValue > 0 ? capturedValue : Number(amount);
-    if (!depositAmount || depositAmount <= 0) {
+    if (!Number.isFinite(capturedValue) || capturedValue <= 0) {
       return NextResponse.json({ error: "Invalid capture amount" }, { status: 400 });
     }
 
-    const supabaseAdmin = createAdminClient();
-
-    // Idempotency: check if this paypal order or capture ID was already credited
     const captureId = captureObj?.id || paypal_order_id;
-    const { data: existingTx } = await supabaseAdmin
-      .from("transactions")
-      .select("id")
-      .ilike("description", `%${paypal_order_id}%`)
-      .limit(1);
-
-    if (existingTx && existingTx.length > 0) {
-      return NextResponse.json({ success: true, message: "Order already credited", captureId });
-    }
-
-    // Credit verified deposit on server using admin client
-    const { error: depositError } = await supabaseAdmin.rpc("add_funds_server", {
+    const { data: creditResult, error: creditError } = await supabaseAdmin.rpc("credit_verified_payment", {
+      p_provider: "paypal",
+      p_provider_order_id: paypal_order_id,
+      p_provider_payment_id: captureId,
       p_user_id: user.id,
-      p_amount: depositAmount,
-      p_description: `Deposited funds via PayPal (${captureId})`
+      p_gateway_amount: capturedValue,
+      p_currency: capturedCurrency,
     });
 
-    if (depositError) {
-      console.error("Failed to credit wallet after verified PayPal payment:", depositError);
+    if (creditError) {
+      console.error("Failed to credit wallet after verified PayPal payment:", creditError);
       return NextResponse.json({ error: "Failed to credit wallet" }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
       captureId,
-      amount: depositAmount,
+      amount: creditResult?.wallet_amount,
+      already_credited: creditResult?.already_credited ?? false,
       status: "COMPLETED"
     });
   } catch (error: unknown) {

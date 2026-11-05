@@ -32,6 +32,7 @@ export default function ProofUploadModal({ oath, onClose, onSuccess }: ProofUplo
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -108,9 +109,9 @@ export default function ProofUploadModal({ oath, onClose, onSuccess }: ProofUplo
       role="dialog"
       aria-modal="true"
       aria-labelledby="proof-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4"
     >
-      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 fade-in shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.05)] max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
+      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-t-4 border-x-0 border-b-0 sm:border-4 border-zinc-950 dark:border-zinc-800 fade-in shadow-none sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.05)] max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] sm:pb-0">
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b-2 border-zinc-950 dark:border-zinc-800 shrink-0">
           <div className="min-w-0 flex-1 pr-2">
@@ -159,48 +160,70 @@ export default function ProofUploadModal({ oath, onClose, onSuccess }: ProofUplo
               </div>
             </div>
 
-            {/* File Drop Zone */}
+            {/* File Drop Zone + 1-Tap Mobile Camera Button */}
             {(proofType === "photo" || proofType === "screenshot" || proofType === "video") && (
-              <div
-                onDrop={handleDrop}
-                onDragOver={(e) => e.preventDefault()}
-                onClick={() => fileRef.current?.click()}
-                className={`relative border-2 border-dashed cursor-pointer transition-all ${
-                  file ? "border-zinc-950 bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-900/40" : "border-zinc-300 dark:border-zinc-800 hover:border-zinc-500 bg-white dark:bg-transparent"
-                }`}
-              >
-                <input
-                  ref={fileRef}
-                  type="file"
-                  className="hidden"
-                  accept={proofType === "video" ? "video/*" : "image/*"}
-                  onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-                />
-
-                {filePreview ? (
-                  <div className="relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={filePreview} alt="Proof preview" className="w-full max-h-48 object-cover" />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                      <p className="text-xs font-mono font-bold text-white">Click to change</p>
-                    </div>
-                  </div>
-                ) : file ? (
-                  <div className="flex items-center gap-3 px-4 py-6">
-                    <Upload className="w-5 h-5 text-zinc-950 dark:text-zinc-500" />
-                    <div>
-                      <p className="text-sm text-zinc-950 dark:text-zinc-300 font-bold">{file.name}</p>
-                      <p className="text-[10px] font-mono text-zinc-500">
-                        {(file.size / 1024 / 1024).toFixed(1)} MB
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-10 gap-2">
-                    <Upload className="w-6 h-6 text-zinc-400 dark:text-zinc-700" />
-                    <p className="text-xs text-zinc-500 font-mono font-bold">Drop file or click to upload</p>
+              <div className="space-y-2">
+                {(proofType === "photo" || proofType === "video") && (
+                  <div className="sm:hidden">
+                    <input
+                      ref={cameraRef}
+                      type="file"
+                      capture="environment"
+                      className="hidden"
+                      accept={proofType === "video" ? "video/*" : "image/*"}
+                      onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => cameraRef.current?.click()}
+                      className="w-full py-2.5 px-3 border-2 border-zinc-950 dark:border-zinc-700 bg-zinc-950 text-white dark:bg-zinc-800 dark:text-zinc-100 text-xs font-mono font-black uppercase tracking-wider flex items-center justify-center gap-2"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>{proofType === "video" ? "Record Video with Camera" : "Snap Photo with Camera"}</span>
+                    </button>
                   </div>
                 )}
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={() => fileRef.current?.click()}
+                  className={`relative border-2 border-dashed cursor-pointer transition-all ${
+                    file ? "border-zinc-950 bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-900/40" : "border-zinc-300 dark:border-zinc-800 hover:border-zinc-500 bg-white dark:bg-transparent"
+                  }`}
+                >
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    className="hidden"
+                    accept={proofType === "video" ? "video/*" : "image/*"}
+                    onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+                  />
+
+                  {filePreview ? (
+                    <div className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={filePreview} alt="Proof preview" className="w-full max-h-48 object-cover" />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                        <p className="text-xs font-mono font-bold text-white">Click to change</p>
+                      </div>
+                    </div>
+                  ) : file ? (
+                    <div className="flex items-center gap-3 px-4 py-6">
+                      <Upload className="w-5 h-5 text-zinc-950 dark:text-zinc-500" />
+                      <div>
+                        <p className="text-sm text-zinc-950 dark:text-zinc-300 font-bold">{file.name}</p>
+                        <p className="text-[10px] font-mono text-zinc-500">
+                          {(file.size / 1024 / 1024).toFixed(1)} MB
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-10 gap-2">
+                      <Upload className="w-6 h-6 text-zinc-400 dark:text-zinc-700" />
+                      <p className="text-xs text-zinc-500 font-mono font-bold">Drop file or click to upload</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

@@ -277,7 +277,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
       }
     }
 
-    let finalSquadMembers = [...squadMembers];
+    const finalSquadMembers = [...squadMembers];
     if (oathType === "squad" && opponentUsername.trim()) {
       const clean = opponentUsername.replace(/^@+/, "").trim();
       if (!finalSquadMembers.some(m => m.username.toLowerCase() === clean.toLowerCase())) {
@@ -329,8 +329,8 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
           </p>
         </div>
 
-        {/* STEP PROGRESS INDICATOR */}
-        <div className="mb-6 p-3 sm:p-4 bg-white dark:bg-zinc-950 border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
+        {/* STEP PROGRESS INDICATOR (Sticky on mobile, static on desktop) */}
+        <div className="sticky top-0 z-20 sm:static mb-6 p-3 sm:p-4 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md sm:backdrop-blur-none border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[11px] font-mono font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">
               STEP {currentStep} OF 3: {currentStep === 1 ? "THE OATH & MODE" : currentStep === 2 ? "SCHEDULE & VERIFICATION" : "STAKES & CONSEQUENCE"}
@@ -592,8 +592,8 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
               </div>
             )}
 
-            {/* STEP 1 NEXT BUTTON */}
-            <div className="flex items-center justify-end pt-4 border-t-2 border-zinc-200 dark:border-zinc-800">
+            {/* STEP 1 NEXT BUTTON (Sticky on mobile, static on desktop) */}
+            <div className="sticky bottom-0 z-20 sm:static bg-zinc-50/95 dark:bg-[#09090b]/95 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none py-3 sm:py-0 sm:pt-4 border-t-2 border-zinc-950 sm:border-zinc-200 dark:border-zinc-800 flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => {
@@ -783,8 +783,8 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
               </div>
             )}
 
-            {/* STEP 2 NAVIGATION BUTTONS */}
-            <div className="flex items-center justify-between pt-4 border-t-2 border-zinc-200 dark:border-zinc-800">
+            {/* STEP 2 NAVIGATION BUTTONS (Sticky on mobile, static on desktop) */}
+            <div className="sticky bottom-0 z-20 sm:static bg-zinc-50/95 dark:bg-[#09090b]/95 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none py-3 sm:py-0 sm:pt-4 border-t-2 border-zinc-950 sm:border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={() => setCurrentStep(1)}
@@ -1135,7 +1135,7 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                 </div>
               )}
 
-              <div className="flex items-center gap-3">
+              <div className="sticky bottom-0 z-20 sm:static bg-white/95 dark:bg-zinc-950/95 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none py-3 sm:py-0 border-t-2 border-zinc-950 sm:border-0 dark:border-zinc-800 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setCurrentStep(2)}

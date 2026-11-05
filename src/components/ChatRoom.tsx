@@ -13,6 +13,8 @@ import {
   Clock,
   ExternalLink,
   Lock,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Message, Oath, Proof } from "@/lib/types";
@@ -27,6 +29,7 @@ import {
   passDailyWork,
   requestMoreProof,
   peerReviewProof,
+  castVote,
   acceptDuoChallenge,
   isMockMode,
   getMockMessages,
@@ -57,6 +60,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(true);
   const [showProofUploadModal, setShowProofUploadModal] = useState(false);
+  const [mobileBannerExpanded, setMobileBannerExpanded] = useState(false);
   const [reviewAction, setReviewAction] = useState<{
     type: "need_more_proof" | "reject";
     message?: Message;
@@ -184,7 +188,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                   id: user.id,
                   username: profile?.username || user.user_metadata?.username || "You",
                   display_name: profile?.display_name || user.user_metadata?.display_name || "You",
-                } as any,
+                } as Message["sender"],
               };
             } else {
               const { data: senderProfile } = await supabase
@@ -193,7 +197,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                 .eq("id", incoming.sender_id)
                 .maybeSingle();
               if (senderProfile) {
-                incoming = { ...incoming, sender: senderProfile as any };
+                incoming = { ...incoming, sender: senderProfile as unknown as Message["sender"] };
               }
             }
           }
@@ -219,13 +223,25 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
           fetchMessages();
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "oaths", filter: `id=eq.${oath.id}` },
+        (payload: { new?: { status?: string } }) => {
+          const nextStatus = payload.new?.status;
+          if (nextStatus && nextStatus !== "active" && nextStatus !== "pending" && nextStatus !== "disputed") {
+            showToast(`This challenge has ended (${nextStatus}).`, "info");
+            onProofUpdated?.();
+            onClose();
+          }
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(proofChannel);
     };
-  }, [user, oath.id, profile, fetchMessages, fetchProofs, supabase]);
+  }, [user, oath.id, profile, fetchMessages, fetchProofs, supabase, onClose, onProofUpdated]);
 
   // Set of proof IDs that have completed review
   const reviewedProofIds = useMemo(() => {
@@ -392,7 +408,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
           id: user.id,
           username: reviewerUsername,
           display_name: profile?.display_name || reviewerUsername,
-        } as any,
+        } as Message["sender"],
       };
       const cur = getMockMessages(oath.id);
       setMockMessages(oath.id, [...cur, mockMsg]);
@@ -432,7 +448,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
           id: user.id,
           username: profile?.username || user.user_metadata?.username || "You",
           display_name: profile?.display_name || user.user_metadata?.display_name || "You",
-        } as any,
+        } as Message["sender"],
       };
       const cur = getMockMessages(oath.id);
       setMockMessages(oath.id, [...cur, mockMsg]);
@@ -457,28 +473,45 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
 
   const handlePassProof = async (msgOrProof?: Message | Proof) => {
     const reviewerUsername = profile?.username || user?.user_metadata?.username || "reviewer";
+    const isGroupQuorum = oath.oath_type === "squad" || oath.oath_type === "lobby";
     const confirmed = await confirmAction({
-      title: "Pass Today's Work?",
-      message: "Verify and pass this daily proof? This updates daily cadence, streak, and unlocks chat.",
-      confirmLabel: "Pass Work",
+      title: isGroupQuorum ? "Cast Approval Vote?" : "Pass Today's Work?",
+      message: isGroupQuorum
+        ? "Cast your quorum approval vote for this member's proof?"
+        : "Verify and pass this daily proof? This updates daily cadence, streak, and unlocks chat.",
+      confirmLabel: isGroupQuorum ? "Vote Approve" : "Pass Work",
       cancelLabel: "Cancel",
       variant: "default",
     });
     if (!confirmed) return;
 
     const targetProofId = (msgOrProof as Message)?.proof_id || (msgOrProof as Proof)?.id || pendingProof?.id;
+    const submitterId =
+      (msgOrProof as Message)?.sender_id ||
+      (msgOrProof as Proof)?.submitted_by ||
+      pendingProof?.submitted_by ||
+      pendingProofMessage?.sender_id;
+
     setActionLoading(true);
-    const { error } = await passDailyWork(oath.id, "Approved via chat", targetProofId);
+    const { error } =
+      isGroupQuorum && submitterId
+        ? await castVote(submitterId, oath.id, true)
+        : await passDailyWork(oath.id, "Approved via chat", targetProofId);
     setActionLoading(false);
 
     if (error) {
       showToast(error, "error");
     } else {
       await postSystemChatMessage(
-        `@${reviewerUsername} approved today's work. Streak updated. Chat unlocked.`,
+        isGroupQuorum
+          ? `@${reviewerUsername} voted to approve proof.`
+          : `@${reviewerUsername} approved today's work. Streak updated. Chat unlocked.`,
         targetProofId
       );
-      showToast("Today's work passed! Streak updated. Chat unlocked.", "success");
+      showToast(
+        isGroupQuorum ? "Quorum approval vote recorded!" : "Today's work passed! Streak updated. Chat unlocked.",
+        "success"
+      );
       await fetchProofs();
       await fetchMessages();
       onProofUpdated?.();
@@ -762,18 +795,34 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
           </div>
         )}
 
-        {/* Pinned Proof Review Banner */}
+        {/* Pinned Proof Review Banner (Collapsible on mobile <sm, full on desktop sm:) */}
         {hasPendingProof && (
-          <div className="bg-zinc-950 text-white dark:bg-[#0c0c0e] dark:text-zinc-100 px-4 py-3 border-t-2 sm:border-t-4 border-red-600 shadow-[0_-2px_10px_rgba(0,0,0,0.2)] shrink-0">
+          <div className="bg-zinc-950 text-white dark:bg-[#0c0c0e] dark:text-zinc-100 px-3 sm:px-4 py-2 sm:py-3 border-t-2 sm:border-t-4 border-red-600 shadow-[0_-2px_10px_rgba(0,0,0,0.2)] shrink-0">
             <div className="flex items-start gap-2.5">
               <Lock className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-mono font-black uppercase tracking-wide leading-snug">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] sm:text-xs font-mono font-black uppercase tracking-wide leading-snug line-clamp-1 sm:line-clamp-none">
+                    {canReviewPendingProof
+                      ? `REVIEW REQUIRED — Proof by @${pendingSubmitterName}`
+                      : `PROOF IN REVIEW — Submitted by @${pendingSubmitterName}`}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setMobileBannerExpanded((v) => !v)}
+                    className="sm:hidden px-2 py-0.5 border border-zinc-700 bg-zinc-900 text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1 shrink-0"
+                  >
+                    <span>{mobileBannerExpanded ? "Hide" : "Review"}</span>
+                    {mobileBannerExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+                  </button>
+                </div>
+                <p className="hidden sm:block text-xs font-mono text-zinc-300 mt-0.5">
                   {canReviewPendingProof
-                    ? `REVIEW REQUIRED — Proof submitted by @${pendingSubmitterName}. Please submit your verdict ([Pass Today's Work], [Need More Proof], or [Reject]).`
-                    : `PROOF IN REVIEW — Day proof submitted by @${pendingSubmitterName}. Awaiting reviewer verdict. You can use the chat below to provide additional context.`}
+                    ? "Please submit your verdict ([Pass Today's Work], [Need More Proof], or [Reject])."
+                    : "Awaiting reviewer verdict. You can use the chat below to provide additional context."}
                 </p>
 
+                <div className={`${mobileBannerExpanded ? "block" : "hidden"} sm:block`}>
                 {/* Evidence Inspection Preview in Banner */}
                 {(() => {
                   const p = pendingProof || (pendingProofMessage?.proof_id ? proofs.find((pr) => pr.id === pendingProofMessage.proof_id) : undefined);
@@ -861,6 +910,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
                     </button>
                   </div>
                 )}
+                </div>
               </div>
             </div>
           </div>
@@ -952,10 +1002,10 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
           />
         )}
 
-        {/* Inline Review Action Modal */}
+        {/* Inline Review Action Modal (Bottom sheet on mobile <sm, centered on desktop sm:) */}
         {reviewAction && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none text-left">
+          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4">
+            <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-t-4 border-x-0 border-b-0 sm:border-4 border-zinc-950 dark:border-zinc-800 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6 fade-in shadow-none sm:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none text-left">
               <div className="flex items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 pb-3 mb-4">
                 <div className="flex items-center gap-2">
                   {reviewAction.type === "need_more_proof" ? (

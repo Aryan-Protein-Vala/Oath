@@ -87,8 +87,8 @@ export default function CreateLobbyModal({ walletBalance, penaltyBoxUntil, onClo
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-[#0a0a0f] w-full max-w-md border-2 border-zinc-950 dark:border-zinc-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-none flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
+      <div className="bg-white dark:bg-[#0a0a0f] w-full max-w-md border-t-4 border-x-0 border-b-0 sm:border-2 border-zinc-950 dark:border-zinc-800 shadow-none sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-none flex flex-col max-h-[90dvh] sm:max-h-[90vh]">
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b-2 border-zinc-950 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900/50">

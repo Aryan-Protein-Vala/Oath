@@ -33,12 +33,12 @@ export default function TermsPage() {
           
           <h2>3. Commitment Contracts & Stakes</h2>
           <p>
-            When you create an OATH, you agree to place a financial stake in escrow. This stake serves as a commitment device. If you successfully provide verified proof of your completed goal (as verified by your designated peers or nominees), your stake is returned to you. If you fail to complete your goal, you voluntarily forfeit your stake. A portion of forfeited stakes is retained by the Platform (&ldquo;Oath Platform Fee&rdquo;), and the remainder may be distributed to your accountability partners (&ldquo;Shared Oath&rdquo;) or an Anti-Charity of your choice, depending on the contract terms you selected.
+            When you create a financial OATH, you agree to place an individual financial stake in escrow along with an upfront 10% platform protocol fee. If you successfully provide verified proof of your completed goal (as verified by your designated referee, partner, or squad quorum), 100% of your locked stake is returned to your wallet balance. If you fail or forfeit, your locked stake is forfeited according to the challenge rules. Non-monetary consequences (such as Wall of Shame, Social Ransom, and Anti-Charity) are recorded on the platform&apos;s accountability ledger and held to your personal honor code; OATH does not automatically dispatch external SMS messages or wire donations to third-party organizations.
           </p>
 
-          <h2>4. Money Safety & Escrow</h2>
+          <h2>4. Deposits, Escrow & Withdrawals</h2>
           <p>
-            All funds deposited into the Platform are held securely in non-interest-bearing escrow accounts. We employ enterprise-grade payment gateways to ensure the secure processing of your deposits and withdrawals. Your funds are only accessible to you for withdrawal or when explicitly locked into an active OATH.
+            Deposits are processed through verified payment gateways (PayPal and Razorpay) and credited to your OATH wallet ledger once confirmed by the payment provider. Available wallet balances (excluding funds currently locked in active OATH escrow) may be requested for withdrawal to your designated UPI or PayPal payout address and are reviewed and fulfilled by platform administrators.
           </p>
 
           <h2>5. Dispute Resolution & Verification</h2>

@@ -46,7 +46,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [paypalEmail, setPaypalEmail] = useState("");
-  const { region, setRegion, formatCurrency: formatRegionCurrency } = useRegion();
+  const { region, formatCurrency: formatRegionCurrency } = useRegion();
 
   const activeOrderRef = useRef<string | null>(null);
 
@@ -58,25 +58,23 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  // Load Razorpay script for India flow
+  // Load Razorpay script for India flow if not already present
   useEffect(() => {
+    const src = "https://checkout.razorpay.com/v1/checkout.js";
+    if (document.querySelector(`script[src="${src}"]`)) return;
     const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.src = src;
     script.async = true;
     document.body.appendChild(script);
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
   }, []);
 
   const QUICK_AMOUNTS = region === "in" ? [500, 1000, 2500, 5000, 10000, 25000] : [25, 50, 100, 250, 500, 1000];
 
   const amountNum = parseFloat(amount) || 0;
   const amountUsd = convertToUSD(amountNum, region);
+  const maxDepositLocal = region === "in" ? 500000 : 50000;
   const canWithdraw = amountNum > 0 && amountUsd <= wallet.balance;
-  const canDeposit = amountNum > 0 && amountNum <= 50000;
+  const canDeposit = amountNum > 0 && amountNum <= maxDepositLocal;
 
   const handleAction = async () => {
     if (amountNum <= 0) return;
@@ -136,7 +134,7 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
 
           if (!popup || popup.closed || typeof popup.closed === "undefined") {
             // Popup blocked by browser — redirect directly
-            window.location.href = order.approveUrl;
+            window.location.assign(order.approveUrl);
             return;
           }
 
@@ -221,8 +219,13 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
           razorpay_signature?: string;
         }
 
+        const razorpayKeyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+        if (!razorpayKeyId) {
+          throw new Error("Razorpay public key is not configured");
+        }
+
         const options = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_live_Raz8j6g79SNIVA",
+          key: razorpayKeyId,
           amount: order.amount,
           currency: order.currency,
           name: "OATH",
@@ -376,9 +379,9 @@ export default function WalletModal({ wallet, transactions = [], onClose, onRefr
       role="dialog"
       aria-modal="true"
       aria-labelledby="wallet-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4"
     >
-      <div className="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 fade-in shadow-[12px_12px_0px_0px_rgba(9,9,11,1)] dark:shadow-none">
+      <div className="w-full max-w-md max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-[#0a0a0f] border-t-4 border-x-0 border-b-0 sm:border-4 border-zinc-950 dark:border-zinc-800 fade-in shadow-none sm:shadow-[12px_12px_0px_0px_rgba(9,9,11,1)] dark:shadow-none pb-[env(safe-area-inset-bottom)] sm:pb-0">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b-2 border-zinc-950 dark:border-zinc-800">
           <h3 id="wallet-modal-title" className="text-sm font-black text-zinc-950 dark:text-zinc-100 tracking-tight uppercase">OATH WALLET</h3>

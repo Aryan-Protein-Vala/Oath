@@ -826,7 +826,7 @@ function SimplifiedCreationWizard({ onSuccess }: { onSuccess: () => void }) {
     setSubmitting(true);
     const deadline = new Date(Date.now() + daysCount * 24 * 3600 * 1000).toISOString();
 
-    const payload = {
+    const payload: Parameters<typeof createOath>[0] = {
       oath_statement: statement.trim(),
       deadline,
       oath_type: mode,
@@ -835,11 +835,10 @@ function SimplifiedCreationWizard({ onSuccess }: { onSuccess: () => void }) {
       stake_amount: stake,
       nominee_email: mode === "solo" ? nominee.trim() : undefined,
       opponent_id: undefined,
-      total_days: cadence === "daily" ? daysCount : 1,
-      current_day: 1
+      cadence: cadence === "daily" ? "daily" : "once",
     };
 
-    const { error } = await createOath(payload as any);
+    const { error } = await createOath(payload);
     setSubmitting(false);
 
     if (error) {

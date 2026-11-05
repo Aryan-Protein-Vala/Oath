@@ -416,6 +416,10 @@ test("weakest link mode forfeits full squad stake if any single member fails wit
   const squadRow = (await db.query("SELECT status FROM oaths WHERE id=$1", [squadId])).rows[0];
   assert.equal(squadRow.status, "failed");
 
+  // Alice's independent solo oath remains active and intact
+  const soloRow = (await db.query("SELECT status FROM oaths WHERE id=$1", [soloOathId])).rows[0];
+  assert.equal(soloRow.status, "active");
+
   // Alice's wallet: lost $100 for the squad, but her $50 escrow for the solo oath is UNTOUCHED!
   const aliceAfter = (await db.query("SELECT balance,escrow_locked,total_lost FROM wallets WHERE user_id=$1", [ids.alice])).rows[0];
   assert.equal(Number(aliceAfter.escrow_locked), Number(aliceBeforeSquad.escrow_locked)); // Exactly preserved!

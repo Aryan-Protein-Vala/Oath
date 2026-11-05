@@ -202,15 +202,37 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
         <div className={`${
           mobileShowDetail ? "flex" : "hidden lg:flex"
         } flex-1 flex-col overflow-y-auto lg:overflow-hidden`}>
-          {/* Mobile back button */}
-          <div className="flex lg:hidden items-center px-4 py-2.5 border-b-2 border-zinc-950 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/50 shrink-0 sticky top-0 z-10">
+          {/* Mobile back button + Horizontal Swipeable Oath Switcher Pills */}
+          <div className="flex lg:hidden items-center gap-2 px-3 py-2 border-b-2 border-zinc-950 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/80 backdrop-blur-md shrink-0 sticky top-0 z-20 overflow-x-auto scrollbar-none">
             <button
               onClick={() => setMobileShowDetail(false)}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono font-black uppercase tracking-wider text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-800 border-2 border-zinc-950 dark:border-zinc-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-mono font-black uppercase tracking-wider text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-800 border-2 border-zinc-950 dark:border-zinc-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none shrink-0"
             >
-              <ChevronRight className="w-3.5 h-3.5 rotate-180" />
-              Back to Oaths
+              <ChevronRight className="w-3 h-3 rotate-180" />
+              List
             </button>
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pr-2">
+              {filteredOaths.map((o) => {
+                const isUrgentPill = actionItems.some((item) => item.oath.id === o.id);
+                const isCurrentPill = selectedOath.id === o.id;
+                return (
+                  <button
+                    key={o.id}
+                    onClick={() => setSelectedOathId(o.id)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono font-bold truncate max-w-[160px] shrink-0 border-2 transition-colors ${
+                      isCurrentPill
+                        ? "bg-zinc-950 text-white border-zinc-950 dark:bg-zinc-100 dark:text-zinc-950 dark:border-zinc-100"
+                        : "bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700"
+                    }`}
+                  >
+                    {isUrgentPill && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                    )}
+                    <span className="truncate">{o.oath_statement}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <OathCountdownCard
@@ -904,7 +926,7 @@ function OathCountdownCard({
         // If viewing as referee, the user strictly sees "Chat and Proof" and "Details"
         if (isReferee) {
           return (
-            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 w-full max-w-md px-2">
+            <div className="sticky bottom-0 z-10 lg:static bg-zinc-50/95 dark:bg-[#09090b]/95 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none border-t-2 border-zinc-950 dark:border-zinc-800 lg:border-0 py-3 lg:py-0 mt-auto lg:mt-0 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 w-full lg:max-w-md px-3 sm:px-2">
               <button
                 onClick={onOpenChat}
                 className="relative flex items-center gap-2 px-6 py-3 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-2 border-zinc-950 dark:border-transparent text-sm font-black tracking-tight uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none transition-all active:translate-y-0.5"
@@ -968,7 +990,7 @@ function OathCountdownCard({
         })();
 
         return (
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 w-full max-w-md px-2">
+          <div className="sticky bottom-0 z-10 lg:static bg-zinc-50/95 dark:bg-[#09090b]/95 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none border-t-2 border-zinc-950 dark:border-zinc-800 lg:border-0 py-3 lg:py-0 mt-auto lg:mt-0 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 w-full lg:max-w-md px-3 sm:px-2">
             {isExpired && oath.status === "active" ? (
               <button
                 onClick={onForfeit}
@@ -1101,9 +1123,9 @@ function OathDetailsModal({ oath, onClose }: { oath: Oath; onClose: () => void }
       role="dialog"
       aria-modal="true"
       aria-labelledby="details-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4"
     >
-      <div className="w-full max-w-lg max-h-[90dvh] overflow-y-auto overscroll-contain bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-4 sm:p-6 fade-in shadow-none sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+      <div className="w-full max-w-lg max-h-[90dvh] overflow-y-auto overscroll-contain bg-white dark:bg-[#0a0a0f] border-t-4 border-x-0 border-b-0 sm:border-4 border-zinc-950 dark:border-zinc-800 p-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6 fade-in shadow-none sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
         <div className="flex items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 pb-4 mb-4">
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-red-600" />
@@ -1223,9 +1245,9 @@ function ForfeitModal({ oath, onClose, onForfeited }: { oath: Oath; onClose: () 
       role="dialog"
       aria-modal="true"
       aria-labelledby="forfeit-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 overflow-y-auto"
     >
-      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-red-600 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(220,38,38,1)] dark:shadow-none text-left">
+      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-t-4 border-x-0 border-b-0 sm:border-4 border-red-600 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6 fade-in shadow-none sm:shadow-[12px_12px_0px_0px_rgba(220,38,38,1)] dark:shadow-none text-left">
         <div className="flex items-center gap-2 mb-3 text-red-600">
           <AlertTriangle className="w-6 h-6" />
           <h3 id="forfeit-modal-title" className="text-lg font-black uppercase tracking-tight">Forfeit Oath</h3>
@@ -1399,9 +1421,9 @@ function PeerReviewModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="peer-review-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 overflow-y-auto"
     >
-      <div className="w-full max-w-lg bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none text-left my-8">
+      <div className="w-full max-w-lg bg-white dark:bg-[#0a0a0f] border-t-4 border-x-0 border-b-0 sm:border-4 border-zinc-950 dark:border-zinc-800 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6 fade-in shadow-none sm:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none text-left sm:my-8">
         <div className="flex items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 pb-4 mb-4">
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-amber-500" />
@@ -1594,9 +1616,9 @@ function RefereeReviewModal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 overflow-y-auto"
     >
-      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none text-left my-8">
+      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-t-4 border-x-0 border-b-0 sm:border-4 border-zinc-950 dark:border-zinc-800 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6 fade-in shadow-none sm:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none text-left sm:my-8">
         <div className="flex items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 pb-3 mb-4">
           <div className="flex items-center gap-2">
             {type === "need_more_proof" ? (
@@ -1735,9 +1757,9 @@ function ConsentModal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 overflow-y-auto"
     >
-      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-6 fade-in shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none text-left my-8">
+      <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-t-4 border-x-0 border-b-0 sm:border-4 border-zinc-950 dark:border-zinc-800 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6 fade-in shadow-none sm:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none text-left sm:my-8">
         <div className="flex items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 pb-3 mb-4">
           <div className="flex items-center gap-2">
             <Lock className="w-5 h-5 text-amber-500" />

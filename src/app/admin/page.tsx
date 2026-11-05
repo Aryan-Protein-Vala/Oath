@@ -34,11 +34,8 @@ import {
   Trophy,
   Skull,
   Activity,
-  Bell,
   Settings,
-  Trash2,
   Copy,
-  ExternalLink,
   ArrowUpRight,
   Check,
 } from "lucide-react";
@@ -153,6 +150,106 @@ const MOCK_STATS: PlatformStats = {
   platformRevenue: 3_278,
 };
 
+interface AdminWalletRow {
+  balance?: number;
+  escrow_locked?: number;
+  total_deposited?: number;
+  total_withdrawn?: number;
+}
+
+interface AdminUserRow {
+  id: string;
+  username: string;
+  display_name?: string | null;
+  is_blocked?: boolean;
+  oaths_created?: number;
+  oaths_completed?: number;
+  oaths_failed?: number;
+  total_staked?: number;
+  total_lost?: number;
+  total_won?: number;
+  created_at: string;
+  updated_at?: string;
+  wallets?: AdminWalletRow[] | AdminWalletRow | null;
+}
+
+interface AdminOathMemberRow {
+  user_id: string;
+  status: string;
+  user?: { username?: string } | null;
+}
+
+interface AdminProofRow {
+  id?: string;
+  status: string;
+  proof_type: string;
+  created_at: string;
+}
+
+interface AdminOathRow {
+  id: string;
+  oath_statement: string;
+  oath_type: string;
+  status: string;
+  stake_amount: number;
+  deadline: string;
+  verification_method: string;
+  consequence_type: string;
+  group_mode?: string;
+  creator?: { username?: string } | null;
+  opponent?: { username?: string } | null;
+  created_at: string;
+  members?: AdminOathMemberRow[];
+  proofs?: AdminProofRow[];
+}
+
+interface AdminWithdrawalRow {
+  id: string;
+  amount: number;
+  status?: string;
+  description?: string | null;
+  created_at: string;
+  wallets?: { user_id?: string; profiles?: { username?: string; display_name?: string | null } | null } | null;
+}
+
+interface AdminFeedbackRow {
+  id: string;
+  message: string;
+  created_at: string;
+  user?: { username?: string } | null;
+}
+
+// ============================================================
+// STAT CARD SUB-COMPONENT
+// ============================================================
+
+function StatCard({
+  icon,
+  label,
+  value,
+  color = "text-zinc-950 dark:text-zinc-100",
+  sub,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  color?: string;
+  sub?: string;
+}) {
+  return (
+    <div className="p-4 border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
+      <div className="flex items-center gap-2 mb-1">
+        {icon}
+        <span className="text-[10px] font-mono font-bold uppercase tracking-[0.15em] text-zinc-500">
+          {label}
+        </span>
+      </div>
+      <p className={`text-2xl font-black font-mono ${color}`}>{value}</p>
+      {sub && <p className="text-[10px] font-mono text-zinc-500 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
 // ============================================================
 // COMPONENT
 // ============================================================
@@ -164,10 +261,10 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTab>("analytics");
 
   // Data states
-  const [users, setUsers] = useState<any[]>([]);
-  const [allOaths, setAllOaths] = useState<any[]>([]);
-  const [withdrawals, setWithdrawals] = useState<any[]>([]);
-  const [feedbacks, setFeedbacks] = useState<any[]>([]);
+  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [allOaths, setAllOaths] = useState<AdminOathRow[]>([]);
+  const [withdrawals, setWithdrawals] = useState<AdminWithdrawalRow[]>([]);
+  const [feedbacks, setFeedbacks] = useState<AdminFeedbackRow[]>([]);
   const [disputes, setDisputes] = useState<AdminDispute[]>(INITIAL_MOCK_DISPUTES);
   const [stats, setStats] = useState<PlatformStats>(MOCK_STATS);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
@@ -216,24 +313,6 @@ export default function AdminDashboard() {
     };
     setAuditLog((prev) => [entry, ...prev].slice(0, 200));
   }, []);
-
-  // ============================================================
-  // AUTH + DATA LOADING
-  // ============================================================
-  useEffect(() => {
-    if (!user) return;
-    if (
-      user.email === "aryansharma24112003@gmail.com" ||
-      user.email === "admin@oath.app" ||
-      isMockMode()
-    ) {
-      setIsAdmin(true);
-      fetchAdminData();
-    } else {
-      setIsAdmin(false);
-      setLoading(false);
-    }
-  }, [user]);
 
   const fetchAdminData = async () => {
     setLoading(true);
@@ -381,38 +460,41 @@ export default function AdminDashboard() {
       .order("created_at", { ascending: false });
 
     if (profiles) {
-      setUsers(profiles);
+      const typedProfiles = profiles as AdminUserRow[];
+      setUsers(typedProfiles);
       // Compute stats from real data
-      const totalUsers = profiles.length;
+      const totalUsers = typedProfiles.length;
       const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-      const activeUsers7d = profiles.filter(
-        (p: any) => p.updated_at && p.updated_at > sevenDaysAgo
+      const activeUsers7d = typedProfiles.filter(
+        (p) => p.updated_at && p.updated_at > sevenDaysAgo
       ).length;
-      const getWallet = (p: any) => (Array.isArray(p?.wallets) ? p.wallets[0] : p?.wallets);
-      const allWallets = profiles.map(getWallet).filter(Boolean);
+      const getWallet = (p: AdminUserRow): AdminWalletRow | null | undefined =>
+        Array.isArray(p?.wallets) ? p.wallets[0] : p?.wallets;
+      const allWallets = typedProfiles.map(getWallet).filter((w): w is AdminWalletRow => Boolean(w));
       const totalEscrowLocked = allWallets.reduce(
-        (sum: number, w: any) => sum + (w.escrow_locked || 0),
+        (sum: number, w) => sum + (w.escrow_locked || 0),
         0
       );
       const totalDeposited = allWallets.reduce(
-        (sum: number, w: any) => sum + (w.total_deposited || 0),
+        (sum: number, w) => sum + (w.total_deposited || 0),
         0
       );
       const totalWithdrawn = allWallets.reduce(
-        (sum: number, w: any) => sum + (w.total_withdrawn || 0),
+        (sum: number, w) => sum + (w.total_withdrawn || 0),
         0
       );
-      const totalMoneyLost = profiles.reduce(
-        (sum: number, p: any) => sum + (p.total_lost || 0),
+      const totalMoneyLost = typedProfiles.reduce(
+        (sum: number, p) => sum + (p.total_lost || 0),
         0
       );
 
       if (oaths) {
-        const totalOaths = oaths.length;
-        const completedOaths = oaths.filter((o: any) => o.status === "completed").length;
-        const failedOaths = oaths.filter((o: any) => o.status === "failed").length;
-        const activeOaths = oaths.filter((o: any) => o.status === "active").length;
-        const pendingOaths = oaths.filter((o: any) => o.status === "pending").length;
+        const typedOaths = oaths as AdminOathRow[];
+        const totalOaths = typedOaths.length;
+        const completedOaths = typedOaths.filter((o) => o.status === "completed").length;
+        const failedOaths = typedOaths.filter((o) => o.status === "failed").length;
+        const activeOaths = typedOaths.filter((o) => o.status === "active").length;
+        const pendingOaths = typedOaths.filter((o) => o.status === "pending").length;
         const successRate =
           completedOaths + failedOaths > 0
             ? Math.round((completedOaths / (completedOaths + failedOaths)) * 1000) / 10
@@ -443,6 +525,36 @@ export default function AdminDashboard() {
   };
 
   // ============================================================
+  // AUTH + DATA LOADING
+  // ============================================================
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      if (isMockMode()) {
+        if (!cancelled) {
+          setIsAdmin(true);
+          await fetchAdminData();
+        }
+        return;
+      }
+      const { data: adminAllowed } = await supabase.rpc("is_admin");
+      if (cancelled) return;
+      if (adminAllowed === true) {
+        setIsAdmin(true);
+        await fetchAdminData();
+      } else {
+        setIsAdmin(false);
+        setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // ============================================================
   // HANDLERS
   // ============================================================
   const handleAddFunds = async (userId: string) => {
@@ -457,8 +569,9 @@ export default function AdminDashboard() {
       setUsers((prev) =>
         prev.map((u) => {
           if (u.id === userId) {
-            const currBal = u.wallets?.[0]?.balance ?? 0;
-            return { ...u, wallets: [{ ...u.wallets?.[0], balance: currBal + amount }] };
+            const currentWallet = Array.isArray(u.wallets) ? u.wallets[0] : u.wallets;
+            const currBal = currentWallet?.balance ?? 0;
+            return { ...u, wallets: [{ ...currentWallet, balance: currBal + amount }] };
           }
           return u;
         })
@@ -647,7 +760,7 @@ export default function AdminDashboard() {
     // Insert a notification for every user
     const { data: allProfiles } = await supabase.from("profiles").select("id");
     if (allProfiles && allProfiles.length > 0) {
-      const notifications = allProfiles.map((p: any) => ({
+      const notifications = (allProfiles as Array<{ id: string }>).map((p) => ({
         user_id: p.id,
         type: "system",
         title: "[SYSTEM] Announcement",
@@ -669,7 +782,10 @@ export default function AdminDashboard() {
   const handleManualCron = async () => {
     setCronRunning(true);
     try {
-      const res = await fetch("/api/cron/sweep");
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/cron/sweep", {
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+      });
       const data = await res.json();
       const result: CronResult = {
         ghostedProofs: data.resolved_ghosted_proofs ?? 0,
@@ -716,10 +832,10 @@ export default function AdminDashboard() {
       return;
     }
 
-    const { error } = await supabase
-      .from("oaths")
-      .update({ status: verdict, updated_at: new Date().toISOString() })
-      .eq("id", oathId);
+    const { error } = await supabase.rpc("settle_oath", {
+      p_oath_id: oathId,
+      p_verdict: verdict,
+    });
 
     if (error) {
       showToast(error.message, "error");
@@ -789,34 +905,6 @@ export default function AdminDashboard() {
       </div>
     );
   }
-
-  // ============================================================
-  // STAT CARD SUB-COMPONENT
-  // ============================================================
-  const StatCard = ({
-    icon,
-    label,
-    value,
-    color = "text-zinc-950 dark:text-zinc-100",
-    sub,
-  }: {
-    icon: React.ReactNode;
-    label: string;
-    value: string | number;
-    color?: string;
-    sub?: string;
-  }) => (
-    <div className="p-4 border-2 border-zinc-950 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
-      <div className="flex items-center gap-2 mb-1">
-        {icon}
-        <span className="text-[10px] font-mono font-bold uppercase tracking-[0.15em] text-zinc-500">
-          {label}
-        </span>
-      </div>
-      <p className={`text-2xl font-black font-mono ${color}`}>{value}</p>
-      {sub && <p className="text-[10px] font-mono text-zinc-500 mt-0.5">{sub}</p>}
-    </div>
-  );
 
   // ============================================================
   // TAB NAVIGATION
@@ -1018,7 +1106,7 @@ export default function AdminDashboard() {
                   {withdrawals.length === 0 ? (
                     <p className="text-xs font-mono text-zinc-500">No requests found.</p>
                   ) : (
-                    withdrawals.slice(0, 10).map((tx: any) => {
+                    withdrawals.slice(0, 10).map((tx) => {
                       const status = tx.status || "pending";
                       return (
                         <div
@@ -1069,7 +1157,7 @@ export default function AdminDashboard() {
                   {feedbacks.length === 0 ? (
                     <p className="text-xs font-mono text-zinc-500">No feedback yet.</p>
                   ) : (
-                    feedbacks.slice(0, 10).map((fb: any) => (
+                    feedbacks.slice(0, 10).map((fb) => (
                       <div
                         key={fb.id}
                         className="p-3 border-2 border-zinc-950 dark:border-zinc-800 bg-amber-50 dark:bg-amber-950/10"
@@ -1228,7 +1316,7 @@ export default function AdminDashboard() {
                           Fund
                         </button>
                         <button
-                          onClick={() => handleToggleBlock(u.id, isBlocked)}
+                          onClick={() => handleToggleBlock(u.id, Boolean(isBlocked))}
                           disabled={blocking[u.id]}
                           className={`px-3 py-1.5 text-white text-[10px] font-bold uppercase disabled:opacity-50 flex items-center gap-1 ${
                             isBlocked
@@ -1349,7 +1437,7 @@ export default function AdminDashboard() {
             </p>
 
             <div className="space-y-3">
-              {filteredOaths.slice(0, 50).map((oath: any) => {
+              {filteredOaths.slice(0, 50).map((oath) => {
                 const isExpanded = expandedOath === oath.id;
                 const statusColor: Record<string, string> = {
                   active: "border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20",
@@ -1427,7 +1515,7 @@ export default function AdminDashboard() {
                               Members ({oath.members.length})
                             </p>
                             <div className="space-y-1">
-                              {oath.members.map((m: any, i: number) => (
+                              {oath.members.map((m, i: number) => (
                                 <div
                                   key={i}
                                   className="flex items-center gap-2 text-xs font-mono"
@@ -1467,7 +1555,7 @@ export default function AdminDashboard() {
                               No proofs submitted yet
                             </p>
                           ) : (
-                            oath.proofs.map((p: any, i: number) => (
+                            (oath.proofs ?? []).map((p, i: number) => (
                               <div
                                 key={i}
                                 className="flex items-center gap-2 text-xs font-mono"
@@ -1648,7 +1736,7 @@ export default function AdminDashboard() {
 
               return (
                 <div className="space-y-4">
-                  {filteredWithdrawals.map((tx: any) => {
+                  {filteredWithdrawals.map((tx) => {
                     const status = tx.status || "pending";
                     const isProcessing = processingTxId === tx.id;
                     const isRejectingModalOpen = rejectingTxId === tx.id;

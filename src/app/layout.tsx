@@ -20,6 +20,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://oath-phi.vercel.app"),
   title: "OATH — Stake Everything",
   description:
     "Financial and social smart-contract platform where you wager real consequences against your own execution. No excuses.",
@@ -37,9 +38,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <head>
-        <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
-      </head>
       <body suppressHydrationWarning className="h-full overflow-x-hidden bg-zinc-50 dark:bg-[#09090b] text-zinc-950 dark:text-zinc-50 transition-colors duration-300">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <RegionProvider>

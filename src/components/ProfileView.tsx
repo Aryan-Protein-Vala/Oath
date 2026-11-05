@@ -10,7 +10,12 @@ import {
   AlertTriangle,
   Edit2,
   Mail,
+  Globe,
+  MapPin,
+  Sun,
+  Moon,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { formatCurrency as utilsFormatCurrency, formatCurrencyPrecise as utilsFormatCurrencyPrecise, formatRelativeTime } from "@/lib/utils";
 import type { Profile, Wallet, Transaction } from "@/lib/types";
 import { useRegion, type Region } from "@/lib/region-context";
@@ -24,7 +29,8 @@ interface ProfileViewProps {
 }
 
 export default function ProfileView({ profile, wallet, transactions, onSignOut }: ProfileViewProps) {
-  const { region } = useRegion();
+  const { region, setRegion } = useRegion();
+  const { resolvedTheme, setTheme } = useTheme();
   const [showEditUsernameModal, setShowEditUsernameModal] = useState(false);
   const isPenaltyBoxActive = !!profile.penalty_box_until && new Date(profile.penalty_box_until).getTime() > Date.now();
   const lossStreak = profile.loss_streak ?? 0;
@@ -186,6 +192,31 @@ export default function ProfileView({ profile, wallet, transactions, onSignOut }
             <span className="text-sm font-mono font-bold text-zinc-600 dark:text-zinc-400 stake-number">
               {utilsFormatCurrencyPrecise(wallet.total_deposited, region)}
             </span>
+          </div>
+        </div>
+
+        {/* Mobile Quick Preferences (Region & Theme — hidden on desktop where TopNav has them) */}
+        <div className="p-4 border-b-2 border-zinc-200 dark:border-zinc-800/40 lg:hidden">
+          <p className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest mb-2">
+            App Preferences
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setRegion(region === "global" ? "in" : "global")}
+              className="flex items-center justify-center gap-2 py-2.5 px-3 border-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 text-[10px] font-mono font-bold uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+            >
+              {region === "global" ? <Globe className="w-3.5 h-3.5" /> : <MapPin className="w-3.5 h-3.5" />}
+              <span>{region === "global" ? "Region: GLB ($)" : "Region: IN (₹)"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+              className="flex items-center justify-center gap-2 py-2.5 px-3 border-2 border-zinc-950 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 text-[10px] font-mono font-bold uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+            >
+              {resolvedTheme === "dark" ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              <span>{resolvedTheme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+            </button>
           </div>
         </div>
 

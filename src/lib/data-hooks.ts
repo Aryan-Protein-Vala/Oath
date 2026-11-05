@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import type { Oath, WallEntry, Transaction, Proof, GroupMember, Wallet, OathType, OathStatus, VerificationMethod, ConsequenceType, ProofType, GroupMode, ProofStatus, Message } from "@/lib/types";
+import type { Oath, WallEntry, Transaction, Proof, Wallet, OathType, OathStatus, VerificationMethod, ConsequenceType, ProofType, GroupMode, ProofStatus, Message } from "@/lib/types";
 import {
   mockProfile,
   mockActiveOaths,
@@ -17,7 +17,9 @@ import {
 import { useAuth, ADMIN_MOCK_USER, getInitialMockWallet, isDemoSession } from "./auth-context";
 
 export function isMockMode(): boolean {
-  return isDemoSession() || !isSupabaseConfigured();
+  // A production misconfiguration must fail visibly, never turn a real-money
+  // deployment into a browser-local demo ledger.
+  return isDemoSession() || (!isSupabaseConfigured() && process.env.NODE_ENV !== "production");
 }
 
 function notifyDataUpdated() {
@@ -200,7 +202,14 @@ export function useOaths() {
       } else {
         // Enforce private details enrichment (social ransom & anti charity details)
         try {
-          const oathIds = data.map((o: any) => o.id);
+          interface PrivateDetailRow {
+            oath_id: string;
+            social_ransom_phone?: string | null;
+            social_ransom_message?: string | null;
+            anti_charity_cause?: string | null;
+            nominee_email?: string | null;
+          }
+          const oathIds = (data as Oath[]).map((o) => o.id);
           if (oathIds.length > 0) {
             const { data: privateDetails } = await supabase
               .from("oath_private_details")
@@ -208,9 +217,10 @@ export function useOaths() {
               .in("oath_id", oathIds);
 
             if (privateDetails && privateDetails.length > 0) {
-              const detailsMap = new Map(privateDetails.map((pd: any) => [pd.oath_id, pd]));
-              data = data.map((o: any) => {
-                const pd = detailsMap.get(o.id) as any;
+              const typedDetails = privateDetails as PrivateDetailRow[];
+              const detailsMap = new Map<string, PrivateDetailRow>(typedDetails.map((pd) => [pd.oath_id, pd]));
+              data = (data as Oath[]).map((o) => {
+                const pd = detailsMap.get(o.id);
                 if (!pd) return o;
                 return {
                   ...o,
@@ -225,7 +235,19 @@ export function useOaths() {
         } catch (pdErr) {
           console.warn("Could not enrich oath_private_details:", pdErr);
         }
-        setOaths(data as Oath[]);
+        // Auto-remove oaths where the current user has already forfeited/completed their individual participation,
+        // or where the oath has already terminated, so dead/forfeited cards never stick around.
+        const activeFiltered = (data as Oath[]).filter((o) => {
+          if (o.status !== "active" && o.status !== "pending" && o.status !== "disputed") return false;
+          if (o.oath_type === "duo" || o.oath_type === "squad" || o.oath_type === "lobby") {
+            const myMember = o.members?.find((m) => m.user_id === user.id);
+            if (myMember && (myMember.status === "failed" || myMember.status === "completed" || myMember.status === "eliminated")) {
+              return false;
+            }
+          }
+          return true;
+        });
+        setOaths(activeFiltered);
       }
     } catch (err) {
       console.error("useOaths unexpected error:", err);
@@ -246,11 +268,33 @@ export function useOaths() {
       if (isMounted) loadData();
     };
     window.addEventListener("oath_data_updated", handleUpdate);
+
+    // Realtime subscription so when a challenger forfeits, submits proof, or settles an oath,
+    // the Referee / Opponent / Squad Member screen updates and removes terminated oaths immediately.
+    const channel = !isMockMode() && user
+      ? supabase
+          .channel(`active_oaths_sync:${user.id}`)
+          .on("postgres_changes", { event: "*", schema: "public", table: "oaths" }, () => {
+            if (isMounted) loadData();
+          })
+          .on("postgres_changes", { event: "*", schema: "public", table: "group_members" }, () => {
+            if (isMounted) loadData();
+          })
+          .on("postgres_changes", { event: "*", schema: "public", table: "proofs" }, () => {
+            if (isMounted) loadData();
+          })
+          .on("postgres_changes", { event: "*", schema: "public", table: "nominees" }, () => {
+            if (isMounted) loadData();
+          })
+          .subscribe()
+      : null;
+
     return () => {
       isMounted = false;
       window.removeEventListener("oath_data_updated", handleUpdate);
+      if (channel) supabase.removeChannel(channel);
     };
-  }, [loadData]);
+  }, [loadData, supabase, user]);
 
   return { oaths, loading, refresh: loadData };
 }
@@ -805,15 +849,9 @@ export async function depositFunds(amount: number) {
     return { error: null };
   }
 
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated" };
-
-  const { error } = await supabase.rpc("add_funds", { p_amount: validAmount });
-  if (error) return { error: error.message };
-  
-  notifyDataUpdated();
-  return { error: null };
+  // Browser clients may never credit a production wallet. Deposits are created
+  // and verified exclusively by the payment-provider routes.
+  return { error: "Direct wallet credits are disabled. Use a verified payment method." };
 }
 
 // ---- withdrawFunds ----
@@ -1579,12 +1617,8 @@ export async function forfeitOath(oathId: string, excuse?: string) {
     };
     setMockWallet(updatedWallet);
 
-    // Update oath status
-    const updatedOaths = oaths.map((o) =>
-      o.id === oathId
-        ? { ...o, status: "failed" as const, failed_at: new Date().toISOString(), failure_excuse: excuse }
-        : o
-    );
+    // Remove forfeited oath from active mock oaths so it immediately disappears from Active Oaths
+    const updatedOaths = oaths.filter((o) => o.id !== oathId);
     setMockOaths(updatedOaths);
 
     // Add penalty transaction
@@ -1739,8 +1773,7 @@ export async function settleOath(oathId: string, verdict: "success" | "penalty",
   if (!user) return { error: "Not authenticated" };
   const { error } = await supabase.rpc("settle_oath", {
     p_oath_id: oathId,
-    p_success: verdict === "success",
-    p_note: note ?? null,
+    p_verdict: verdict === "success" ? "completed" : "failed",
   });
   if (error) return { error: error.message };
   notifyDataUpdated();
@@ -1858,7 +1891,7 @@ export async function requestMoreProof(oathId: string, note: string, proofId?: s
 }
 
 // ---- passDailyWork — referee/opponent/quorum approves today's proof and advances cadence ----
-export async function passDailyWork(oathId: string, note?: string, proofId?: string): Promise<{ error: string | null; data?: any }> {
+export async function passDailyWork(oathId: string, note?: string, proofId?: string): Promise<{ error: string | null; data?: Record<string, unknown> }> {
   if (isMockMode()) {
     const oaths = getMockOaths();
     const oath = oaths.find((o) => o.id === oathId);

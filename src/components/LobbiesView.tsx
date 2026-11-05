@@ -319,6 +319,8 @@ function SquadDetail({
   const [loading, setLoading] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [inspectingMember, setInspectingMember] = useState<GroupMember | null>(null);
+  const [moreProofRequest, setMoreProofRequest] = useState<{ proofId?: string; note: string } | null>(null);
+  const [requestingMoreProof, setRequestingMoreProof] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   const isPenaltyBoxActive = !!penaltyBoxUntil && new Date(penaltyBoxUntil).getTime() > Date.now();
@@ -538,8 +540,8 @@ function SquadDetail({
           Boolean(proof?.proof_url && /\.(mp4|webm|mov)/i.test(proof.proof_url));
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 lg:p-4 overflow-y-auto">
-            <div className="bg-white dark:bg-zinc-900 border-4 border-zinc-950 dark:border-zinc-700 max-w-lg w-full p-4 lg:p-6 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] relative fade-in my-auto text-left max-h-[92dvh] overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-3 lg:p-4 overflow-y-auto">
+            <div className="bg-white dark:bg-zinc-900 border-t-4 border-x-0 border-b-0 sm:border-4 border-zinc-950 dark:border-zinc-700 max-w-lg w-full p-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-4 lg:p-6 shadow-none sm:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] relative fade-in sm:my-auto text-left max-h-[90dvh] sm:max-h-[92dvh] overflow-y-auto">
               <button
                 onClick={() => setInspectingMember(null)}
                 aria-label="Close modal"
@@ -643,17 +645,8 @@ function SquadDetail({
                     <ThumbsUp className="w-3.5 h-3.5" /> Pass Today&apos;s Work
                   </button>
                   <button
-                    onClick={async () => {
-                      const note = window.prompt("What additional proof is needed from this member? (e.g. clearer photo, timestamp, video)");
-                      if (!note || !note.trim()) return;
-                      const { error } = await requestMoreProof(squad.id, note.trim(), proof?.id);
-                      if (error) {
-                        showToast(error, "error");
-                      } else {
-                        showToast("Requested more proof from member.", "info");
-                        setInspectingMember(null);
-                        onJoined?.();
-                      }
+                    onClick={() => {
+                      setMoreProofRequest({ proofId: proof?.id, note: "" });
                     }}
                     className="flex-1 flex items-center justify-center gap-2 py-3 lg:py-2.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black uppercase tracking-wider min-h-[44px] lg:min-h-0"
                   >
@@ -674,6 +667,71 @@ function SquadDetail({
           </div>
         );
       })()}
+
+      {moreProofRequest && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
+          <div className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-t-4 border-x-0 border-b-0 sm:border-4 border-zinc-950 dark:border-zinc-800 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6 shadow-none sm:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none fade-in text-left">
+            <div className="flex items-center justify-between border-b-2 border-zinc-950 dark:border-zinc-800 pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+                <h4 className="text-sm font-black uppercase tracking-tight text-zinc-950 dark:text-zinc-50">
+                  Request More Proof
+                </h4>
+              </div>
+              <button
+                onClick={() => setMoreProofRequest(null)}
+                className="p-1 text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-200"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 mb-3">
+              Specify what additional proof is needed from this member (e.g. clearer photo, timestamp, or video):
+            </p>
+            <textarea
+              value={moreProofRequest.note}
+              onChange={(e) => setMoreProofRequest({ ...moreProofRequest, note: e.target.value })}
+              placeholder="e.g. Please upload a clearer photo showing today's timestamp..."
+              className="w-full p-3 border-2 border-zinc-950 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-base sm:text-sm font-medium resize-none mb-4 focus:outline-none"
+              rows={3}
+              autoFocus
+            />
+            <div className="flex flex-col-reverse sm:flex-row items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setMoreProofRequest(null)}
+                disabled={requestingMoreProof}
+                className="w-full sm:w-auto sm:flex-1 py-2.5 px-4 border-2 border-zinc-950 dark:border-zinc-700 text-xs font-mono font-bold uppercase tracking-wider"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={requestingMoreProof || !moreProofRequest.note.trim()}
+                onClick={async () => {
+                  const note = moreProofRequest.note.trim();
+                  if (!note) return;
+                  setRequestingMoreProof(true);
+                  const { error } = await requestMoreProof(squad.id, note, moreProofRequest.proofId);
+                  setRequestingMoreProof(false);
+                  if (error) {
+                    showToast(error, "error");
+                  } else {
+                    showToast("Requested more proof from member.", "info");
+                    setMoreProofRequest(null);
+                    setInspectingMember(null);
+                    onJoined?.();
+                  }
+                }}
+                className="w-full sm:w-auto sm:flex-1 py-2.5 px-4 bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black uppercase tracking-wider disabled:opacity-50"
+              >
+                {requestingMoreProof ? "Sending..." : "Send Request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showChat && (
         <ChatRoom

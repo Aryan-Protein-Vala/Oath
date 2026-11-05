@@ -1,27 +1,32 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    // 1. Verify Vercel Cron authorization if CRON_SECRET is configured
+    // Vercel Cron must be configured with a secret. A signed-in administrator
+    // may also trigger a manual sweep from the protected admin dashboard.
     const authHeader = request.headers.get("authorization");
     const cronSecret = process.env.CRON_SECRET;
+    let authorized = Boolean(cronSecret && authHeader === `Bearer ${cronSecret}`);
 
-    if (cronSecret) {
-      if (authHeader !== `Bearer ${cronSecret}`) {
-        return NextResponse.json(
-          { error: "Unauthorized: Invalid or missing CRON_SECRET" },
-          { status: 401 }
-        );
+    if (!authorized && authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.slice(7);
+      const requester = await createServerSupabaseClient(token);
+      const { data: { user } } = await requester.auth.getUser(token);
+      if (user) {
+        const { data: isAdmin } = await requester.rpc("is_admin");
+        authorized = isAdmin === true;
       }
+    }
+    if (!authorized) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
       return NextResponse.json(
@@ -49,7 +54,6 @@ export async function GET(request: Request) {
       return NextResponse.json(
         {
           error: "Failed to execute auto_resolve_ghosted_proofs",
-          details: rpcError.message,
         },
         { status: 500 }
       );
@@ -66,7 +70,6 @@ export async function GET(request: Request) {
       return NextResponse.json(
         {
           error: "Failed to execute auto_resolve_expired_oaths",
-          details: expiredError.message,
         },
         { status: 500 }
       );
@@ -82,7 +85,7 @@ export async function GET(request: Request) {
     const message = err instanceof Error ? err.message : "Internal Server Error";
     console.error("[CRON] Unexpected error in /api/cron/sweep:", err);
     return NextResponse.json(
-      { error: "Internal Server Error", details: message },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }

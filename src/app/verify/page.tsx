@@ -191,10 +191,12 @@ function VerifyContent() {
           </h1>
           <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300 font-mono mb-6 leading-relaxed">
             {verdict === "success"
-              ? `The oath has been marked complete. The recorded virtual stake was ${formatCurrency(oath.stake_amount, region)}.`
-              : `The oath has been marked failed. The recorded virtual stake was ${formatCurrency(oath.stake_amount, region)}.`}
+              ? `The oath has been marked complete. The locked stake of ${formatCurrency(oath.stake_amount, region)} has been released.`
+              : `The oath has been marked failed. The locked stake of ${formatCurrency(oath.stake_amount, region)} has been forfeited.`}
           </p>
-          <p className="mb-6 text-[11px] font-mono text-zinc-500">This updates OATH&apos;s virtual sandbox ledger only; no cash transfer is made.</p>
+          {isDemoSession() && (
+            <p className="mb-6 text-[11px] font-mono text-zinc-500">Demo mode: This updates the local demo ledger only.</p>
+          )}
           <Link
             href="/"
             className="inline-block w-full py-4 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 text-sm font-black uppercase tracking-tight hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
@@ -385,7 +387,9 @@ function VerifyContent() {
         <div className="flex items-center gap-2 mt-4 text-zinc-500">
           <AlertTriangle className="w-3.5 h-3.5 text-zinc-500" />
           <span className="text-[10px] font-mono">
-            Selecting the button records an irreversible verdict. Virtual ledger only; no cash payout.
+            {isDemoSession()
+              ? "Selecting the button records an irreversible verdict in demo mode."
+              : "Selecting the button records an irreversible verdict and settles the locked escrow stake."}
           </span>
         </div>
       </div>

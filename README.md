@@ -16,28 +16,28 @@ Oath weaponizes loss aversion to guarantee your success.
 ## ⚡ FEATURES
 
 - **SOLO OATHS:** Bet against yourself.
-  - 💸 **Financial Stake:** Lock in funds. Fail, and we take a 10% house cut (or all of it).
-  - 📱 **Social Ransom:** Provide a friend's phone number and an embarrassing message. If you fail, the message is sent.
-  - 🏛️ **Charitable/Anti-Charity:** If you fail, your money goes to a cause—maybe one you despise.
-- **SQUAD POOLS:** Winner takes all. You and your friends put money in a pot. The ones who complete the challenge split the pot. Losers get nothing.
-- **DUO DUELS (1v1):** Head-to-head accountability. You vs. your rival. 
-- **PEER VERIFICATION:** You must submit proof (photo, video, link). Your peers vote to approve or reject your proof. 
-- **BRUTALIST UI:** A highly premium, analog, and minimalist design. No distractions. Just your impending deadline.
-- **REGIONAL LOCALIZATION:** Supports Global ($ USD) and India (₹ INR) currency localization out of the box.
+  - 💸 **Financial Stake:** Lock in funds (1x stake + 10% upfront protocol fee). Complete your oath and 100% of your locked stake is returned; fail and your stake is forfeited.
+  - 📱 **Social Ransom (Honor-Code Ledger):** Record a contact and confession that are revealed on your failure ledger and Wall of Shame if you fold (manual honor-code enforcement; no automated SMS is sent).
+  - 🏛️ **Anti-Charity (Honor-Code Ledger):** Pledge an ideological penalty to an opposing cause recorded permanently on your public failure profile and Wall of Shame.
+- **SQUAD POOLS & PUBLIC LOBBIES:** Individual buy-in accountability challenges (`Survival` or `Weakest Link` modes) verified by peer quorum.
+- **DUO DUELS (1v1):** Head-to-head accountability challenges verified by your partner.
+- **PEER & REFEREE VERIFICATION:** Submit daily or single-deadline proof (photo, video, screenshot, link, or text) reviewed by your Nominee Referee, Duo Partner, or Squad Quorum.
+- **BRUTALIST UI (MOBILE-FIRST & DESKTOP):** High-contrast analog brutalist aesthetic with thumb-zone bottom navigation and bottom-sheet drawers on mobile.
+- **REGIONAL LOCALIZATION:** Supports Global ($ USD via PayPal) and India (₹ INR via Razorpay) currency localization out of the box.
 
 ## 🛠️ TECH STACK
 
 - **Framework:** [Next.js 16 (App Router)](https://nextjs.org/)
 - **Styling:** [Tailwind CSS v4](https://tailwindcss.com/)
 - **Animations:** [Framer Motion](https://www.framer.com/motion/)
-- **Database & Auth:** [Supabase](https://supabase.com/)
+- **Database & Auth:** [Supabase](https://supabase.com/) (PostgreSQL + RLS + Realtime)
 - **Icons:** [Lucide React](https://lucide.dev/)
-- **Fonts:** Geist Sans & JetBrains Mono
+- **Fonts:** Inter & JetBrains Mono
 
 ## 🚀 GETTING STARTED
 
 ### Prerequisites
-- Node.js (v18+)
+- Node.js (v20+)
 - A Supabase Project
 
 ### Installation
@@ -54,29 +54,39 @@ Oath weaponizes loss aversion to guarantee your success.
    ```
 
 3. **Set up Environment Variables**
-   Create a `.env.local` file in the root directory and add your Supabase keys:
+   Create a `.env.local` file in the root directory (never prefix server secrets with `NEXT_PUBLIC_`):
    ```env
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   NEXT_PUBLIC_ADMIN_EMAIL=your_admin_email
-   NEXT_PUBLIC_ADMIN_PASSWORD=your_admin_password
+   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+   CRON_SECRET=your_random_cron_secret
+   PAYPAL_CLIENT_ID=your_paypal_client_id
+   PAYPAL_SECRET=your_paypal_secret
+   PAYPAL_MODE=sandbox
+   RAZORPAY_KEY_ID=your_razorpay_key_id
+   RAZORPAY_KEY_SECRET=your_razorpay_key_secret
    ```
 
-4. **Initialize Database**
-   Run the SQL scripts provided in `supabase-schema.sql` in your Supabase SQL Editor to set up the tables, Row Level Security (RLS) policies, and triggers.
+4. **Apply Database Migrations**
+   Push the migration chain in `supabase/migrations/` (66 migrations including payment idempotency, RLS hardening, and timezone-aware cadence) to your linked Supabase database:
+   ```bash
+   npx supabase db push
+   ```
 
-5. **Run the Development Server**
+5. **Run the Development Server & Test Suite**
    ```bash
    npm run dev
+   npm test
    ```
    Open [http://localhost:3000](http://localhost:3000) with your browser to see the app.
 
 ## 📐 ARCHITECTURE & DESIGN
 
 Oath is designed around a **Monochrome, Brutalist** aesthetic. 
-- **Themes:** Dark mode is heavily prioritized for the intense "hacker/analog" feel, but light mode offers a clean, sterile contrast.
-- **State Management:** Handled via custom React Contexts (`AuthContext`, `RegionContext`) and real-time Supabase listeners.
-- **Verification Logic:** Proofs are uploaded to Supabase Storage. Other users in the lobby review the proof and cast binary (Approve/Reject) votes. 
+- **Themes:** Light and Dark mode support with responsive mobile bottom-sheet ergonomics.
+- **State Management:** Handled via React Contexts (`AuthContext`, `RegionContext`) and real-time Supabase (`postgres_changes`) subscriptions.
+- **Verification & Settlement Logic:** Proofs are uploaded to private Supabase Storage paths (`oath-proofs`). Referees, Duo partners, or Squad Quorums review submissions, while server-authenticated cron sweeps (`/api/cron/sweep`) resolve expired deadlines.
+- **Withdrawals:** User withdrawal requests lock balance into a pending ledger entry that is reviewed and paid out via the protected Admin dashboard (`/admin`, restricted via `is_admin()` UUID/JWT `app_metadata` role check). 
 
 ## ⚖️ THE HOUSE ALWAYS WINS
 

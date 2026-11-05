@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const token = searchParams.get("token"); // PayPal Order ID
+  // Avoid closing the inline script if a malicious query value contains HTML.
+  const serializedToken = JSON.stringify(token ?? "")
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026");
 
   const html = `
     <!DOCTYPE html>
@@ -39,7 +44,7 @@ export async function GET(request: NextRequest) {
         <p>Finalizing your OATH deposit...</p>
       </div>
       <script>
-        const orderId = "${token || ""}";
+        const orderId = ${serializedToken};
         if (window.opener) {
           window.opener.postMessage({ type: "PAYPAL_APPROVED", orderId: orderId }, "*");
           setTimeout(() => {

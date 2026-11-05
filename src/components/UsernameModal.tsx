@@ -141,9 +141,9 @@ export default function UsernameModal({
     !(mode === "edit_profile" && cleanHandle === currentUsername.toLowerCase());
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 overflow-y-auto">
       <div
-        className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 border-zinc-950 dark:border-zinc-800 p-6 sm:p-8 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none fade-in my-auto relative text-left"
+        className="w-full max-w-md bg-white dark:bg-[#0a0a0f] border-t-4 border-x-0 border-b-0 sm:border-4 border-zinc-950 dark:border-zinc-800 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-8 shadow-none sm:shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] dark:shadow-none fade-in sm:my-auto relative text-left"
         role="dialog"
         aria-modal="true"
         aria-labelledby="username-modal-title"

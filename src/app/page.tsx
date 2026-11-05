@@ -127,7 +127,23 @@ export default function Home() {
     return <LandingView />;
   }
 
-  // Use real data when Supabase is configured; fallback to mock data only in demo mock mode
+  if (!isMockMode() && (!profile || !wallet)) {
+    return (
+      <main className="min-h-[100dvh] grid place-items-center bg-zinc-50 p-6 text-center dark:bg-[#09090b]">
+        <section className="max-w-md border-2 border-red-600 bg-white p-6 dark:bg-zinc-950">
+          <h1 className="text-lg font-black uppercase">Account data unavailable</h1>
+          <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+            Oath could not load your account. No demo balance or mock data is shown in production.
+          </p>
+          <button className="mt-5 border-2 border-zinc-950 px-4 py-2 text-xs font-bold uppercase dark:border-zinc-100" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  // Fallback data is reachable only in the explicit development demo mode.
   const activeProfile = profile ?? mockProfile;
   const activeWallet = wallet ?? mockWallet;
   const activeOaths = oaths;
@@ -190,7 +206,7 @@ export default function Home() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <main className="flex-1 min-h-0 flex flex-col overflow-hidden pb-14 lg:pb-0">
         {currentView === "active" && (
           <ActiveOathsView
             oaths={activeOaths}

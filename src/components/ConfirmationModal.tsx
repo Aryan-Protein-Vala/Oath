@@ -148,13 +148,13 @@ export function ConfirmationDialogContainer() {
       aria-modal="true"
       aria-labelledby="confirm-dialog-title"
       aria-describedby="confirm-dialog-desc"
-      className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
+      className="fixed inset-0 z-[10001] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
       onClick={(e) => {
         if (e.target === e.currentTarget) handleCancel();
       }}
     >
       <div
-        className={`w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 ${borderColor} p-6 text-left transition-all duration-200`}
+        className={`w-full max-w-md bg-white dark:bg-[#0a0a0f] border-t-4 border-x-0 border-b-0 sm:border-4 ${borderColor} p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6 text-left transition-all duration-200`}
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">
@@ -290,13 +290,13 @@ export function ConfirmationModal({
       aria-modal="true"
       aria-labelledby="standalone-confirm-title"
       aria-describedby="standalone-confirm-desc"
-      className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
+      className="fixed inset-0 z-[10001] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
       onClick={(e) => {
         if (e.target === e.currentTarget && !loading) onCancel();
       }}
     >
       <div
-        className={`w-full max-w-md bg-white dark:bg-[#0a0a0f] border-4 ${borderColor} p-6 text-left transition-all duration-200`}
+        className={`w-full max-w-md bg-white dark:bg-[#0a0a0f] border-t-4 border-x-0 border-b-0 sm:border-4 ${borderColor} p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6 text-left transition-all duration-200`}
       >
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-2.5">
