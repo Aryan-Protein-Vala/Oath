@@ -455,5 +455,36 @@ test("Hardening 5: Proof review, rejection (no premature oath erasure), and re-s
   `, [squadId, aliceSquadMemberId])).rows[0].res;
   assert.equal(voteRes.success, true);
   assert.equal(voteRes.verdict, "approved");
+
+  // 4. Test Final Day / Single-Deadline pass_today_work invoking handle_profile_completion
+  const singleOathId = (await asUser(ids.alice, `
+    SELECT public.create_oath_with_stake(
+      p_oath_statement := 'Single Deadline Completion Test',
+      p_deadline := now() + interval '1 day',
+      p_oath_type := 'solo',
+      p_verification_method := 'nominee',
+      p_consequence_type := 'public_shame',
+      p_stake_amount := 0,
+      p_nominee_email := '@bob_user',
+      p_cadence := 'once',
+      p_timezone := 'UTC'
+    ) AS id
+  `)).rows[0].id;
+
+  const singleProofId = (await asUser(ids.alice, `
+    SELECT public.submit_oath_proof($1, 'text', NULL, 'Finished whole task!') AS id
+  `, [singleOathId])).rows[0].id;
+
+  // Bob clicks "Pass Today's Work"
+  const passRes = (await asUser(ids.bob, `
+    SELECT public.pass_today_work(p_oath_id := $1, p_note := 'Passed final work', p_proof_id := $2) AS res
+  `, [singleOathId, singleProofId])).rows[0].res;
+  assert.equal(passRes.success, true);
+
+  const completedOath = (await db.query("SELECT status FROM public.oaths WHERE id = $1", [singleOathId])).rows[0];
+  assert.equal(completedOath.status, "completed");
+
+  const aliceAfterComp = (await db.query("SELECT oaths_completed FROM public.profiles WHERE id = $1", [ids.alice])).rows[0];
+  assert.ok(Number(aliceAfterComp.oaths_completed) >= 1, "Alice oaths_completed must be incremented by handle_profile_completion!");
 });
 
