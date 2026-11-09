@@ -317,8 +317,8 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
   };
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto py-8 sm:py-12 px-4 sm:px-6 relative">
-      <div className="w-full max-w-2xl mx-auto pb-32">
+    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-6 sm:py-12 px-4 sm:px-6 relative">
+      <div className="w-full max-w-2xl mx-auto pb-16 sm:pb-32">
         {/* Header */}
         <div className="mb-6 text-center sm:text-left">
           <h2 className="text-3xl font-black tracking-tight text-zinc-950 dark:text-zinc-100 mb-2 uppercase">
@@ -329,13 +329,19 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
           </p>
         </div>
 
-        {/* STEP PROGRESS INDICATOR (Sticky on mobile, static on desktop) */}
-        <div className="sticky top-0 z-20 sm:static mb-6 p-3 sm:p-4 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md sm:backdrop-blur-none border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-mono font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">
-              STEP {currentStep} OF 3: {currentStep === 1 ? "THE OATH & MODE" : currentStep === 2 ? "SCHEDULE & VERIFICATION" : "STAKES & CONSEQUENCE"}
+        {/* STEP PROGRESS INDICATOR (Natural scroll flow, fits within screen borders) */}
+        <div className="relative mb-6 p-3 sm:p-4 bg-white dark:bg-zinc-950/50 border-2 border-zinc-950 dark:border-zinc-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none max-w-full overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 mb-2">
+            <span className="text-[10px] sm:text-[11px] font-mono font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">
+              STEP {currentStep} OF 3:{" "}
+              <span className="hidden sm:inline">
+                {currentStep === 1 ? "THE OATH & MODE" : currentStep === 2 ? "SCHEDULE & VERIFICATION" : "STAKES & CONSEQUENCE"}
+              </span>
+              <span className="sm:hidden">
+                {currentStep === 1 ? "OATH & MODE" : currentStep === 2 ? "SCHEDULE & VERIFY" : "STAKES & CONSEQUENCE"}
+              </span>
             </span>
-            <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase">
+            <span className="text-[10px] font-mono font-bold text-zinc-500 uppercase shrink-0">
               {currentStep === 1 ? "Next: Verification" : currentStep === 2 ? "Next: Stakes" : "Final Step"}
             </span>
           </div>
@@ -592,8 +598,8 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
               </div>
             )}
 
-            {/* STEP 1 NEXT BUTTON (Sticky on mobile, static on desktop) */}
-            <div className="sticky bottom-0 z-20 sm:static bg-zinc-50/95 dark:bg-[#09090b]/95 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none py-3 sm:py-0 sm:pt-4 border-t-2 border-zinc-950 sm:border-zinc-200 dark:border-zinc-800 flex items-center justify-end">
+            {/* STEP 1 NEXT BUTTON (Natural scroll flow, 100% responsive within borders) */}
+            <div className="pt-6 mt-6 border-t-2 border-zinc-200 dark:border-zinc-800 flex items-center justify-end w-full">
               <button
                 type="button"
                 onClick={() => {
@@ -619,9 +625,9 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                   setCurrentStep(2);
                 }}
                 disabled={!oathStatement.trim() || (oathType === "duo" && !opponentUsername.trim() && !opponentId)}
-                className="px-6 py-3.5 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 font-black uppercase text-xs tracking-wider flex items-center gap-2 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                className="w-full sm:w-auto px-6 py-3.5 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none transition-colors"
               >
-                Next: Schedule & Verification <ArrowRight className="w-4 h-4" />
+                <span>Next: Schedule & Verification</span> <ArrowRight className="w-4 h-4 shrink-0" />
               </button>
             </div>
           </div>
@@ -783,14 +789,14 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
               </div>
             )}
 
-            {/* STEP 2 NAVIGATION BUTTONS (Sticky on mobile, static on desktop) */}
-            <div className="sticky bottom-0 z-20 sm:static bg-zinc-50/95 dark:bg-[#09090b]/95 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none py-3 sm:py-0 sm:pt-4 border-t-2 border-zinc-950 sm:border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2">
+            {/* STEP 2 NAVIGATION BUTTONS (Natural scroll flow, 100% responsive within borders) */}
+            <div className="pt-6 mt-6 border-t-2 border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 sm:gap-3 w-full">
               <button
                 type="button"
                 onClick={() => setCurrentStep(1)}
-                className="px-5 py-3.5 border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-900 font-mono text-xs font-black uppercase tracking-wider hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-1.5 transition-colors"
+                className="px-4 sm:px-5 py-3.5 border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-900 font-mono text-xs font-black uppercase tracking-wider hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-1.5 shrink-0 transition-colors"
               >
-                <ArrowLeft className="w-4 h-4" /> Back
+                <ArrowLeft className="w-4 h-4 shrink-0" /> Back
               </button>
               <button
                 type="button"
@@ -817,9 +823,11 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                   setCurrentStep(3);
                 }}
                 disabled={!deadline || (verificationMethod === "nominee" && !nomineeEmail.trim())}
-                className="px-6 py-3.5 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 font-black uppercase text-xs tracking-wider flex items-center gap-2 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                className="flex-1 sm:flex-initial px-4 sm:px-6 py-3.5 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none transition-colors min-w-0"
               >
-                Next: Stakes & Consequences <ArrowRight className="w-4 h-4" />
+                <span className="truncate sm:hidden">Next: Stakes</span>
+                <span className="hidden sm:inline">Next: Stakes & Consequences</span>
+                <ArrowRight className="w-4 h-4 shrink-0" />
               </button>
             </div>
           </div>
@@ -1135,42 +1143,46 @@ export default function CreateOathView({ walletBalance, onOathCreated, penaltyBo
                 </div>
               )}
 
-              <div className="sticky bottom-0 z-20 sm:static bg-white/95 dark:bg-zinc-950/95 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none py-3 sm:py-0 border-t-2 border-zinc-950 sm:border-0 dark:border-zinc-800 flex items-center gap-3">
+              {/* Overbudget alert above action buttons */}
+              {isFinancial && isOverBudget && (
+                <div className="flex items-center gap-2 mb-4 p-3 border-2 border-red-600 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-bold">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span className="text-[11px] font-mono leading-tight">
+                    Total required of {formatRegionCurrency(totalChargedUsd)} ({formatRegionCurrency(totalStakeUsd)} stake + 10% platform fee) exceeds wallet balance ({formatRegionCurrency(walletBalance)}). Deposit more funds.
+                  </span>
+                </div>
+              )}
+
+              {/* STEP 3 NAVIGATION / SUBMIT (Natural scroll flow, 100% responsive within borders) */}
+              <div className="pt-4 mt-4 border-t-2 border-zinc-200 dark:border-zinc-800 flex items-center gap-2 sm:gap-3 w-full">
                 <button
                   type="button"
                   onClick={() => setCurrentStep(2)}
-                  className="px-5 py-4 border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-900 font-mono text-xs font-black uppercase tracking-wider hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-1.5 shrink-0 transition-colors"
+                  className="px-4 sm:px-5 py-3.5 sm:py-4 border-2 border-zinc-950 dark:border-zinc-700 bg-white dark:bg-zinc-900 font-mono text-xs font-black uppercase tracking-wider hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-1.5 shrink-0 transition-colors"
                 >
-                  <ArrowLeft className="w-4 h-4" /> Back
+                  <ArrowLeft className="w-4 h-4 shrink-0" /> Back
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={!oathStatement || (isFinancial && (stakeNum <= 0 || isOverBudget)) || submitting || isPenaltyBoxActive}
-                  className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-black tracking-tight uppercase transition-all ${
+                  className={`flex-1 min-w-0 flex items-center justify-center gap-2 py-3.5 sm:py-4 px-3 sm:px-4 text-xs sm:text-sm font-black tracking-tight uppercase transition-all ${
                     !oathStatement || (isFinancial && (stakeNum <= 0 || isOverBudget)) || submitting || isPenaltyBoxActive
                       ? "bg-zinc-300 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-600 cursor-not-allowed"
                       : "bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-2 border-zinc-950 dark:border-transparent shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
                   }`}
                 >
-                  <Zap className="w-4 h-4" />
-                  {submitting
-                    ? "Locking Escrow..."
-                    : isPenaltyBoxActive
-                    ? "Locked in Penalty Box"
-                    : isFinancial
-                    ? `Pay ${formatRegionCurrency(totalChargedUsd)} & Create Oath`
-                    : "Create Oath"}
+                  <Zap className="w-4 h-4 shrink-0" />
+                  <span className="truncate">
+                    {submitting
+                      ? "Locking Escrow..."
+                      : isPenaltyBoxActive
+                      ? "Locked in Penalty Box"
+                      : isFinancial
+                      ? `Pay ${formatRegionCurrency(totalChargedUsd)} & Create Oath`
+                      : "Create Oath"}
+                  </span>
                 </button>
               </div>
-
-              {isFinancial && isOverBudget && (
-                <div className="flex items-center gap-2 mt-3 text-red-500 font-bold">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span className="text-[11px] font-mono">
-                    Total required of {formatRegionCurrency(totalChargedUsd)} ({formatRegionCurrency(totalStakeUsd)} stake + 10% platform fee) exceeds wallet balance ({formatRegionCurrency(walletBalance)}). Deposit more funds.
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         )}
