@@ -614,49 +614,52 @@ function OathCountdownCard({
   const progressPercent = isPendingAcceptance ? 0 : Math.min(100, Math.max(0, (progressElapsed / progressTotal) * 100));
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-start lg:justify-center py-6 lg:py-8 px-4 lg:px-8 relative overflow-y-auto bg-zinc-50 dark:bg-transparent" suppressHydrationWarning>
+    <div className="flex-1 flex flex-col items-center justify-center py-6 lg:py-8 px-4 lg:px-8 relative overflow-y-auto bg-zinc-50 dark:bg-transparent" suppressHydrationWarning>
       {/* Crimson glow when urgent */}
       {timeState.isUrgent && !isPendingAcceptance && (
         <div className="absolute inset-0 pointer-events-none crimson-glow" />
       )}
 
-      {/* Status badges */}
-      <div className="absolute top-5 right-5 flex items-center gap-2">
-        <span className={`text-[9px] font-mono font-bold uppercase tracking-widest px-2.5 py-1 border ${
-          oath.status === "active" ? "border-zinc-400 dark:border-zinc-700 text-zinc-700 dark:text-zinc-400" : "border-red-600 text-red-600"
-        }`}>
-          {oath.status}
-        </span>
-        <span className={`text-[9px] font-mono font-black uppercase tracking-widest px-2.5 py-1 border-2 ${
-          isReferee
-            ? "border-zinc-950 dark:border-zinc-700 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
-            : "text-zinc-700 dark:text-zinc-300 border-zinc-950 dark:border-zinc-800"
-        }`}>
-          {isReferee ? "REFEREE" : oath.verification_method.replace(/_/g, " ")}
-        </span>
-      </div>
+      <div className="w-full max-w-xl my-auto flex flex-col items-center">
+        {/* Status badges & Header row */}
+        <div className="w-full flex items-center justify-between mb-4 px-1">
+          {isReferee ? (
+            <p className="text-[10px] font-mono text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] font-black flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100 shrink-0" />
+              REFEREE FOR @{oath.creator?.username || "CHALLENGER"}
+            </p>
+          ) : (
+            <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400 uppercase tracking-[0.2em] font-bold">
+              I swore to
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <span className={`text-[9px] font-mono font-bold uppercase tracking-widest px-2.5 py-1 border ${
+              oath.status === "active" ? "border-zinc-400 dark:border-zinc-700 text-zinc-700 dark:text-zinc-400" : "border-red-600 text-red-600"
+            }`}>
+              {oath.status}
+            </span>
+            <span className={`text-[9px] font-mono font-black uppercase tracking-widest px-2.5 py-1 border-2 ${
+              isReferee
+                ? "border-zinc-950 dark:border-zinc-700 bg-zinc-950 text-white dark:bg-zinc-100 dark:text-zinc-950 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none"
+                : "text-zinc-700 dark:text-zinc-300 border-zinc-950 dark:border-zinc-800"
+            }`}>
+              {isReferee ? "REFEREE" : oath.verification_method.replace(/_/g, " ")}
+            </span>
+          </div>
+        </div>
 
-      {/* Oath text */}
-      <div className="text-center mb-6 max-w-xl">
-        {isReferee ? (
-          <p className="text-[10px] font-mono text-zinc-700 dark:text-zinc-300 uppercase tracking-[0.2em] font-black mb-3 flex items-center justify-center gap-1.5">
-            <Shield className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100 shrink-0" />
-            REFEREE FOR @{oath.creator?.username || "CHALLENGER"}&apos;S OATH
-          </p>
-        ) : (
-          <p className="text-[10px] font-mono text-zinc-500 dark:text-zinc-500 uppercase tracking-[0.2em] font-bold mb-3">
-            I swore to
-          </p>
-        )}
-        <h1 className="text-2xl lg:text-3xl font-black text-zinc-950 dark:text-zinc-50 tracking-tight leading-tight">
-          {oath.oath_statement}
-        </h1>
-        {oath.oath_type === "duo" && !isReferee && (
-          <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 font-mono font-bold">
-            vs @{oath.creator_id === user?.id ? (oath.opponent?.username || "Opponent") : (oath.creator?.username || "Challenger")}
-          </p>
-        )}
-      </div>
+        {/* Oath text */}
+        <div className="text-center mb-6 max-w-xl w-full">
+          <h1 className="text-2xl lg:text-3xl font-black text-zinc-950 dark:text-zinc-50 tracking-tight leading-tight">
+            {oath.oath_statement}
+          </h1>
+          {oath.oath_type === "duo" && !isReferee && (
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 font-mono font-bold">
+              vs @{oath.creator_id === user?.id ? (oath.opponent?.username || "Opponent") : (oath.creator?.username || "Challenger")}
+            </p>
+          )}
+        </div>
 
       {/* Cadence progression */}
       {isMultiDay && (
@@ -926,7 +929,7 @@ function OathCountdownCard({
         // If viewing as referee, the user strictly sees "Chat and Proof" and "Details"
         if (isReferee) {
           return (
-            <div className="sticky bottom-0 z-10 lg:static bg-zinc-50/95 dark:bg-[#09090b]/95 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none border-t-2 border-zinc-950 dark:border-zinc-800 lg:border-0 py-3 lg:py-0 mt-auto lg:mt-0 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 w-full lg:max-w-md px-3 sm:px-2">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 w-full max-w-md px-3 sm:px-2 mt-4 sm:mt-6">
               <button
                 onClick={onOpenChat}
                 className="relative flex items-center gap-2 px-6 py-3 bg-zinc-950 text-white dark:bg-zinc-50 dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-2 border-zinc-950 dark:border-transparent text-sm font-black tracking-tight uppercase shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-none transition-all active:translate-y-0.5"
@@ -990,7 +993,7 @@ function OathCountdownCard({
         })();
 
         return (
-          <div className="sticky bottom-0 z-10 lg:static bg-zinc-50/95 dark:bg-[#09090b]/95 lg:bg-transparent backdrop-blur-md lg:backdrop-blur-none border-t-2 border-zinc-950 dark:border-zinc-800 lg:border-0 py-3 lg:py-0 mt-auto lg:mt-0 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 w-full lg:max-w-md px-3 sm:px-2">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 w-full max-w-md px-3 sm:px-2 mt-4 sm:mt-6">
             {isExpired && oath.status === "active" ? (
               <button
                 onClick={onForfeit}
@@ -1082,6 +1085,7 @@ function OathCountdownCard({
           </div>
         );
       })()}
+      </div>
     </div>
   );
 }

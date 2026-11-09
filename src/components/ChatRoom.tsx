@@ -575,9 +575,17 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
   const isLobby = oath.oath_type === "lobby";
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 transition-opacity" onClick={onClose} />
-      <div className="fixed inset-0 sm:inset-4 md:inset-x-[10%] md:inset-y-[5%] bg-white dark:bg-[#0a0a0f] border-0 sm:border-4 border-zinc-950 dark:border-zinc-800 z-50 shadow-none sm:shadow-[16px_16px_0px_0px_rgba(9,9,11,1)] dark:shadow-none flex flex-col fade-in h-[100dvh] sm:h-auto max-h-[100dvh] w-full max-w-full overflow-hidden">
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6"
+    >
+      <div
+        className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="relative z-10 w-full max-w-5xl h-[100dvh] sm:h-[90vh] max-h-[100dvh] bg-white dark:bg-[#0a0a0f] border-0 sm:border-4 border-zinc-950 dark:border-zinc-800 shadow-none sm:shadow-[16px_16px_0px_0px_rgba(9,9,11,1)] dark:shadow-none flex flex-col fade-in overflow-hidden">
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b-2 sm:border-b-4 border-zinc-950 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900/40 shrink-0 gap-3 sm:gap-4 relative">
@@ -1133,6 +1141,6 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }
