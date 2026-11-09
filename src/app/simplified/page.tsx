@@ -189,8 +189,9 @@ export default function SimplifiedPage() {
     });
     if (!confirmed) return;
 
+    const targetProofId = oath.proofs?.find((p) => p.status === "pending_review")?.id || oath.proofs?.[0]?.id;
     setActionLoading(true);
-    const { error } = await passDailyWork(oath.id, "Verified by referee via Simplified Dashboard");
+    const { error } = await passDailyWork(oath.id, "Verified by referee via Simplified Dashboard", targetProofId);
     setActionLoading(false);
 
     if (error) {
@@ -208,9 +209,10 @@ export default function SimplifiedPage() {
       return;
     }
 
+    const targetProofId = reviewModal.oath.proofs?.find((p) => p.status === "pending_review")?.id || reviewModal.oath.proofs?.[0]?.id;
     setActionLoading(true);
     if (reviewModal.type === "need_more_proof") {
-      const { error } = await requestMoreProof(reviewModal.oath.id, reviewNote.trim());
+      const { error } = await requestMoreProof(reviewModal.oath.id, reviewNote.trim(), targetProofId);
       setActionLoading(false);
       if (error) {
         showToast(error, "error");
@@ -221,12 +223,12 @@ export default function SimplifiedPage() {
         refreshOaths();
       }
     } else {
-      const { error } = await peerReviewProof(reviewModal.oath.id, false, reviewNote.trim());
+      const { error } = await peerReviewProof(reviewModal.oath.id, false, reviewNote.trim(), targetProofId);
       setActionLoading(false);
       if (error) {
         showToast(error, "error");
       } else {
-        showToast("Proof rejected.", "error");
+        showToast("Proof rejected. Challenger notified to re-submit before deadline.", "info");
         setReviewModal(null);
         setReviewNote("");
         refreshOaths();

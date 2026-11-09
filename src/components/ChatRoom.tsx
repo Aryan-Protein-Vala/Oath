@@ -536,7 +536,7 @@ export default function ChatRoom({ oath, onClose, onProofUpdated }: ChatRoomProp
 
     setActionLoading(true);
     if (reviewAction.type === "need_more_proof") {
-      const { error } = await requestMoreProof(oath.id, note);
+      const { error } = await requestMoreProof(oath.id, note, targetProofId);
       setActionLoading(false);
       if (error) {
         showToast(error, "error");

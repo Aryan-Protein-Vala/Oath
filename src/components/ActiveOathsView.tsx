@@ -1379,7 +1379,7 @@ function PeerReviewModal({
 
   const handleApprove = async () => {
     setLoading(true);
-    const { error } = await peerReviewProof(oath.id, true, "Approved by Challenge Partner");
+    const { error } = await peerReviewProof(oath.id, true, "Approved by Challenge Partner", proof?.id);
     setLoading(false);
     if (error) {
       showToast(error, "error");
@@ -1396,16 +1396,16 @@ function PeerReviewModal({
       return;
     }
     if (!rejectReason.trim()) {
-      showToast("Please provide a reason to reject this proof for fraud.", "error");
+      showToast("Please provide a reason to reject this proof.", "error");
       return;
     }
     setLoading(true);
-    const { error } = await peerReviewProof(oath.id, false, rejectReason.trim());
+    const { error } = await peerReviewProof(oath.id, false, rejectReason.trim(), proof?.id);
     setLoading(false);
     if (error) {
       showToast(error, "error");
     } else {
-      showToast("Proof rejected as fraudulent. Dispute penalties applied.", "error");
+      showToast("Proof rejected. Partner notified to re-submit before deadline.", "info");
       onReviewed();
       onClose();
     }
@@ -1592,9 +1592,10 @@ function RefereeReviewModal({
       );
       return;
     }
+    const targetProofId = oath.proofs?.find((p) => p.status === "pending_review")?.id || oath.proofs?.[0]?.id;
     setLoading(true);
     if (type === "need_more_proof") {
-      const { error } = await requestMoreProof(oath.id, note.trim());
+      const { error } = await requestMoreProof(oath.id, note.trim(), targetProofId);
       setLoading(false);
       if (error) {
         showToast(error, "error");
@@ -1604,12 +1605,12 @@ function RefereeReviewModal({
         onClose();
       }
     } else {
-      const { error } = await peerReviewProof(oath.id, false, note.trim());
+      const { error } = await peerReviewProof(oath.id, false, note.trim(), targetProofId);
       setLoading(false);
       if (error) {
         showToast(error, "error");
       } else {
-        showToast("Proof rejected as fraudulent.", "error");
+        showToast("Proof rejected. Challenger notified to re-submit before deadline.", "info");
         onSuccess();
         onClose();
       }

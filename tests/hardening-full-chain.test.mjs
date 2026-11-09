@@ -320,3 +320,140 @@ test("Hardening 4: Forfeit lifecycle cleans up Referee & Partner states across S
   assert.equal(aliceNagCount, 0);
 });
 
+test("Hardening 5: Proof review, rejection (no premature oath erasure), and re-submission across Solo, Duo, and Squad", async () => {
+  // Clear any penalty box
+  await db.query("UPDATE public.profiles SET loss_streak = 0, penalty_box_until = NULL WHERE id IN ($1, $2)", [ids.alice, ids.bob]);
+
+  // 1. Solo Daily Oath with Nominee
+  const soloId = (await asUser(ids.alice, `
+    SELECT public.create_oath_with_stake(
+      p_oath_statement := 'Solo Daily Proof Rejection Test',
+      p_deadline := now() + interval '5 days',
+      p_oath_type := 'solo',
+      p_verification_method := 'nominee',
+      p_consequence_type := 'public_shame',
+      p_stake_amount := 0,
+      p_nominee_email := '@bob_user',
+      p_cadence := 'daily',
+      p_timezone := 'UTC'
+    ) AS id
+  `)).rows[0].id;
+
+  const proof1 = (await asUser(ids.alice, `
+    SELECT public.submit_oath_proof($1, 'text', NULL, 'Proof attempt 1 (blurry)') AS id
+  `, [soloId])).rows[0].id;
+
+  // Bob rejects proof 1 with p_fail_oath = false
+  const rej1 = (await asUser(ids.bob, `
+    SELECT public.reject_proof(p_oath_id := $1, p_proof_id := $2, p_reason := 'Blurry, please resubmit', p_fail_oath := false) AS res
+  `, [soloId, proof1])).rows[0].res;
+  assert.equal(rej1.success, true);
+  assert.equal(rej1.status, "rejected");
+
+  const soloAfterRej = (await db.query("SELECT status FROM public.oaths WHERE id = $1", [soloId])).rows[0];
+  assert.equal(soloAfterRej.status, "active", "Oath MUST remain active after proof rejection!");
+
+  const nomineeAfterRej = (await db.query("SELECT verified, verdict FROM public.nominees WHERE oath_id = $1", [soloId])).rows[0];
+  assert.equal(nomineeAfterRej.verified, false, "Nominee verified must remain false so nominee can review resubmission!");
+
+  // Alice submits proof attempt 2
+  const proof2 = (await asUser(ids.alice, `
+    SELECT public.submit_oath_proof($1, 'text', NULL, 'Proof attempt 2 (crystal clear)') AS id
+  `, [soloId])).rows[0].id;
+
+  // Bob approves proof 2 via pass_today_work
+  const pass1 = (await asUser(ids.bob, `
+    SELECT public.pass_today_work(p_oath_id := $1, p_note := 'Approved attempt 2', p_proof_id := $2) AS res
+  `, [soloId, proof2])).rows[0].res;
+  assert.equal(pass1.success, true);
+
+  const nomineeAfterPass = (await db.query("SELECT verified, verdict FROM public.nominees WHERE oath_id = $1", [soloId])).rows[0];
+  assert.equal(nomineeAfterPass.verified, false, "Nominee verified must be false for non-final day!");
+
+  // Also test nominee verification token route
+  const nomToken = (await db.query("SELECT verification_token FROM public.nominees WHERE oath_id = $1", [soloId])).rows[0].verification_token;
+  // Day 2 proof submission & approval via token
+  await asUser(ids.alice, `SELECT public.submit_oath_proof($1, 'text', NULL, 'Day 2 proof')`, [soloId]);
+  const tokenVerify = (await db.query("SELECT public.verify_nominee($1, true, 'Token approved') AS res", [nomToken])).rows[0].res;
+  assert.equal(tokenVerify.success, true);
+  assert.equal(tokenVerify.current_day, 3);
+
+  // 2. Duo Daily Challenge with Peer Rejection
+  const duoId = (await asUser(ids.alice, `
+    SELECT public.create_oath_with_stake(
+      p_oath_statement := 'Duo Proof Rejection Flow Test',
+      p_deadline := now() + interval '3 days',
+      p_oath_type := 'duo',
+      p_verification_method := 'peer',
+      p_consequence_type := 'public_shame',
+      p_stake_amount := 0,
+      p_opponent_id := $1,
+      p_cadence := 'daily',
+      p_timezone := 'UTC'
+    ) AS id
+  `, [ids.bob])).rows[0].id;
+
+  await asUser(ids.bob, `SELECT public.accept_duo_challenge($1)`, [duoId]);
+
+  const duoProof1 = (await asUser(ids.alice, `
+    SELECT public.submit_oath_proof($1, 'text', NULL, 'Alice gym photo (dark)') AS id
+  `, [duoId])).rows[0].id;
+
+  // Bob rejects proof 1
+  const duoRej = (await asUser(ids.bob, `
+    SELECT public.reject_proof(p_oath_id := $1, p_proof_id := $2, p_reason := 'Too dark to verify gym badge', p_fail_oath := false) AS res
+  `, [duoId, duoProof1])).rows[0].res;
+  assert.equal(duoRej.success, true);
+
+  const duoOathAfter = (await db.query("SELECT status FROM public.oaths WHERE id = $1", [duoId])).rows[0];
+  assert.equal(duoOathAfter.status, "active", "Duo oath MUST remain active on proof rejection!");
+
+  const aliceMember = (await db.query("SELECT status, proof_submitted FROM public.group_members WHERE oath_id = $1 AND user_id = $2", [duoId, ids.alice])).rows[0];
+  assert.equal(aliceMember.status, "joined", "Alice must remain joined!");
+  assert.equal(aliceMember.proof_submitted, false, "proof_submitted must be reset so Alice can submit again!");
+
+  // Alice resubmits
+  const duoProof2 = (await asUser(ids.alice, `
+    SELECT public.submit_oath_proof($1, 'text', NULL, 'Alice gym photo with badge visible') AS id
+  `, [duoId])).rows[0].id;
+
+  // Bob approves Alice's resubmitted proof
+  const duoPass = (await asUser(ids.bob, `
+    SELECT public.pass_today_work(p_oath_id := $1, p_note := 'Badge verified and clear', p_proof_id := $2) AS res
+  `, [duoId, duoProof2])).rows[0].res;
+  assert.equal(duoPass.success, true);
+
+  // 3. Squad Quorum Flow
+  const squadId = (await asUser(ids.alice, `
+    SELECT public.create_oath_with_stake(
+      p_oath_statement := 'Squad Quorum Proof Flow Test',
+      p_deadline := now() + interval '3 days',
+      p_oath_type := 'squad',
+      p_verification_method := 'quorum',
+      p_consequence_type := 'public_shame',
+      p_stake_amount := 0,
+      p_min_players := 2,
+      p_max_players := 4,
+      p_group_mode := 'survival',
+      p_cadence := 'daily',
+      p_timezone := 'UTC'
+    ) AS id
+  `)).rows[0].id;
+
+  await asUser(ids.bob, `SELECT public.join_squad($1, 0, 'UTC')`, [squadId]);
+  await db.query("UPDATE public.oaths SET status = 'active' WHERE id = $1", [squadId]);
+
+  await asUser(ids.alice, `
+    SELECT public.submit_oath_proof($1, 'text', NULL, 'Alice squad proof') AS id
+  `, [squadId]);
+
+  const aliceSquadMemberId = (await db.query("SELECT id FROM public.group_members WHERE oath_id = $1 AND user_id = $2", [squadId, ids.alice])).rows[0].id;
+
+  // Bob casts quorum vote approving Alice
+  const voteRes = (await asUser(ids.bob, `
+    SELECT public.cast_squad_vote(p_oath_id := $1, p_member_id := $2, p_approve := true) AS res
+  `, [squadId, aliceSquadMemberId])).rows[0].res;
+  assert.equal(voteRes.success, true);
+  assert.equal(voteRes.verdict, "approved");
+});
+

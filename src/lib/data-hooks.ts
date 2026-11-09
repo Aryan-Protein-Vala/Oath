@@ -1143,6 +1143,13 @@ export async function joinSquad(oathId: string, stakeAmount: number) {
 
 export const joinLobby = joinSquad;
 
+// ---- sanitizeUUID helper ----
+export function sanitizeUUID(val?: string | null): string | null {
+  if (!val || typeof val !== "string") return null;
+  const trimmed = val.trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed) ? trimmed : null;
+}
+
 // ---- castVote ----
 export async function castVote(targetId: string, oathId: string, vote: boolean) {
   if (isMockMode()) {
@@ -1227,7 +1234,14 @@ export async function castVote(targetId: string, oathId: string, vote: boolean) 
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
-  const { data: member, error: memberError } = await supabase.from("group_members").select("id").eq("oath_id", oathId).or(`id.eq.${targetId},user_id.eq.${targetId}`).maybeSingle();
+  const sanitizedTarget = sanitizeUUID(targetId);
+  if (!sanitizedTarget) return { error: "Invalid target user ID" };
+  const { data: member, error: memberError } = await supabase
+    .from("group_members")
+    .select("id")
+    .eq("oath_id", oathId)
+    .or(`id.eq.${sanitizedTarget},user_id.eq.${sanitizedTarget}`)
+    .maybeSingle();
   if (memberError || !member) return { error: memberError?.message ?? "Member not found" };
   const { error } = await supabase.rpc("cast_squad_vote", { p_oath_id: oathId, p_member_id: member.id, p_approve: vote });
   if (error) return { error: error.message };
@@ -1836,17 +1850,19 @@ export async function peerReviewProof(oathId: string, approve: boolean, note?: s
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
+  const cleanProofId = sanitizeUUID(proofId);
+
   if (approve) {
     const { error } = await supabase.rpc("pass_today_work", {
       p_oath_id: oathId,
       p_note: note ?? null,
-      p_proof_id: proofId ?? null,
+      p_proof_id: cleanProofId,
     });
     if (error) return { error: error.message };
   } else {
     const { error } = await supabase.rpc("reject_proof", {
       p_oath_id: oathId,
-      p_proof_id: proofId ?? null,
+      p_proof_id: cleanProofId,
       p_reason: note ?? null,
       p_fail_oath: false,
     });
@@ -1881,9 +1897,11 @@ export async function requestMoreProof(oathId: string, note: string, proofId?: s
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
+  const cleanProofId = sanitizeUUID(proofId);
   const { error } = await supabase.rpc("request_more_proof", {
     p_oath_id: oathId,
     p_note: note,
+    p_proof_id: cleanProofId,
   });
   if (error) return { error: error.message };
   notifyDataUpdated();
@@ -1937,10 +1955,11 @@ export async function passDailyWork(oathId: string, note?: string, proofId?: str
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
+  const cleanProofId = sanitizeUUID(proofId);
   const { data, error } = await supabase.rpc("pass_today_work", {
     p_oath_id: oathId,
     p_note: note ?? null,
-    p_proof_id: proofId ?? null,
+    p_proof_id: cleanProofId,
   });
   if (error) return { error: error.message };
   notifyDataUpdated();
