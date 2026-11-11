@@ -34,17 +34,18 @@ export default function Home() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const { user, profile, wallet, loading, signOut, refreshWallet } = useAuth();
+  const userId = user?.id;
   const router = useRouter();
 
   // Real data hooks (only fire when user is logged in)
-  const { oaths, refresh: refreshOaths } = useOaths();
+  const { oaths, loading: oathsLoading, refresh: refreshOaths } = useOaths();
   const { lobbies, refresh: refreshLobbies } = useSquadLobbies();
   const { entries: shameEntries } = useWall("shame");
   const { entries: honorEntries } = useWall("honor");
   const { transactions } = useTransactions();
 
   useEffect(() => {
-    if (!user || isMockMode()) {
+    if (!userId || isMockMode()) {
       setUnreadCount(0);
       return;
     }
@@ -53,17 +54,17 @@ export default function Home() {
       const { count } = await supabase
         .from("notifications")
         .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("status", "pending");
       setUnreadCount(count ?? 0);
     };
     fetchUnread();
 
     const channel = supabase
-      .channel(`notifs_badge:${user.id}`)
+      .channel(`notifs_badge:${userId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
         () => fetchUnread()
       )
       .subscribe();
@@ -71,7 +72,7 @@ export default function Home() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [userId]);
 
   // Handle return from PayPal redirect
   useEffect(() => {
@@ -210,6 +211,7 @@ export default function Home() {
         {currentView === "active" && (
           <ActiveOathsView
             oaths={activeOaths}
+            loading={oathsLoading}
             onProofSubmitted={() => { refreshOaths(); refreshWallet(); }}
             onCreateClick={() => setCurrentView("create")}
           />

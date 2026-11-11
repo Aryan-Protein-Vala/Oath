@@ -3,7 +3,7 @@
 // ============================================================
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import type { Oath, WallEntry, Transaction, Proof, Wallet, OathType, OathStatus, VerificationMethod, ConsequenceType, ProofType, GroupMode, ProofStatus, Message } from "@/lib/types";
 import {
@@ -130,10 +130,33 @@ export function setMockMessages(oathId: string, messages: Message[]) {
 
 // ---- useOaths — fetch user's active oaths ----
 export function useOaths() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
+  const userId = user?.id;
+  const userEmail = user?.email;
+  const metadataUsername = typeof user?.user_metadata?.username === "string"
+    ? user.user_metadata.username
+    : undefined;
+  const effectiveUsername = profile?.username ?? metadataUsername;
+
   const [oaths, setOaths] = useState<Oath[]>(() => isMockMode() ? getMockOaths() : []);
   const [loading, setLoading] = useState(true);
+  const loadedUserRef = useRef<string | null>(null);
   const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    if (!authLoading && !userId && !isMockMode()) {
+      loadedUserRef.current = null;
+      let cancelled = false;
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setOaths([]);
+        setLoading(false);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [authLoading, userId]);
 
   const loadData = useCallback(async () => {
     if (isMockMode()) {
@@ -141,34 +164,42 @@ export function useOaths() {
       setLoading(false);
       return;
     }
-    if (!user) {
+    if (!userId) {
+      loadedUserRef.current = null;
       setOaths([]);
-      setLoading(false);
       return;
     }
+
+    if (loadedUserRef.current !== userId) {
+      setLoading(true);
+    }
+
     try {
-      const { data: memberships } = await supabase.from("group_members").select("oath_id").eq("user_id", user.id);
-      const membershipFilter = (memberships ?? []).map((member) => member.oath_id).filter(Boolean);
+      // Run independent membership and nominee lookups in parallel
+      const [membershipRes, nomineeOathIds] = await Promise.all([
+        supabase.from("group_members").select("oath_id").eq("user_id", userId),
+        (async () => {
+          try {
+            const nomineeFilters = [`nominee_user_id.eq.${userId}`];
+            if (userEmail) nomineeFilters.push(`email.eq."${userEmail}"`);
+            if (effectiveUsername) {
+              const cleanUser = effectiveUsername.replace(/^@+/, "");
+              nomineeFilters.push(`email.eq."@${cleanUser}"`);
+              nomineeFilters.push(`email.eq."${cleanUser}"`);
+            }
+            const { data: nomineeRows } = await supabase.from("nominees").select("oath_id").or(nomineeFilters.join(","));
+            return (nomineeRows ?? []).map((r) => r.oath_id).filter(Boolean);
+          } catch (nomineeErr) {
+            console.warn("Could not query nominee rows:", nomineeErr);
+            return [] as string[];
+          }
+        })(),
+      ]);
 
-      // Check if user is referee/nominee for any oath (safely wrapped)
-      let nomineeOathIds: string[] = [];
-      try {
-        const nomineeFilters = [`nominee_user_id.eq.${user.id}`];
-        if (user.email) nomineeFilters.push(`email.eq."${user.email}"`);
-        if (profile?.username) {
-          const cleanUser = profile.username.replace(/^@+/, "");
-          nomineeFilters.push(`email.eq."@${cleanUser}"`);
-          nomineeFilters.push(`email.eq."${cleanUser}"`);
-        }
-        const { data: nomineeRows } = await supabase.from("nominees").select("oath_id").or(nomineeFilters.join(","));
-        nomineeOathIds = (nomineeRows ?? []).map((r) => r.oath_id).filter(Boolean);
-      } catch (nomineeErr) {
-        console.warn("Could not query nominee rows:", nomineeErr);
-      }
-
+      const membershipFilter = (membershipRes.data ?? []).map((member) => member.oath_id).filter(Boolean);
       const allAssociatedIds = Array.from(new Set([...membershipFilter, ...nomineeOathIds]));
 
-      const filters = [`creator_id.eq.${user.id}`, `opponent_id.eq.${user.id}`];
+      const filters = [`creator_id.eq.${userId}`, `opponent_id.eq.${userId}`];
       if (allAssociatedIds.length) {
         filters.push(`id.in.(${allAssociatedIds.join(",")})`);
       }
@@ -240,7 +271,7 @@ export function useOaths() {
         const activeFiltered = (data as Oath[]).filter((o) => {
           if (o.status !== "active" && o.status !== "pending" && o.status !== "disputed") return false;
           if (o.oath_type === "duo" || o.oath_type === "squad" || o.oath_type === "lobby") {
-            const myMember = o.members?.find((m) => m.user_id === user.id);
+            const myMember = o.members?.find((m) => m.user_id === userId);
             if (myMember && (myMember.status === "failed" || myMember.status === "completed" || myMember.status === "eliminated")) {
               return false;
             }
@@ -253,12 +284,14 @@ export function useOaths() {
       console.error("useOaths unexpected error:", err);
       setOaths([]);
     } finally {
+      loadedUserRef.current = userId;
       setLoading(false);
     }
-  }, [user, profile, supabase]);
+  }, [userId, userEmail, effectiveUsername, supabase]);
 
   useEffect(() => {
     let isMounted = true;
+    let realtimeTimer: ReturnType<typeof setTimeout> | null = null;
     const execute = async () => {
       await loadData();
     };
@@ -269,32 +302,33 @@ export function useOaths() {
     };
     window.addEventListener("oath_data_updated", handleUpdate);
 
+    const scheduleRealtimeRefresh = () => {
+      if (!isMounted) return;
+      if (realtimeTimer) clearTimeout(realtimeTimer);
+      realtimeTimer = setTimeout(() => {
+        if (isMounted) loadData();
+      }, 120);
+    };
+
     // Realtime subscription so when a challenger forfeits, submits proof, or settles an oath,
     // the Referee / Opponent / Squad Member screen updates and removes terminated oaths immediately.
-    const channel = !isMockMode() && user
+    const channel = !isMockMode() && userId
       ? supabase
-          .channel(`active_oaths_sync:${user.id}`)
-          .on("postgres_changes", { event: "*", schema: "public", table: "oaths" }, () => {
-            if (isMounted) loadData();
-          })
-          .on("postgres_changes", { event: "*", schema: "public", table: "group_members" }, () => {
-            if (isMounted) loadData();
-          })
-          .on("postgres_changes", { event: "*", schema: "public", table: "proofs" }, () => {
-            if (isMounted) loadData();
-          })
-          .on("postgres_changes", { event: "*", schema: "public", table: "nominees" }, () => {
-            if (isMounted) loadData();
-          })
+          .channel(`active_oaths_sync:${userId}`)
+          .on("postgres_changes", { event: "*", schema: "public", table: "oaths" }, scheduleRealtimeRefresh)
+          .on("postgres_changes", { event: "*", schema: "public", table: "group_members" }, scheduleRealtimeRefresh)
+          .on("postgres_changes", { event: "*", schema: "public", table: "proofs" }, scheduleRealtimeRefresh)
+          .on("postgres_changes", { event: "*", schema: "public", table: "nominees" }, scheduleRealtimeRefresh)
           .subscribe()
       : null;
 
     return () => {
       isMounted = false;
+      if (realtimeTimer) clearTimeout(realtimeTimer);
       window.removeEventListener("oath_data_updated", handleUpdate);
       if (channel) supabase.removeChannel(channel);
     };
-  }, [loadData, supabase, user]);
+  }, [loadData, supabase, userId]);
 
   return { oaths, loading, refresh: loadData };
 }
@@ -302,6 +336,7 @@ export function useOaths() {
 // ---- useSquadLobbies — fetch open squad pools ----
 export function useSquadLobbies() {
   const { user } = useAuth();
+  const userId = user?.id;
   const [lobbies, setLobbies] = useState<Oath[]>(() => isMockMode() ? getMockSquads().filter((s) => s.oath_type === "lobby") : []);
   const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
@@ -312,7 +347,7 @@ export function useSquadLobbies() {
       setLoading(false);
       return;
     }
-    if (!user) {
+    if (!userId) {
       setLobbies([]);
       setLoading(false);
       return;
@@ -364,7 +399,7 @@ export function useSquadLobbies() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, user]);
+  }, [supabase, userId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -389,6 +424,7 @@ export function useSquadLobbies() {
 // ---- useWall — fetch wall entries ----
 export function useWall(type: "shame" | "honor") {
   const { user } = useAuth();
+  const userId = user?.id;
   const [entries, setEntries] = useState<WallEntry[]>(() => isMockMode() ? getMockWall(type) : []);
   const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
@@ -399,7 +435,7 @@ export function useWall(type: "shame" | "honor") {
       setLoading(false);
       return;
     }
-    if (!user) {
+    if (!userId) {
       setEntries([]);
       setLoading(false);
       return;
@@ -422,7 +458,7 @@ export function useWall(type: "shame" | "honor") {
     } finally {
       setLoading(false);
     }
-  }, [supabase, type, user]);
+  }, [supabase, type, userId]);
 
   useEffect(() => {
     let isMounted = true;

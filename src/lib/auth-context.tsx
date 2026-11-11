@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 import type { Profile, Wallet } from "@/lib/types";
@@ -67,17 +67,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [loading, setLoading] = useState(true);
+  const loadedUserIdRef = useRef<string | null>(null);
+  const latestRequestIdRef = useRef(0);
 
-  const fetchProfile = useCallback(async (userId: string) => {
-    if (!supabase) return;
+  const fetchProfile = useCallback(async (userId: string): Promise<boolean> => {
+    if (!supabase) return false;
     const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
-    if (!error && data) setProfile(data as Profile);
+    if (!error && data) {
+      setProfile(data as Profile);
+      return true;
+    }
+    return false;
   }, [supabase]);
 
-  const fetchWallet = useCallback(async (userId: string) => {
-    if (!supabase) return;
+  const fetchWallet = useCallback(async (userId: string): Promise<boolean> => {
+    if (!supabase) return false;
     const { data, error } = await supabase.from("wallets").select("*").eq("user_id", userId).single();
-    if (!error && data) setWallet(data as Wallet);
+    if (!error && data) {
+      setWallet(data as Wallet);
+      return true;
+    }
+    return false;
   }, [supabase]);
 
   useEffect(() => {
@@ -86,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(ADMIN_MOCK_USER);
         setProfile(getInitialMockProfile());
         setWallet(getInitialMockWallet());
+        loadedUserIdRef.current = ADMIN_MOCK_USER.id;
         setLoading(false);
       });
       return;
@@ -95,23 +106,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    let isMounted = true;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!isMounted) return;
+      const requestId = ++latestRequestIdRef.current;
+      const nextUser = nextSession?.user ?? null;
       setSession(nextSession);
-      setUser(nextSession?.user ?? null);
-      setLoading(false);
-      if (nextSession?.user) {
+      setUser(nextUser);
+
+      if (nextUser) {
+        if (loadedUserIdRef.current !== nextUser.id) {
+          setLoading(true);
+        }
         // Do not await Supabase queries inside its auth callback; that can deadlock its auth lock.
-        void Promise.resolve().then(() => Promise.all([
-          fetchProfile(nextSession.user.id),
-          fetchWallet(nextSession.user.id),
-        ])).catch((error) => console.error("Unable to load account data", error));
+        void Promise.resolve()
+          .then(async () => {
+            const [hasProfile, hasWallet] = await Promise.all([
+              fetchProfile(nextUser.id),
+              fetchWallet(nextUser.id),
+            ]);
+            if (isMounted && requestId === latestRequestIdRef.current && hasProfile && hasWallet) {
+              loadedUserIdRef.current = nextUser.id;
+            }
+          })
+          .catch((error) => console.error("Unable to load account data", error))
+          .finally(() => {
+            if (isMounted && requestId === latestRequestIdRef.current) {
+              setLoading(false);
+            }
+          });
       } else {
+        loadedUserIdRef.current = null;
         setProfile(null);
         setWallet(null);
+        setLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [supabase, fetchProfile, fetchWallet]);
 
   const signIn = async (email: string, password: string) => {
@@ -144,6 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const enterDemo = () => {
     if (!demoModeEnabled()) return { error: "Demo mode is disabled." };
     localStorage.setItem(DEMO_SESSION_KEY, "true");
+    loadedUserIdRef.current = ADMIN_MOCK_USER.id;
     setUser(ADMIN_MOCK_USER);
     setProfile(getInitialMockProfile());
     setWallet(getInitialMockWallet());
@@ -153,10 +190,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     localStorage.removeItem(DEMO_SESSION_KEY);
+    ++latestRequestIdRef.current;
+    loadedUserIdRef.current = null;
     setUser(null);
     setProfile(null);
     setWallet(null);
     setSession(null);
+    setLoading(false);
     if (supabase) {
       const { error } = await supabase.auth.signOut();
       if (error) console.warn("Sign out failed", error.message);

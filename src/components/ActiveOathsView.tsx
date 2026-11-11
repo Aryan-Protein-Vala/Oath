@@ -39,11 +39,12 @@ export function isNomineeRefereeForOath(oath: Oath, userId?: string, userEmail?:
 
 interface ActiveOathsViewProps {
   oaths: Oath[];
+  loading?: boolean;
   onProofSubmitted?: () => void;
   onCreateClick?: () => void;
 }
 
-export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick }: ActiveOathsViewProps) {
+export default function ActiveOathsView({ oaths, loading = false, onProofSubmitted, onCreateClick }: ActiveOathsViewProps) {
   const { user, profile } = useAuth();
   const [filterType, setFilterType] = useState<"all" | "solo" | "duo" | "squad" | "lobby">("all");
   
@@ -81,6 +82,19 @@ export default function ActiveOathsView({ oaths, onProofSubmitted, onCreateClick
       setSelectedOathId(filteredOaths.length > 0 ? filteredOaths[0].id : null);
     }
   }, [oaths, filteredOaths, selectedOathId]);
+
+  if (loading && oaths.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-7 h-7 border-2 border-zinc-950 dark:border-zinc-800 animate-spin border-t-zinc-400 dark:border-t-zinc-500 rounded-full" />
+          <span className="text-[10px] font-mono font-bold text-zinc-600 dark:text-zinc-500 uppercase tracking-widest">
+            Loading Oaths
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   if (oaths.length === 0) {
     return (
